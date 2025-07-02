@@ -12,6 +12,7 @@ terraform {
 
 # AWS 프로바이더 설정
 provider "aws" {
+  profile = "groble-terraform"
   region = var.aws_region
   
   # 모든 리소스에 기본 태그 적용
