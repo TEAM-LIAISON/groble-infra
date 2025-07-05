@@ -37,3 +37,15 @@ output "ami_name" {
   description = "Name of the Ubuntu Noble AMI being used"
   value       = data.aws_ami.ubuntu_noble.name
 }
+
+# 보안 그룹 정보 (2단계 이후에 생성됨)
+output "security_group_ids" {
+  description = "IDs of security groups"
+  value = {
+    load_balancer = try(aws_security_group.groble_load_balancer_sg.id, "Security group not yet created")
+    production    = try(aws_security_group.groble_prod_target_group.id, "Security group not yet created")
+    monitoring    = try(aws_security_group.groble_monitor_target_group.id, "Security group not yet created")
+    development   = try(aws_security_group.groble_develop_target_group.id, "Security group not yet created")
+    bastion_host  = try(aws_security_group.groble_bastion_sg.id, "Security group not yet created")
+  }
+}

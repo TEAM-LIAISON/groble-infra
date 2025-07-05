@@ -6,6 +6,7 @@
 .terraform.lock.hcl
 crash.log
 *.log
+*.sh
 
 # IDE files
 .vscode/

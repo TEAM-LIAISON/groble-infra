@@ -90,3 +90,15 @@ variable "enable_deletion_protection" {
   type        = bool
   default     = false
 }
+
+# Bastion Host 관련 변수들
+variable "trusted_ips" {
+  description = "List of trusted IP addresses for Bastion Host access"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]  # 개발 중에는 모든 IP 허용, 나중에 변경
+  
+  validation {
+    condition     = length(var.trusted_ips) > 0
+    error_message = "At least one trusted IP must be specified."
+  }
+}
