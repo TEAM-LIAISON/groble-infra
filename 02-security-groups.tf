@@ -55,13 +55,22 @@ resource "aws_security_group" "groble_prod_target_group" {
     description     = "HTTP from load balancer"
   }
 
-  # SSH 접근 (관리용)
+  # ECS 동적 포트 매핑을 위한 포트 범위
+  ingress {
+    from_port       = 8080
+    to_port         = 8090
+    protocol        = "tcp"
+    security_groups = [aws_security_group.groble_load_balancer_sg.id]
+    description     = "Dynamic port mapping for ECS"
+  }
+
+  # SSH 접근 (관리용) - Public Subnet 배치를 위해 특정 IP에서만 허용
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
-    description = "SSH access from VPC"
+    cidr_blocks = var.trusted_ips
+    description = "SSH access from trusted IPs"
   }
 
   # 모든 아웃바운드 트래픽 허용
@@ -87,13 +96,13 @@ resource "aws_security_group" "groble_monitor_target_group" {
   description = "Security group for Groble monitoring instance"
   vpc_id      = aws_vpc.groble_vpc.id
 
-  # SSH 접근
+  # SSH 접근 - Public Subnet 배치를 위해 특정 IP에서만 허용
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
-    description = "SSH access from VPC"
+    cidr_blocks = var.trusted_ips
+    description = "SSH access from trusted IPs"
   }
 
   # 모니터링 대시보드 접근 (예: Grafana)
@@ -137,13 +146,13 @@ resource "aws_security_group" "groble_develop_target_group" {
   description = "Security group for Groble development instance"
   vpc_id      = aws_vpc.groble_vpc.id
 
-  # SSH 접근
+  # SSH 접근 - Public Subnet 배치를 위해 특정 IP에서만 허용
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
-    description = "SSH access from VPC"
+    cidr_blocks = var.trusted_ips
+    description = "SSH access from trusted IPs"
   }
 
   # 로드밸런서에서 80번 포트 접근 허용 (개발 서버용)
@@ -153,6 +162,15 @@ resource "aws_security_group" "groble_develop_target_group" {
     protocol        = "tcp"
     security_groups = [aws_security_group.groble_load_balancer_sg.id]
     description     = "HTTP from load balancer for development"
+  }
+
+  # ECS 동적 포트 매핑을 위한 포트 범위
+  ingress {
+    from_port       = 8080
+    to_port         = 8090
+    protocol        = "tcp"
+    security_groups = [aws_security_group.groble_load_balancer_sg.id]
+    description     = "Dynamic port mapping for ECS"
   }
 
   # 모든 아웃바운드 트래픽 허용
@@ -167,72 +185,4 @@ resource "aws_security_group" "groble_develop_target_group" {
   tags = {
     Name = "${var.project_name}-develop-target-group"
   }
-}
-
-#################################
-# Bastion Host 보안 그룹
-#################################
-resource "aws_security_group" "groble_bastion_sg" {
-  name        = "${var.project_name}-bastion-sg"
-  description = "Security group for Bastion Host"
-  vpc_id      = aws_vpc.groble_vpc.id
-
-  # SSH 접근 (특정 IP만)
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = var.trusted_ips
-    description = "SSH access from trusted IPs"
-  }
-
-  # 모든 아웃바운드 트래픽 허용
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "All outbound traffic"
-  }
-
-  tags = {
-    Name = "${var.project_name}-bastion-sg"
-  }
-}
-
-#################################
-# Bastion Host에서 각 인스턴스로의 SSH 접근 규칙
-#################################
-
-# Prod 보안 그룹에 Bastion SSH 접근 허용
-resource "aws_security_group_rule" "prod_ssh_from_bastion" {
-  type                     = "ingress"
-  from_port               = 22
-  to_port                 = 22
-  protocol                = "tcp"
-  security_group_id       = aws_security_group.groble_prod_target_group.id
-  source_security_group_id = aws_security_group.groble_bastion_sg.id
-  description             = "SSH access from Bastion Host"
-}
-
-# Monitoring 보안 그룹에 Bastion SSH 접근 허용
-resource "aws_security_group_rule" "monitoring_ssh_from_bastion" {
-  type                     = "ingress"
-  from_port               = 22
-  to_port                 = 22
-  protocol                = "tcp"
-  security_group_id       = aws_security_group.groble_monitor_target_group.id
-  source_security_group_id = aws_security_group.groble_bastion_sg.id
-  description             = "SSH access from Bastion Host"
-}
-
-# Development 보안 그룹에 Bastion SSH 접근 허용
-resource "aws_security_group_rule" "dev_ssh_from_bastion" {
-  type                     = "ingress"
-  from_port               = 22
-  to_port                 = 22
-  protocol                = "tcp"
-  security_group_id       = aws_security_group.groble_develop_target_group.id
-  source_security_group_id = aws_security_group.groble_bastion_sg.id
-  description             = "SSH access from Bastion Host"
 }

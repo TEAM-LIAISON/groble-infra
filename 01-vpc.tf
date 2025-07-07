@@ -68,7 +68,7 @@ resource "aws_subnet" "groble_vpc_public" {
 }
 
 #################################
-# 프라이빗 서브넷 - EC2 인스턴스용
+# 프라이빗 서브넷 
 #################################
 resource "aws_subnet" "groble_vpc_private" {
   count = length(var.private_subnet_cidrs)
@@ -80,6 +80,7 @@ resource "aws_subnet" "groble_vpc_private" {
   tags = {
     Name = "${var.project_name}_vpc_private_${count.index + 1}"
     Type = "Private"
+    Purpose = "Database and stateful services"
   }
 }
 

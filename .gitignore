@@ -1,12 +1,21 @@
 # Terraform files
 *.tfstate
 *.tfstate.*
-*.tfvars
 .terraform/
 .terraform.lock.hcl
 crash.log
 *.log
-*.sh
+
+# 백업 파일들
+backups/
+*.backup
+
+# 사용자별 설정 (공유하지 않음)
+terraform.tfvars.local
+
+# AWS 키 파일들
+*.pem
+*.key
 
 # IDE files
 .vscode/

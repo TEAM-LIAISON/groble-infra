@@ -91,11 +91,11 @@ variable "enable_deletion_protection" {
   default     = false
 }
 
-# Bastion Host 관련 변수들
+# SSH 접근 관련 변수들
 variable "trusted_ips" {
-  description = "List of trusted IP addresses for Bastion Host access"
+  description = "List of trusted IP addresses for direct SSH access to EC2 instances (Public Subnet deployment)"
   type        = list(string)
-  default     = ["0.0.0.0/0"]  # 개발 중에는 모든 IP 허용, 나중에 변경
+  default     = ["0.0.0.0/0"]  # 개발 중에는 모든 IP 허용
   
   validation {
     condition     = length(var.trusted_ips) > 0
