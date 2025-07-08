@@ -1,4 +1,6 @@
-# VPC 정보 출력
+#################################
+# VPC 정보 (01-vpc.tf)
+#################################
 output "vpc_id" {
   description = "ID of the VPC"
   value       = aws_vpc.groble_vpc.id
@@ -38,7 +40,9 @@ output "ami_name" {
   value       = data.aws_ami.ubuntu_noble.name
 }
 
-# 보안 그룹 정보
+#################################
+# 보안 그룹 정보 (02-security-groups.tf)
+#################################
 output "security_group_ids" {
   description = "IDs of security groups"
   value = {
@@ -50,7 +54,9 @@ output "security_group_ids" {
   }
 }
 
-# 로드 밸런서 정보 (3단계 이후에 생성됨)
+#################################
+# 로드밸런서 정보 (03-load-balancer.tf)
+#################################
 output "load_balancer_info" {
   description = "Load Balancer information"
   value = {
@@ -78,5 +84,59 @@ output "blue_target_group_arns" {
   value = {
     production  = try(aws_lb_target_group.groble_prod_blue_tg.arn, "Target group not yet created")
     development = try(aws_lb_target_group.groble_dev_blue_tg.arn, "Target group not yet created")
+  }
+}
+
+#################################
+# IAM 역할 정보 (04-iam-roles.tf)
+#################################
+
+# ECS 인스턴스 역할 정보
+output "ecs_instance_role_info" {
+  description = "ECS instance role information"
+  value = {
+    role_name    = try(aws_iam_role.ecs_instance_role.name, "IAM role not yet created")
+    role_arn     = try(aws_iam_role.ecs_instance_role.arn, "IAM role not yet created")
+    profile_name = try(aws_iam_instance_profile.ecs_instance_profile.name, "Instance profile not yet created")
+    profile_arn  = try(aws_iam_instance_profile.ecs_instance_profile.arn, "Instance profile not yet created")
+  }
+}
+
+# ECS 태스크 실행 역할 정보
+output "ecs_task_execution_role_info" {
+  description = "ECS task execution role information"
+  value = {
+    role_name = try(aws_iam_role.ecs_task_execution_role.name, "IAM role not yet created")
+    role_arn  = try(aws_iam_role.ecs_task_execution_role.arn, "IAM role not yet created")
+  }
+}
+
+# ECS 태스크 역할 정보
+output "ecs_task_role_info" {
+  description = "ECS task role information"
+  value = {
+    role_name = try(aws_iam_role.ecs_task_role.name, "IAM role not yet created")
+    role_arn  = try(aws_iam_role.ecs_task_role.arn, "IAM role not yet created")
+  }
+}
+
+# CodeDeploy 서비스 역할 정보
+output "codedeploy_service_role_info" {
+  description = "CodeDeploy service role information"
+  value = {
+    role_name = try(aws_iam_role.codedeploy_service_role.name, "IAM role not yet created")
+    role_arn  = try(aws_iam_role.codedeploy_service_role.arn, "IAM role not yet created")
+  }
+}
+
+# 모든 IAM 역할 ARN 요약
+output "iam_role_arns_summary" {
+  description = "Summary of all IAM role ARNs for ECS and CodeDeploy"
+  value = {
+    ecs_instance_role      = try(aws_iam_role.ecs_instance_role.arn, "Not created")
+    ecs_task_execution_role = try(aws_iam_role.ecs_task_execution_role.arn, "Not created")
+    ecs_task_role          = try(aws_iam_role.ecs_task_role.arn, "Not created")
+    codedeploy_service_role = try(aws_iam_role.codedeploy_service_role.arn, "Not created")
+    ecs_instance_profile   = try(aws_iam_instance_profile.ecs_instance_profile.arn, "Not created")
   }
 }
