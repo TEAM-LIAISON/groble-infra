@@ -95,10 +95,40 @@ variable "enable_deletion_protection" {
 variable "trusted_ips" {
   description = "List of trusted IP addresses for direct SSH access to EC2 instances (Public Subnet deployment)"
   type        = list(string)
-  default     = ["0.0.0.0/0"]  # 개발 중에는 모든 IP 허용
+  default     = ["0.0.0.0/0"]  # 개발 중에는 모든 IP 허용, 나중에 특정 IP로 변경 권장
   
   validation {
     condition     = length(var.trusted_ips) > 0
     error_message = "At least one trusted IP must be specified."
+  }
+}
+
+# ECS 및 헬스체크 관련 변수들
+variable "health_check_path" {
+  description = "Health check path for application containers"
+  type        = string
+  default     = "/health"
+  
+  validation {
+    condition     = can(regex("^/.*", var.health_check_path))
+    error_message = "Health check path must start with '/'."
+  }
+}
+
+variable "enable_blue_green" {
+  description = "Enable Blue/Green deployment target groups"
+  type        = bool
+  default     = true
+}
+
+# SSL 인증서 관련 변수들
+variable "ssl_certificate_arn" {
+  description = "ARN of the SSL certificate for HTTPS listener"
+  type        = string
+  default     = ""
+  
+  validation {
+    condition     = can(regex("^arn:aws:acm:[a-z0-9-]+:[0-9]+:certificate/[a-z0-9-]+$", var.ssl_certificate_arn)) || var.ssl_certificate_arn == ""
+    error_message = "SSL certificate ARN must be a valid ACM certificate ARN or empty string."
   }
 }

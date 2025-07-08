@@ -46,5 +46,37 @@ output "security_group_ids" {
     production    = try(aws_security_group.groble_prod_target_group.id, "Security group not yet created")
     monitoring    = try(aws_security_group.groble_monitor_target_group.id, "Security group not yet created")
     development   = try(aws_security_group.groble_develop_target_group.id, "Security group not yet created")
+    # bastion_host 제거됨 - Public Subnet 배치 전략으로 불필요
+  }
+}
+
+# 로드 밸런서 정보 (3단계 이후에 생성됨)
+output "load_balancer_info" {
+  description = "Load Balancer information"
+  value = {
+    arn      = try(aws_lb.groble_load_balancer.arn, "Load balancer not yet created")
+    dns_name = try(aws_lb.groble_load_balancer.dns_name, "Load balancer not yet created")
+    zone_id  = try(aws_lb.groble_load_balancer.zone_id, "Load balancer not yet created")
+  }
+}
+
+# Blue/Green Target Group ARNs (ECS + CodeDeploy용)
+output "target_group_arns" {
+  description = "ARNs of all target groups for ECS and CodeDeploy"
+  value = {
+    prod_blue    = try(aws_lb_target_group.groble_prod_blue_tg.arn, "Target group not yet created")
+    prod_green   = try(aws_lb_target_group.groble_prod_green_tg.arn, "Target group not yet created")
+    dev_blue     = try(aws_lb_target_group.groble_dev_blue_tg.arn, "Target group not yet created")
+    dev_green    = try(aws_lb_target_group.groble_dev_green_tg.arn, "Target group not yet created")
+    monitoring   = try(aws_lb_target_group.groble_monitoring_tg.arn, "Target group not yet created")
+  }
+}
+
+# Blue Target Group ARNs (초기 배포용)
+output "blue_target_group_arns" {
+  description = "ARNs of Blue target groups for initial deployment"
+  value = {
+    production  = try(aws_lb_target_group.groble_prod_blue_tg.arn, "Target group not yet created")
+    development = try(aws_lb_target_group.groble_dev_blue_tg.arn, "Target group not yet created")
   }
 }
