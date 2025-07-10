@@ -132,3 +132,115 @@ variable "ssl_certificate_arn" {
     error_message = "SSL certificate ARN must be a valid ACM certificate ARN or empty string."
   }
 }
+
+# 데이터베이스 관련 변수들
+variable "mysql_prod_root_password" {
+  description = "Root password for production MySQL database"
+  type        = string
+  sensitive   = true
+  
+  validation {
+    condition     = length(var.mysql_prod_root_password) >= 8
+    error_message = "MySQL root password must be at least 8 characters long."
+  }
+}
+
+variable "mysql_prod_database" {
+  description = "Production MySQL database name"
+  type        = string
+  default     = "groble_prod_database"
+  
+  validation {
+    condition     = can(regex("^[a-zA-Z][a-zA-Z0-9_]*$", var.mysql_prod_database))
+    error_message = "Database name must start with a letter and contain only letters, numbers, and underscores."
+  }
+}
+
+variable "mysql_prod_user" {
+  description = "Production MySQL database user"
+  type        = string
+  default     = "groble_root"
+  
+  validation {
+    condition     = can(regex("^[a-zA-Z][a-zA-Z0-9_]*$", var.mysql_prod_user))
+    error_message = "Database user must start with a letter and contain only letters, numbers, and underscores."
+  }
+}
+
+variable "mysql_prod_password" {
+  description = "Password for production MySQL database user"
+  type        = string
+  sensitive   = true
+  
+  validation {
+    condition     = length(var.mysql_prod_password) >= 8
+    error_message = "MySQL user password must be at least 8 characters long."
+  }
+}
+
+variable "mysql_dev_root_password" {
+  description = "Root password for development MySQL database"
+  type        = string
+  sensitive   = true
+  
+  validation {
+    condition     = length(var.mysql_dev_root_password) >= 8
+    error_message = "MySQL root password must be at least 8 characters long."
+  }
+}
+
+variable "mysql_dev_database" {
+  description = "Development MySQL database name"
+  type        = string
+  default     = "groble_develop_database"
+  
+  validation {
+    condition     = can(regex("^[a-zA-Z][a-zA-Z0-9_]*$", var.mysql_dev_database))
+    error_message = "Database name must start with a letter and contain only letters, numbers, and underscores."
+  }
+}
+
+variable "mysql_dev_user" {
+  description = "Development MySQL database user"
+  type        = string
+  default     = "groble_root"
+  
+  validation {
+    condition     = can(regex("^[a-zA-Z][a-zA-Z0-9_]*$", var.mysql_dev_user))
+    error_message = "Database user must start with a letter and contain only letters, numbers, and underscores."
+  }
+}
+
+variable "mysql_dev_password" {
+  description = "Password for development MySQL database user"
+  type        = string
+  sensitive   = true
+  
+  validation {
+    condition     = length(var.mysql_dev_password) >= 8
+    error_message = "MySQL user password must be at least 8 characters long."
+  }
+}
+
+# Spring Boot 애플리케이션 이미지 관련 변수들
+variable "spring_app_image_prod" {
+  description = "Docker image for production Spring Boot application"
+  type        = string
+  default     = "openjdk:17-jdk-slim"  # 실제 이미지 URL로 변경 필요
+  
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9._/-]+:[a-zA-Z0-9._-]+$", var.spring_app_image_prod))
+    error_message = "Spring app image must be a valid Docker image format (image:tag)."
+  }
+}
+
+variable "spring_app_image_dev" {
+  description = "Docker image for development Spring Boot application"
+  type        = string
+  default     = "openjdk:17-jdk-slim"  # 실제 이미지 URL로 변경 필요
+  
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9._/-]+:[a-zA-Z0-9._-]+$", var.spring_app_image_dev))
+    error_message = "Spring app image must be a valid Docker image format (image:tag)."
+  }
+}
