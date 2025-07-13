@@ -17,7 +17,8 @@ resource "aws_ecs_cluster" "groble_cluster" {
   }
 }
 
-# ECS 클러스터 용량 공급자 (EC2 인스턴스 사용)
+# ECS 클러스터 용량 공급자 (EC2 인스턴스 사용) - 비활성화
+# EC2 인스턴스가 이미 등록되어 있으므로 불필요
 # resource "aws_ecs_cluster_capacity_providers" "groble_cluster_capacity" {
 #  cluster_name = aws_ecs_cluster.groble_cluster.name
 #  
