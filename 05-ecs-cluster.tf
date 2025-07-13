@@ -17,20 +17,6 @@ resource "aws_ecs_cluster" "groble_cluster" {
   }
 }
 
-# ECS 클러스터 용량 공급자 (EC2 인스턴스 사용) - 비활성화
-# EC2 인스턴스가 이미 등록되어 있으므로 불필요
-# resource "aws_ecs_cluster_capacity_providers" "groble_cluster_capacity" {
-#  cluster_name = aws_ecs_cluster.groble_cluster.name
-#  
-#  capacity_providers = ["EC2"]
-#  
-#  default_capacity_provider_strategy {
-#    base              = 1
-#    weight            = 100
-#    capacity_provider = "EC2"
-#  }
-# }
-
 # CloudWatch 로그 그룹 - 비용 절약을 위해 임시 비활성화
 # 필요 시 나중에 활성화 예정
 
@@ -482,7 +468,7 @@ resource "aws_service_discovery_service" "prod_mysql" {
 
     dns_records {
       ttl  = 10
-      type = "A"
+      type = "SRV"
     }
 
     routing_policy = "MULTIVALUE"
@@ -503,7 +489,7 @@ resource "aws_service_discovery_service" "dev_mysql" {
 
     dns_records {
       ttl  = 10
-      type = "A"
+      type = "SRV"
     }
 
     routing_policy = "MULTIVALUE"
@@ -524,7 +510,7 @@ resource "aws_service_discovery_service" "prod_redis" {
 
     dns_records {
       ttl  = 10
-      type = "A"
+      type = "SRV"
     }
 
     routing_policy = "MULTIVALUE"
@@ -545,7 +531,7 @@ resource "aws_service_discovery_service" "dev_redis" {
 
     dns_records {
       ttl  = 10
-      type = "A"
+      type = "SRV"
     }
 
     routing_policy = "MULTIVALUE"
