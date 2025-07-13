@@ -194,6 +194,20 @@ resource "aws_lb_listener" "groble_https_listener" {
   }
 }
 
+# HTTPS 테스트 리스너 - CodeDeploy용
+resource "aws_lb_listener" "groble_https_test_listener" {
+  load_balancer_arn = aws_lb.groble_load_balancer.arn
+  port              = 9443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS-1-2-2017-01"
+  certificate_arn   = var.ssl_certificate_arn
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.groble_prod_green_tg.arn
+  }
+}
+
 # 모니터링 라우팅 규칙 (호스트 기반)
 resource "aws_lb_listener_rule" "monitoring_rule" {
   listener_arn = aws_lb_listener.groble_https_listener.arn

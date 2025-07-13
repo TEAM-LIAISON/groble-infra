@@ -174,6 +174,11 @@ resource "aws_ecs_service" "groble_prod_service" {
   
   launch_type = "EC2"
 
+  # CodeDeploy를 위한 Deployment Controller 설정
+  deployment_controller {
+    type = "CODE_DEPLOY"
+  }
+
   # Production EC2에만 배치하도록 제한
   placement_constraints {
     type       = "memberOf"
@@ -216,6 +221,11 @@ resource "aws_ecs_service" "groble_dev_service" {
   desired_count   = 1
   
   launch_type = "EC2"
+
+  # CodeDeploy를 위한 Deployment Controller 설정
+  deployment_controller {
+    type = "CODE_DEPLOY"
+  }
 
   # Development EC2에만 배치하도록 제한
   placement_constraints {

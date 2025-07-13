@@ -24,6 +24,15 @@ resource "aws_security_group" "groble_load_balancer_sg" {
     description = "HTTPS traffic"
   }
 
+  # CodeDeploy 테스트용 HTTPS 포트 허용 (ex. 9443)
+  ingress {
+    from_port   = 9443
+    to_port     = 9443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # 또는 내부 CIDR로 제한 가능
+    description = "HTTPS traffic for CodeDeploy test listener"
+  }
+
   # 모든 아웃바운드 트래픽 허용
   egress {
     from_port   = 0
