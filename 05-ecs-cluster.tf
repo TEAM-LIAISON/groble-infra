@@ -68,6 +68,7 @@ resource "aws_ecs_task_definition" "groble_prod_mysql_task" {
       portMappings = [
         {
           containerPort = 3306
+          hostPort      = 3306  # 고정 포트 - Production MySQL
           protocol      = "tcp"
         }
       ]
@@ -136,6 +137,7 @@ resource "aws_ecs_task_definition" "groble_dev_mysql_task" {
       portMappings = [
         {
           containerPort = 3306
+          hostPort      = 3306  # 고정 포트 - Development MySQL (다른 EC2에서 실행되므로 동일 포트 사용 가능)
           protocol      = "tcp"
         }
       ]
@@ -204,6 +206,7 @@ resource "aws_ecs_task_definition" "groble_prod_redis_task" {
       portMappings = [
         {
           containerPort = 6379
+          hostPort      = 6379  # 고정 포트 - Production Redis
           protocol      = "tcp"
         }
       ]
@@ -247,6 +250,7 @@ resource "aws_ecs_task_definition" "groble_dev_redis_task" {
       portMappings = [
         {
           containerPort = 6379
+          hostPort      = 6379  # 고정 포트 - Development Redis (다른 EC2에서 실행되므로 동일 포트 사용 가능)
           protocol      = "tcp"
         }
       ]
@@ -305,11 +309,11 @@ resource "aws_ecs_task_definition" "groble_prod_task" {
         },
         {
           name  = "DB_HOST"
-          value = "prod-mysql.${var.project_name}.local"
+          value = "prod-mysql.${var.project_name}.internal"
         },
         {
           name  = "DB_PORT"
-          value = "3306"
+          value = "3306"  # 고정 포트로 설정
         },
         {
           name  = "DB_NAME"
@@ -325,11 +329,11 @@ resource "aws_ecs_task_definition" "groble_prod_task" {
         },
         {
           name  = "REDIS_HOST"
-          value = "${var.project_name}-prod-redis.${var.project_name}.local"
+          value = "${var.project_name}-prod-redis.${var.project_name}.internal"
         },
         {
           name  = "REDIS_PORT"
-          value = "6379"
+          value = "6379"  # 고정 포트로 설정
         }
       ]
 
@@ -393,11 +397,11 @@ resource "aws_ecs_task_definition" "groble_dev_task" {
         },
         {
           name  = "DB_HOST"
-          value = "dev-mysql.${var.project_name}.local"
+          value = "dev-mysql.${var.project_name}.internal"
         },
         {
           name  = "DB_PORT"
-          value = "3306"
+          value = "3306"  # 고정 포트로 설정
         },
         {
           name  = "DB_NAME"
@@ -413,11 +417,11 @@ resource "aws_ecs_task_definition" "groble_dev_task" {
         },
         {
           name  = "REDIS_HOST"
-          value = "${var.project_name}-dev-redis.${var.project_name}.local"
+          value = "${var.project_name}-dev-redis.${var.project_name}.internal"
         },
         {
           name  = "REDIS_PORT"
-          value = "6379"
+          value = "6379"  # 고정 포트로 설정
         }
       ]
 
@@ -450,7 +454,7 @@ resource "aws_ecs_task_definition" "groble_dev_task" {
 
 # 서비스 디스커버리 네임스페이스
 resource "aws_service_discovery_private_dns_namespace" "groble_namespace" {
-  name        = "${var.project_name}.local"
+  name        = "${var.project_name}.internal"
   description = "Service discovery namespace for Groble"
   vpc         = aws_vpc.groble_vpc.id
 
