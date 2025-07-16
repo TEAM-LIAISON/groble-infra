@@ -201,3 +201,28 @@ resource "aws_iam_role_policy" "codedeploy_ecs_policy" {
     ]
   })
 }
+
+
+#################################
+# ECR 접근 권한 정책
+#################################
+resource "aws_iam_role_policy" "ecs_task_execution_ecr_policy" {
+  name = "${var.project_name}-ecs-task-execution-ecr-policy"
+  role = aws_iam_role.ecs_task_execution_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
