@@ -78,6 +78,14 @@ resource "aws_ecs_task_definition" "groble_prod_mysql_task" {
         {
           name  = "MYSQL_DATABASE"
           value = var.mysql_prod_database
+        },
+        {
+          name  = "MYSQL_USER"
+          value = "groble_root"
+        },
+        {
+          name  = "MYSQL_PASSWORD"
+          value = var.mysql_prod_root_password
         }
       ]
 
@@ -147,6 +155,14 @@ resource "aws_ecs_task_definition" "groble_dev_mysql_task" {
         {
           name  = "MYSQL_DATABASE"
           value = var.mysql_dev_database
+        },
+        {
+          name  = "MYSQL_USER"
+          value = "groble_root"
+        },
+        {
+          name  = "MYSQL_PASSWORD"
+          value = var.mysql_prod_root_password
         }
       ]
 
