@@ -6,40 +6,37 @@
 resource "aws_ecs_cluster" "groble_cluster" {
   name = "${var.project_name}-cluster"
   
-  # Container Insights 비활성화 (비용 절약)
-  # setting {
-  #   name  = "containerInsights"
-  #   value = "enabled"  # CloudWatch Container Insights 활성화
-  # }
+#   # Container Insights
+#     setting {
+#       name  = "containerInsights"
+#       value = "enabled"  # CloudWatch Container Insights 활성화
+#     }
   
   tags = {
     Name = "${var.project_name}-ecs-cluster"
   }
 }
 
-# CloudWatch 로그 그룹 - 비용 절약을 위해 임시 비활성화
-# 필요 시 나중에 활성화 예정
+#################################
+# CloudWatch 로그 그룹
+#################################
 
-# #################################
-# # CloudWatch 로그 그룹
-# #################################
-
-# # Production 로그 그룹
+# Production 로그 그룹
 # resource "aws_cloudwatch_log_group" "groble_prod_logs" {
 #   name              = "/ecs/${var.project_name}-production"
 #   retention_in_days = 7
+#  
+#    tags = {
+#      Name        = "${var.project_name}-prod-logs"
+#      Environment = "production"
+#    }
+#  }
 
-#   tags = {
-#     Name        = "${var.project_name}-prod-logs"
-#     Environment = "production"
-#   }
-# }
-
-# # Development 로그 그룹
+# Development 로그 그룹
 # resource "aws_cloudwatch_log_group" "groble_dev_logs" {
 #   name              = "/ecs/${var.project_name}-development"
 #   retention_in_days = 3
-
+# 
 #   tags = {
 #     Name        = "${var.project_name}-dev-logs"
 #     Environment = "development"
@@ -288,8 +285,8 @@ resource "aws_ecs_task_definition" "groble_prod_task" {
       name      = "${var.project_name}-prod-spring-api"
       image     = "openjdk:17-jdk-slim"  # 실제 Spring Boot 이미지로 교체 예정
       essential = true
-      memory    = 1024
-      cpu       = 512
+      memory    = 512
+      cpu       = 256
 
       portMappings = [
         {
@@ -300,8 +297,12 @@ resource "aws_ecs_task_definition" "groble_prod_task" {
 
       environment = [
         {
-          name  = "ENVIRONMENT"
-          value = "production"
+          name  = "PROFILES"
+          value = var.spring_profiles_prod
+        },
+        {
+          name  = "ENV"
+          value = var.server_env_prod
         },
         {
           name  = "APP_NAME"
@@ -338,18 +339,12 @@ resource "aws_ecs_task_definition" "groble_prod_task" {
       ]
 
       healthCheck = {
-        command     = ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1"]
+        command     = ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
         interval    = 30
         timeout     = 5
         retries     = 3
         startPeriod = 90
       }
-
-      # 임시 명령어 (실제 Spring Boot JAR 파일로 대체 필요)
-      command = [
-        "sh", "-c",
-        "echo 'Production Spring Boot app would start here' && sleep 3600"
-      ]
     }
   ])
 
@@ -376,8 +371,8 @@ resource "aws_ecs_task_definition" "groble_dev_task" {
       name      = "${var.project_name}-dev-spring-api"
       image     = "openjdk:17-jdk-slim"  # 실제 Spring Boot 이미지로 교체 예정
       essential = true
-      memory    = 1024
-      cpu       = 512
+      memory    = 512
+      cpu       = 256
 
       portMappings = [
         {
@@ -388,8 +383,12 @@ resource "aws_ecs_task_definition" "groble_dev_task" {
 
       environment = [
         {
-          name  = "ENVIRONMENT"
-          value = "development"
+          name  = "PROFILES"
+          value = var.spring_profiles_dev
+        },
+        {
+          name  = "ENV"
+          value = var.server_env_dev
         },
         {
           name  = "APP_NAME"
@@ -432,12 +431,6 @@ resource "aws_ecs_task_definition" "groble_dev_task" {
         retries     = 3
         startPeriod = 90
       }
-
-      # 임시 명령어 (실제 Spring Boot JAR 파일로 대체 필요)
-      command = [
-        "sh", "-c",
-        "echo 'Development Spring Boot app would start here' && sleep 3600"
-      ]
     }
   ])
 
