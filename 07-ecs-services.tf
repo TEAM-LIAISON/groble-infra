@@ -24,16 +24,16 @@ resource "aws_ecs_service" "groble_prod_mysql_service" {
   deployment_minimum_healthy_percent = 0
   deployment_maximum_percent         = 100
 
-  # 서비스 디스커버리 등록
-  service_registries {
-    registry_arn   = aws_service_discovery_service.prod_mysql.arn
-    container_name = "groble-prod-mysql"
-    container_port = 3306
-  }
+#   # 서비스 디스커버리 등록
+#   service_registries {
+#     registry_arn   = aws_service_discovery_service.prod_mysql.arn
+#     container_name = "groble-prod-mysql"
+#     container_port = 3306
+#   }
 
-  depends_on = [
-    aws_service_discovery_service.prod_mysql
-  ]
+#  depends_on = [
+#    aws_service_discovery_service.prod_mysql
+#  ]
 
   tags = {
     Name        = "${var.project_name}-prod-mysql-service"
@@ -64,16 +64,16 @@ resource "aws_ecs_service" "groble_dev_mysql_service" {
   deployment_minimum_healthy_percent = 0
   deployment_maximum_percent         = 100
 
-  # 서비스 디스커버리 등록
-  service_registries {
-    registry_arn   = aws_service_discovery_service.dev_mysql.arn
-    container_name = "groble-dev-mysql"
-    container_port = 3306
-  }
+#   # 서비스 디스커버리 등록
+#   service_registries {
+#     registry_arn   = aws_service_discovery_service.dev_mysql.arn
+#     container_name = "groble-dev-mysql"
+#     container_port = 3306
+#   }
 
-  depends_on = [
-    aws_service_discovery_service.dev_mysql
-  ]
+#  depends_on = [
+#    aws_service_discovery_service.dev_mysql
+#  ]
 
   tags = {
     Name        = "${var.project_name}-dev-mysql-service"
@@ -104,16 +104,16 @@ resource "aws_ecs_service" "groble_prod_redis_service" {
   deployment_minimum_healthy_percent = 0
   deployment_maximum_percent         = 100
 
-  # 서비스 디스커버리 등록
-  service_registries {
-    registry_arn   = aws_service_discovery_service.prod_redis.arn
-    container_name = "groble-prod-redis"
-    container_port = 6379
-  }
+#   # 서비스 디스커버리 등록
+#   service_registries {
+#     registry_arn   = aws_service_discovery_service.prod_redis.arn
+#     container_name = "groble-prod-redis"
+#     container_port = 6379
+#   }
 
-  depends_on = [
-    aws_service_discovery_service.prod_redis
-  ]
+#  depends_on = [
+#    aws_service_discovery_service.prod_redis
+#  ]
 
   tags = {
     Name        = "${var.project_name}-prod-redis-service"
@@ -144,16 +144,16 @@ resource "aws_ecs_service" "groble_dev_redis_service" {
   deployment_minimum_healthy_percent = 0
   deployment_maximum_percent         = 100
 
-  # 서비스 디스커버리 등록
-  service_registries {
-    registry_arn   = aws_service_discovery_service.dev_redis.arn
-    container_name = "groble-dev-redis"
-    container_port = 6379
-  }
+#   # 서비스 디스커버리 등록
+#   service_registries {
+#     registry_arn   = aws_service_discovery_service.dev_redis.arn
+#     container_name = "groble-dev-redis"
+#     container_port = 6379
+#   }
 
-  depends_on = [
-    aws_service_discovery_service.dev_redis
-  ]
+#  depends_on = [
+#    aws_service_discovery_service.dev_redis
+#  ]
 
   tags = {
     Name        = "${var.project_name}-dev-redis-service"

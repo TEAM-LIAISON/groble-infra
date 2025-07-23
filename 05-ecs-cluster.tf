@@ -90,11 +90,11 @@ resource "aws_ecs_task_definition" "groble_prod_mysql_task" {
       ]
 
       healthCheck = {
-        command     = ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+        command     = ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$MYSQL_ROOT_PASSWORD --silent"]
         interval    = 30
-        timeout     = 5
+        timeout     = 10
         retries     = 3
-        startPeriod = 60
+        startPeriod = 90
       }
 
       mountPoints = [
@@ -167,11 +167,11 @@ resource "aws_ecs_task_definition" "groble_dev_mysql_task" {
       ]
 
       healthCheck = {
-        command     = ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+        command     = ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$MYSQL_ROOT_PASSWORD --silent"]
         interval    = 30
-        timeout     = 5
+        timeout     = 10
         retries     = 3
-        startPeriod = 60
+        startPeriod = 90
       }
 
       mountPoints = [
@@ -291,7 +291,7 @@ resource "aws_ecs_task_definition" "groble_dev_redis_task" {
 
 resource "aws_ecs_task_definition" "groble_prod_task" {
   family                   = "${var.project_name}-prod-task"
-  network_mode             = "bridge"
+  network_mode             = "host"
   requires_compatibilities = ["EC2"]
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
   task_role_arn           = aws_iam_role.ecs_task_role.arn
@@ -303,6 +303,10 @@ resource "aws_ecs_task_definition" "groble_prod_task" {
       essential = true
       memory    = 512
       cpu       = 256
+
+      # DNS 설정 - Service Discovery 도메인 해석 지원
+      dnsServers = ["169.254.169.253"]
+      dnsSearchDomains = ["${var.project_name}.internal"]
 
       portMappings = [
         {
@@ -326,7 +330,7 @@ resource "aws_ecs_task_definition" "groble_prod_task" {
         },
         {
           name  = "DB_HOST"
-          value = "prod-mysql.${var.project_name}.internal"
+          value = "localhost"
         },
         {
           name  = "DB_PORT"
@@ -346,7 +350,7 @@ resource "aws_ecs_task_definition" "groble_prod_task" {
         },
         {
           name  = "REDIS_HOST"
-          value = "${var.project_name}-prod-redis.${var.project_name}.internal"
+          value = "localhost"
         },
         {
           name  = "REDIS_PORT"
@@ -377,7 +381,7 @@ resource "aws_ecs_task_definition" "groble_prod_task" {
 
 resource "aws_ecs_task_definition" "groble_dev_task" {
   family                   = "${var.project_name}-dev-task"
-  network_mode             = "bridge"
+  network_mode             = "host"
   requires_compatibilities = ["EC2"]
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
   task_role_arn           = aws_iam_role.ecs_task_role.arn
@@ -389,6 +393,10 @@ resource "aws_ecs_task_definition" "groble_dev_task" {
       essential = true
       memory    = 512
       cpu       = 256
+
+      # DNS 설정 - Service Discovery 도메인 해석 지원
+      dnsServers = ["169.254.169.253"]
+      dnsSearchDomains = ["${var.project_name}.internal"]
 
       portMappings = [
         {
@@ -412,7 +420,7 @@ resource "aws_ecs_task_definition" "groble_dev_task" {
         },
         {
           name  = "DB_HOST"
-          value = "dev-mysql.${var.project_name}.internal"
+          value = "localhost"
         },
         {
           name  = "DB_PORT"
@@ -432,7 +440,7 @@ resource "aws_ecs_task_definition" "groble_dev_task" {
         },
         {
           name  = "REDIS_HOST"
-          value = "${var.project_name}-dev-redis.${var.project_name}.internal"
+          value = "localhost"
         },
         {
           name  = "REDIS_PORT"
@@ -462,96 +470,96 @@ resource "aws_ecs_task_definition" "groble_dev_task" {
 #################################
 
 # 서비스 디스커버리 네임스페이스
-resource "aws_service_discovery_private_dns_namespace" "groble_namespace" {
-  name        = "${var.project_name}.internal"
-  description = "Service discovery namespace for Groble"
-  vpc         = aws_vpc.groble_vpc.id
-
-  tags = {
-    Name = "${var.project_name}-namespace"
-  }
-}
+# resource "aws_service_discovery_private_dns_namespace" "groble_namespace" {
+#   name        = "${var.project_name}.internal"
+#   description = "Service discovery namespace for Groble"
+#   vpc         = aws_vpc.groble_vpc.id
+# 
+#   tags = {
+#     Name = "${var.project_name}-namespace"
+#   }
+# }
 
 # Production MySQL 서비스 디스커버리
-resource "aws_service_discovery_service" "prod_mysql" {
-  name = "prod-mysql"
-
-  dns_config {
-    namespace_id = aws_service_discovery_private_dns_namespace.groble_namespace.id
-
-    dns_records {
-      ttl  = 10
-      type = "SRV"
-    }
-
-    routing_policy = "MULTIVALUE"
-  }
-
-  tags = {
-    Name        = "${var.project_name}-prod-mysql-discovery"
-    Environment = "production"
-  }
-}
+# resource "aws_service_discovery_service" "prod_mysql" {
+#   name = "prod-mysql"
+# 
+#   dns_config {
+#     namespace_id = aws_service_discovery_private_dns_namespace.groble_namespace.id
+# 
+#     dns_records {
+#       ttl  = 10
+#       type = "SRV"
+#     }
+# 
+#     routing_policy = "MULTIVALUE"
+#   }
+# 
+#   tags = {
+#     Name        = "${var.project_name}-prod-mysql-discovery"
+#     Environment = "production"
+#   }
+# }
 
 # Development MySQL 서비스 디스커버리
-resource "aws_service_discovery_service" "dev_mysql" {
-  name = "dev-mysql"
-
-  dns_config {
-    namespace_id = aws_service_discovery_private_dns_namespace.groble_namespace.id
-
-    dns_records {
-      ttl  = 10
-      type = "SRV"
-    }
-
-    routing_policy = "MULTIVALUE"
-  }
-
-  tags = {
-    Name        = "${var.project_name}-dev-mysql-discovery"
-    Environment = "development"
-  }
-}
+# resource "aws_service_discovery_service" "dev_mysql" {
+#   name = "dev-mysql"
+# 
+#   dns_config {
+#     namespace_id = aws_service_discovery_private_dns_namespace.groble_namespace.id
+# 
+#     dns_records {
+#       ttl  = 10
+#       type = "SRV"
+#     }
+# 
+#     routing_policy = "MULTIVALUE"
+#   }
+# 
+#   tags = {
+#     Name        = "${var.project_name}-dev-mysql-discovery"
+#     Environment = "development"
+#   }
+# }
 
 # Production Redis 서비스 디스커버리
-resource "aws_service_discovery_service" "prod_redis" {
-  name = "groble-prod-redis"
-
-  dns_config {
-    namespace_id = aws_service_discovery_private_dns_namespace.groble_namespace.id
-
-    dns_records {
-      ttl  = 10
-      type = "SRV"
-    }
-
-    routing_policy = "MULTIVALUE"
-  }
-
-  tags = {
-    Name        = "${var.project_name}-prod-redis-discovery"
-    Environment = "production"
-  }
-}
+# resource "aws_service_discovery_service" "prod_redis" {
+#   name = "groble-prod-redis"
+# 
+#   dns_config {
+#    namespace_id = aws_service_discovery_private_dns_namespace.groble_namespace.id
+#
+#     dns_records {
+#       ttl  = 10
+#       type = "SRV"
+#    }
+# 
+#     routing_policy = "MULTIVALUE"
+#   }
+# 
+#   tags = {
+#     Name        = "${var.project_name}-prod-redis-discovery"
+#     Environment = "production"
+#   }
+# }
 
 # Development Redis 서비스 디스커버리
-resource "aws_service_discovery_service" "dev_redis" {
-  name = "groble-dev-redis"
-
-  dns_config {
-    namespace_id = aws_service_discovery_private_dns_namespace.groble_namespace.id
-
-    dns_records {
-      ttl  = 10
-      type = "SRV"
-    }
-
-    routing_policy = "MULTIVALUE"
-  }
-
-  tags = {
-    Name        = "${var.project_name}-dev-redis-discovery"
-    Environment = "development"
-  }
-}
+# resource "aws_service_discovery_service" "dev_redis" {
+#   name = "groble-dev-redis"
+# 
+#   dns_config {
+#     namespace_id = aws_service_discovery_private_dns_namespace.groble_namespace.id
+# 
+#     dns_records {
+#       ttl  = 10
+#       type = "SRV"
+#    }
+#
+#     routing_policy = "MULTIVALUE"
+#   }
+# 
+#   tags = {
+#     Name        = "${var.project_name}-dev-redis-discovery"
+#     Environment = "development"
+#   }
+# }
