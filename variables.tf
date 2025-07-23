@@ -107,7 +107,7 @@ variable "trusted_ips" {
 variable "health_check_path" {
   description = "Health check path for application containers"
   type        = string
-  default     = "/health"
+  default     = "/actuator/health"
   
   validation {
     condition     = can(regex("^/.*", var.health_check_path))
@@ -243,4 +243,39 @@ variable "spring_app_image_dev" {
     condition     = can(regex("^[a-zA-Z0-9._/-]+:[a-zA-Z0-9._-]+$", var.spring_app_image_dev))
     error_message = "Spring app image must be a valid Docker image format (image:tag)."
   }
+}
+
+# Spring Boot Profiles 관련 변수들
+variable "spring_profiles_prod" {
+  description = "Spring profiles for production environment"
+  type        = string
+  default     = "prod,common,secret-prod"
+  
+  validation {
+    condition     = length(var.spring_profiles_prod) > 0
+    error_message = "Spring profiles must not be empty."
+  }
+}
+
+variable "spring_profiles_dev" {
+  description = "Spring profiles for development environment"
+  type        = string
+  default     = "dev,common,secret-dev"
+  
+  validation {
+    condition     = length(var.spring_profiles_dev) > 0
+    error_message = "Spring profiles must not be empty."
+  }
+}
+
+variable "server_env_prod" {
+  description = "Server environment for production"
+  type        = string
+  default     = "production"
+}
+
+variable "server_env_dev" {
+  description = "Server environment for development"
+  type        = string
+  default     = "development"
 }
