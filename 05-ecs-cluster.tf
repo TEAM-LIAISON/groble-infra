@@ -6,11 +6,11 @@
 resource "aws_ecs_cluster" "groble_cluster" {
   name = "${var.project_name}-cluster"
   
-#   # Container Insights
-#     setting {
-#       name  = "containerInsights"
-#       value = "enabled"  # CloudWatch Container Insights 활성화
-#     }
+  # Container Insights
+    setting {
+      name  = "containerInsights"
+      value = "enabled"  # CloudWatch Container Insights 활성화
+    }
   
   tags = {
     Name = "${var.project_name}-ecs-cluster"
@@ -22,26 +22,26 @@ resource "aws_ecs_cluster" "groble_cluster" {
 #################################
 
 # Production 로그 그룹
-# resource "aws_cloudwatch_log_group" "groble_prod_logs" {
-#   name              = "/ecs/${var.project_name}-production"
-#   retention_in_days = 7
-#  
-#    tags = {
-#      Name        = "${var.project_name}-prod-logs"
-#      Environment = "production"
-#    }
-#  }
+resource "aws_cloudwatch_log_group" "groble_prod_logs" {
+  name              = "/ecs/${var.project_name}-production"
+  retention_in_days = 7
+ 
+   tags = {
+     Name        = "${var.project_name}-prod-logs"
+     Environment = "production"
+   }
+}
 
 # Development 로그 그룹
-# resource "aws_cloudwatch_log_group" "groble_dev_logs" {
-#   name              = "/ecs/${var.project_name}-development"
-#   retention_in_days = 3
-# 
-#   tags = {
-#     Name        = "${var.project_name}-dev-logs"
-#     Environment = "development"
-#   }
-# }
+resource "aws_cloudwatch_log_group" "groble_dev_logs" {
+  name              = "/ecs/${var.project_name}-development"
+  retention_in_days = 3
+
+  tags = {
+    Name        = "${var.project_name}-dev-logs"
+    Environment = "development"
+  }
+}
 
 #################################
 # ECS 태스크 정의 - Production MySQL
@@ -291,22 +291,18 @@ resource "aws_ecs_task_definition" "groble_dev_redis_task" {
 
 resource "aws_ecs_task_definition" "groble_prod_task" {
   family                   = "${var.project_name}-prod-task"
-  network_mode             = "host"
+  network_mode             = "awsvpc"
   requires_compatibilities = ["EC2"]
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  task_role_arn           = aws_iam_role.ecs_task_role.arn
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
 
   container_definitions = jsonencode([
     {
       name      = "${var.project_name}-prod-spring-api"
-      image     = "openjdk:17-jdk-slim"  # 실제 Spring Boot 이미지로 교체 예정
+      image     = var.spring_app_image_prod
       essential = true
       memory    = 512
       cpu       = 256
-
-      # DNS 설정 - Service Discovery 도메인 해석 지원
-      dnsServers = ["169.254.169.253"]
-      dnsSearchDomains = ["${var.project_name}.internal"]
 
       portMappings = [
         {
@@ -321,20 +317,12 @@ resource "aws_ecs_task_definition" "groble_prod_task" {
           value = var.spring_profiles_prod
         },
         {
-          name  = "ENV"
-          value = var.server_env_prod
-        },
-        {
-          name  = "APP_NAME"
-          value = var.project_name
-        },
-        {
           name  = "DB_HOST"
-          value = "localhost"
+          value = aws_instance.groble_prod_instance[0].private_ip
         },
         {
           name  = "DB_PORT"
-          value = "3306"  # 고정 포트로 설정
+          value = "3306"
         },
         {
           name  = "DB_NAME"
@@ -347,14 +335,6 @@ resource "aws_ecs_task_definition" "groble_prod_task" {
         {
           name  = "DB_PASSWORD"
           value = var.mysql_prod_root_password
-        },
-        {
-          name  = "REDIS_HOST"
-          value = "localhost"
-        },
-        {
-          name  = "REDIS_PORT"
-          value = "6379"  # 고정 포트로 설정
         }
       ]
 
@@ -364,6 +344,15 @@ resource "aws_ecs_task_definition" "groble_prod_task" {
         timeout     = 5
         retries     = 3
         startPeriod = 90
+      }
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = "/ecs/${var.project_name}-production"
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "prod-api"
+        }
       }
     }
   ])
@@ -381,22 +370,18 @@ resource "aws_ecs_task_definition" "groble_prod_task" {
 
 resource "aws_ecs_task_definition" "groble_dev_task" {
   family                   = "${var.project_name}-dev-task"
-  network_mode             = "host"
+  network_mode             = "awsvpc"
   requires_compatibilities = ["EC2"]
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  task_role_arn           = aws_iam_role.ecs_task_role.arn
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
 
   container_definitions = jsonencode([
     {
       name      = "${var.project_name}-dev-spring-api"
-      image     = "openjdk:17-jdk-slim"  # 실제 Spring Boot 이미지로 교체 예정
+      image     = var.spring_app_image_dev
       essential = true
       memory    = 512
       cpu       = 256
-
-      # DNS 설정 - Service Discovery 도메인 해석 지원
-      dnsServers = ["169.254.169.253"]
-      dnsSearchDomains = ["${var.project_name}.internal"]
 
       portMappings = [
         {
@@ -420,11 +405,11 @@ resource "aws_ecs_task_definition" "groble_dev_task" {
         },
         {
           name  = "DB_HOST"
-          value = "localhost"
+          value = aws_instance.groble_develop_instance.private_ip
         },
         {
           name  = "DB_PORT"
-          value = "3306"  # 고정 포트로 설정
+          value = "3306"
         },
         {
           name  = "DB_NAME"
@@ -440,11 +425,11 @@ resource "aws_ecs_task_definition" "groble_dev_task" {
         },
         {
           name  = "REDIS_HOST"
-          value = "localhost"
+          value = aws_instance.groble_develop_instance.private_ip
         },
         {
           name  = "REDIS_PORT"
-          value = "6379"  # 고정 포트로 설정
+          value = "6379"
         }
       ]
 
@@ -455,6 +440,15 @@ resource "aws_ecs_task_definition" "groble_dev_task" {
         retries     = 3
         startPeriod = 90
       }
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = "/ecs/${var.project_name}-development"
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "dev-api"
+        }
+      }
     }
   ])
 
@@ -464,102 +458,3 @@ resource "aws_ecs_task_definition" "groble_dev_task" {
     Type        = "application"
   }
 }
-
-#################################
-# 서비스 디스커버리 (Service Discovery)
-#################################
-
-# 서비스 디스커버리 네임스페이스
-# resource "aws_service_discovery_private_dns_namespace" "groble_namespace" {
-#   name        = "${var.project_name}.internal"
-#   description = "Service discovery namespace for Groble"
-#   vpc         = aws_vpc.groble_vpc.id
-# 
-#   tags = {
-#     Name = "${var.project_name}-namespace"
-#   }
-# }
-
-# Production MySQL 서비스 디스커버리
-# resource "aws_service_discovery_service" "prod_mysql" {
-#   name = "prod-mysql"
-# 
-#   dns_config {
-#     namespace_id = aws_service_discovery_private_dns_namespace.groble_namespace.id
-# 
-#     dns_records {
-#       ttl  = 10
-#       type = "SRV"
-#     }
-# 
-#     routing_policy = "MULTIVALUE"
-#   }
-# 
-#   tags = {
-#     Name        = "${var.project_name}-prod-mysql-discovery"
-#     Environment = "production"
-#   }
-# }
-
-# Development MySQL 서비스 디스커버리
-# resource "aws_service_discovery_service" "dev_mysql" {
-#   name = "dev-mysql"
-# 
-#   dns_config {
-#     namespace_id = aws_service_discovery_private_dns_namespace.groble_namespace.id
-# 
-#     dns_records {
-#       ttl  = 10
-#       type = "SRV"
-#     }
-# 
-#     routing_policy = "MULTIVALUE"
-#   }
-# 
-#   tags = {
-#     Name        = "${var.project_name}-dev-mysql-discovery"
-#     Environment = "development"
-#   }
-# }
-
-# Production Redis 서비스 디스커버리
-# resource "aws_service_discovery_service" "prod_redis" {
-#   name = "groble-prod-redis"
-# 
-#   dns_config {
-#    namespace_id = aws_service_discovery_private_dns_namespace.groble_namespace.id
-#
-#     dns_records {
-#       ttl  = 10
-#       type = "SRV"
-#    }
-# 
-#     routing_policy = "MULTIVALUE"
-#   }
-# 
-#   tags = {
-#     Name        = "${var.project_name}-prod-redis-discovery"
-#     Environment = "production"
-#   }
-# }
-
-# Development Redis 서비스 디스커버리
-# resource "aws_service_discovery_service" "dev_redis" {
-#   name = "groble-dev-redis"
-# 
-#   dns_config {
-#     namespace_id = aws_service_discovery_private_dns_namespace.groble_namespace.id
-# 
-#     dns_records {
-#       ttl  = 10
-#       type = "SRV"
-#    }
-#
-#     routing_policy = "MULTIVALUE"
-#   }
-# 
-#   tags = {
-#     Name        = "${var.project_name}-dev-redis-discovery"
-#     Environment = "development"
-#   }
-# }

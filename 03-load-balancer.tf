@@ -5,10 +5,12 @@ resource "aws_lb" "groble_load_balancer" {
   name               = "${var.project_name}-load-balancer"
   internal           = false
   load_balancer_type = "application"
+  ip_address_type    = "ipv4" 
   security_groups    = [aws_security_group.groble_load_balancer_sg.id]
   subnets           = aws_subnet.groble_vpc_public[*].id
 
   enable_deletion_protection = var.enable_deletion_protection
+  enable_http2               = true
 
   tags = {
     Name = "${var.project_name}-load-balancer"
@@ -20,19 +22,19 @@ resource "aws_lb" "groble_load_balancer" {
 #################################
 # Production Blue Target Group
 resource "aws_lb_target_group" "groble_prod_blue_tg" {
-  name        = "${var.project_name}-prod-blue-tg"
-  port        = 80
+  name        = "${var.project_name}-prod-blue-tg-v2"
+  port        = 8080
   protocol    = "HTTP"
   vpc_id      = aws_vpc.groble_vpc.id
-  target_type = "instance"  # ECS EC2 mode support
+  target_type = "ip"  # awsvpc mode support
 
   health_check {
     enabled             = true
     healthy_threshold   = 2
     interval            = 30
-    matcher             = "200"
+    matcher             = "200-399"
     path                = var.health_check_path
-    port                = "traffic-port"  # Dynamic port mapping
+    port                = "traffic-port"
     protocol            = "HTTP"
     timeout             = 5
     unhealthy_threshold = 2
@@ -48,19 +50,19 @@ resource "aws_lb_target_group" "groble_prod_blue_tg" {
 
 # Production Green Target Group
 resource "aws_lb_target_group" "groble_prod_green_tg" {
-  name        = "${var.project_name}-prod-green-tg"
-  port        = 80
+  name        = "${var.project_name}-prod-green-tg-v2"
+  port        = 8080
   protocol    = "HTTP"
   vpc_id      = aws_vpc.groble_vpc.id
-  target_type = "instance"  # ECS EC2 mode support
+  target_type = "ip"  # awsvpc mode support
 
   health_check {
     enabled             = true
     healthy_threshold   = 2
     interval            = 30
-    matcher             = "200"
+    matcher             = "200-399"
     path                = var.health_check_path
-    port                = "traffic-port"  # Dynamic port mapping
+    port                = "traffic-port"
     protocol            = "HTTP"
     timeout             = 5
     unhealthy_threshold = 2
@@ -79,19 +81,19 @@ resource "aws_lb_target_group" "groble_prod_green_tg" {
 #################################
 # Development Blue Target Group
 resource "aws_lb_target_group" "groble_dev_blue_tg" {
-  name        = "${var.project_name}-dev-blue-tg"
-  port        = 80
+  name        = "${var.project_name}-dev-blue-tg-v2"
+  port        = 8080
   protocol    = "HTTP"
   vpc_id      = aws_vpc.groble_vpc.id
-  target_type = "instance"  # ECS EC2 mode support
+  target_type = "ip"  # awsvpc mode support
 
   health_check {
     enabled             = true
     healthy_threshold   = 2
     interval            = 30
-    matcher             = "200"
+    matcher             = "200-399"
     path                = var.health_check_path
-    port                = "traffic-port"  # Dynamic port mapping
+    port                = "traffic-port"
     protocol            = "HTTP"
     timeout             = 5
     unhealthy_threshold = 2
@@ -107,19 +109,19 @@ resource "aws_lb_target_group" "groble_dev_blue_tg" {
 
 # Development Green Target Group
 resource "aws_lb_target_group" "groble_dev_green_tg" {
-  name        = "${var.project_name}-dev-green-tg"
-  port        = 80
+  name        = "${var.project_name}-dev-green-tg-v2"
+  port        = 8080
   protocol    = "HTTP"
   vpc_id      = aws_vpc.groble_vpc.id
-  target_type = "instance"  # ECS EC2 mode support
+  target_type = "ip"  # awsvpc mode support
 
   health_check {
     enabled             = true
     healthy_threshold   = 2
     interval            = 30
-    matcher             = "200"
+    matcher             = "200-399"
     path                = var.health_check_path
-    port                = "traffic-port"  # Dynamic port mapping
+    port                = "traffic-port"
     protocol            = "HTTP"
     timeout             = 5
     unhealthy_threshold = 2
@@ -147,7 +149,7 @@ resource "aws_lb_target_group" "groble_monitoring_tg" {
     enabled             = true
     healthy_threshold   = 2
     interval            = 30
-    matcher             = "200"
+    matcher             = "200-399"
     path                = "/api/health"  # 모니터링 도구 전용 헬스체크
     port                = "3000"         # 고정 포트 (Grafana 등)
     protocol            = "HTTP"
@@ -194,20 +196,6 @@ resource "aws_lb_listener" "groble_https_listener" {
   }
 }
 
-# HTTPS 테스트 리스너 - CodeDeploy용
-resource "aws_lb_listener" "groble_https_test_listener" {
-  load_balancer_arn = aws_lb.groble_load_balancer.arn
-  port              = 9443
-  protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-TLS-1-2-2017-01"
-  certificate_arn   = var.ssl_certificate_arn
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.groble_prod_green_tg.arn
-  }
-}
-
 # 모니터링 라우팅 규칙 (호스트 기반)
 resource "aws_lb_listener_rule" "monitoring_rule" {
   listener_arn = aws_lb_listener.groble_https_listener.arn
@@ -233,6 +221,41 @@ resource "aws_lb_listener_rule" "development_rule" {
   action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.groble_dev_blue_tg.arn  # 초기는 Blue 환경
+  }
+
+  condition {
+    host_header {
+      values = ["dev.groble.im"]
+    }
+  }
+}
+
+#################################
+# Test 리스너용 라우팅 규칙 (9443 포트)
+#################################
+
+# HTTPS 테스트 리스너 - CodeDeploy용
+resource "aws_lb_listener" "groble_https_test_listener" {
+  load_balancer_arn = aws_lb.groble_load_balancer.arn
+  port              = 9443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS-1-2-2017-01"
+  certificate_arn   = var.ssl_certificate_arn
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.groble_prod_green_tg.arn
+  }
+}
+
+# Development 테스트 트래픽 라우팅 규칙
+resource "aws_lb_listener_rule" "dev_test_traffic_rule" {
+  listener_arn = aws_lb_listener.groble_https_test_listener.arn
+  priority     = 100
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.groble_dev_green_tg.arn
   }
 
   condition {

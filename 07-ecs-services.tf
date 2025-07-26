@@ -24,17 +24,6 @@ resource "aws_ecs_service" "groble_prod_mysql_service" {
   deployment_minimum_healthy_percent = 0
   deployment_maximum_percent         = 100
 
-#   # 서비스 디스커버리 등록
-#   service_registries {
-#     registry_arn   = aws_service_discovery_service.prod_mysql.arn
-#     container_name = "groble-prod-mysql"
-#     container_port = 3306
-#   }
-
-#  depends_on = [
-#    aws_service_discovery_service.prod_mysql
-#  ]
-
   tags = {
     Name        = "${var.project_name}-prod-mysql-service"
     Environment = "production"
@@ -63,17 +52,6 @@ resource "aws_ecs_service" "groble_dev_mysql_service" {
   # 지속적 서비스 - Blue/Green 배포하지 않음
   deployment_minimum_healthy_percent = 0
   deployment_maximum_percent         = 100
-
-#   # 서비스 디스커버리 등록
-#   service_registries {
-#     registry_arn   = aws_service_discovery_service.dev_mysql.arn
-#     container_name = "groble-dev-mysql"
-#     container_port = 3306
-#   }
-
-#  depends_on = [
-#    aws_service_discovery_service.dev_mysql
-#  ]
 
   tags = {
     Name        = "${var.project_name}-dev-mysql-service"
@@ -104,17 +82,6 @@ resource "aws_ecs_service" "groble_prod_redis_service" {
   deployment_minimum_healthy_percent = 0
   deployment_maximum_percent         = 100
 
-#   # 서비스 디스커버리 등록
-#   service_registries {
-#     registry_arn   = aws_service_discovery_service.prod_redis.arn
-#     container_name = "groble-prod-redis"
-#     container_port = 6379
-#   }
-
-#  depends_on = [
-#    aws_service_discovery_service.prod_redis
-#  ]
-
   tags = {
     Name        = "${var.project_name}-prod-redis-service"
     Environment = "production"
@@ -144,17 +111,6 @@ resource "aws_ecs_service" "groble_dev_redis_service" {
   deployment_minimum_healthy_percent = 0
   deployment_maximum_percent         = 100
 
-#   # 서비스 디스커버리 등록
-#   service_registries {
-#     registry_arn   = aws_service_discovery_service.dev_redis.arn
-#     container_name = "groble-dev-redis"
-#     container_port = 6379
-#   }
-
-#  depends_on = [
-#    aws_service_discovery_service.dev_redis
-#  ]
-
   tags = {
     Name        = "${var.project_name}-dev-redis-service"
     Environment = "development"
@@ -173,6 +129,13 @@ resource "aws_ecs_service" "groble_prod_service" {
   desired_count   = 1
   
   launch_type = "EC2"
+
+  # awsvpc 모드 필수 네트워크 설정 - Public Subnet 사용 (EC2 인스턴스 설정 따름)
+  network_configuration {
+    subnets          = [aws_subnet.groble_vpc_public[0].id]
+    security_groups  = [aws_security_group.groble_api_task_sg.id]
+    # assign_public_ip = EC2 launch type에서는 지원하지 않음 - EC2 인스턴스 설정을 따름
+  }
 
   # CodeDeploy를 위한 Deployment Controller 설정
   deployment_controller {
@@ -221,6 +184,13 @@ resource "aws_ecs_service" "groble_dev_service" {
   desired_count   = 1
   
   launch_type = "EC2"
+
+  # awsvpc 모드 필수 네트워크 설정 - Public Subnet 사용 (EC2 인스턴스 설정 따름)
+  network_configuration {
+    subnets          = [aws_subnet.groble_vpc_public[1].id]
+    security_groups  = [aws_security_group.groble_api_task_sg.id]
+    # assign_public_ip = EC2 launch type에서는 지원하지 않음 - EC2 인스턴스 설정을 따름
+  }
 
   # CodeDeploy를 위한 Deployment Controller 설정
   deployment_controller {

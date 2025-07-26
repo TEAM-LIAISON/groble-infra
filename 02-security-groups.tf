@@ -29,7 +29,7 @@ resource "aws_security_group" "groble_load_balancer_sg" {
     from_port   = 9443
     to_port     = 9443
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # 또는 내부 CIDR로 제한 가능
+    cidr_blocks = ["0.0.0.0/0"]
     description = "HTTPS traffic for CodeDeploy test listener"
   }
 
@@ -67,7 +67,7 @@ resource "aws_security_group" "groble_prod_target_group" {
   # ECS 동적 포트 매핑을 위한 포트 범위
   ingress {
     from_port       = 8080
-    to_port         = 8090
+    to_port         = 8080
     protocol        = "tcp"
     security_groups = [aws_security_group.groble_load_balancer_sg.id]
     description     = "Dynamic port mapping for ECS"
@@ -80,6 +80,24 @@ resource "aws_security_group" "groble_prod_target_group" {
     protocol    = "tcp"
     cidr_blocks = var.trusted_ips
     description = "SSH access from trusted IPs"
+  }
+
+  # MySQL 접근 - Service Discovery Health Check 및 컨테이너 간 통신
+  ingress {
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+    description = "MySQL access from VPC"
+  }
+
+  # Redis 접근 - Service Discovery Health Check 및 컨테이너 간 통신
+  ingress {
+    from_port   = 6379
+    to_port     = 6379
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+    description = "Redis access from VPC"
   }
 
   # 모든 아웃바운드 트래픽 허용
@@ -112,6 +130,24 @@ resource "aws_security_group" "groble_monitor_target_group" {
     protocol    = "tcp"
     cidr_blocks = var.trusted_ips
     description = "SSH access from trusted IPs"
+  }
+
+  # MySQL 접근 - Service Discovery Health Check 및 컨테이너 간 통신
+  ingress {
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+    description = "MySQL access from VPC"
+  }
+
+  # Redis 접근 - Service Discovery Health Check 및 컨테이너 간 통신
+  ingress {
+    from_port   = 6379
+    to_port     = 6379
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+    description = "Redis access from VPC"
   }
 
   # 모니터링 대시보드 접근 (예: Grafana)
@@ -164,6 +200,24 @@ resource "aws_security_group" "groble_develop_target_group" {
     description = "SSH access from trusted IPs"
   }
 
+  # MySQL 접근 - Service Discovery Health Check 및 컨테이너 간 통신
+  ingress {
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+    description = "MySQL access from VPC"
+  }
+
+  # Redis 접근 - Service Discovery Health Check 및 컨테이너 간 통신
+  ingress {
+    from_port   = 6379
+    to_port     = 6379
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+    description = "Redis access from VPC"
+  }
+
   # 로드밸런서에서 80번 포트 접근 허용 (개발 서버용)
   ingress {
     from_port       = 80
@@ -176,7 +230,7 @@ resource "aws_security_group" "groble_develop_target_group" {
   # ECS 동적 포트 매핑을 위한 포트 범위
   ingress {
     from_port       = 8080
-    to_port         = 8090
+    to_port         = 8080
     protocol        = "tcp"
     security_groups = [aws_security_group.groble_load_balancer_sg.id]
     description     = "Dynamic port mapping for ECS"
@@ -193,5 +247,73 @@ resource "aws_security_group" "groble_develop_target_group" {
 
   tags = {
     Name = "${var.project_name}-develop-target-group"
+  }
+}
+
+#################################
+# API Server 태스크용 보안 그룹 (awsvpc 모드)
+#################################
+resource "aws_security_group" "groble_api_task_sg" {
+  name        = "${var.project_name}-api-task-sg"
+  description = "Security group for Groble API Server tasks (awsvpc mode)"
+  vpc_id      = aws_vpc.groble_vpc.id
+
+  # 로드밸런서에서 8080 포트 접근 허용
+  ingress {
+    from_port       = 8080
+    to_port         = 8080
+    protocol        = "tcp"
+    security_groups = [aws_security_group.groble_load_balancer_sg.id]
+    description     = "HTTP from load balancer to API Server"
+  }
+
+  # MySQL 접근 (EC2 인스턴스와 통신)
+  egress {
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+    description = "MySQL access to instances"
+  }
+
+  # Redis 접근 (EC2 인스턴스와 통신)
+  egress {
+    from_port   = 6379
+    to_port     = 6379
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+    description = "Redis access to instances"
+  }
+
+  # HTTPS 아웃바운드 (Docker 이미지 다운로드 등)
+  egress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTPS outbound"
+  }
+
+  # HTTP 아웃바운드 (Docker 이미지 다운로드 등)
+  egress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTP outbound"
+  }
+
+  # DNS 해석
+  egress {
+    from_port   = 53
+    to_port     = 53
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "DNS resolution"
+  }
+
+  tags = {
+    Name = "${var.project_name}-api-task-sg"
+    Type = "task-security-group"
   }
 }
