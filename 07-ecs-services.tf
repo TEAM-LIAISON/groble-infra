@@ -1,8 +1,4 @@
 #################################
-# ECS 서비스들 (EC2 인스턴스 배포 후 활성화)
-#################################
-
-#################################
 # ECS 서비스 - Production MySQL
 #################################
 
@@ -14,7 +10,6 @@ resource "aws_ecs_service" "groble_prod_mysql_service" {
   
   launch_type = "EC2"
 
-  # Production EC2에만 배치하도록 제한
   placement_constraints {
     type       = "memberOf"
     expression = "attribute:environment == production"
@@ -72,7 +67,6 @@ resource "aws_ecs_service" "groble_prod_redis_service" {
   
   launch_type = "EC2"
 
-  # Production EC2에만 배치하도록 제한
   placement_constraints {
     type       = "memberOf"
     expression = "attribute:environment == production"
