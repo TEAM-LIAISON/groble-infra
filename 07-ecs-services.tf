@@ -38,7 +38,6 @@ resource "aws_ecs_service" "groble_dev_mysql_service" {
   
   launch_type = "EC2"
 
-  # Development EC2에만 배치하도록 제한
   placement_constraints {
     type       = "memberOf"
     expression = "attribute:environment == development"
@@ -95,7 +94,6 @@ resource "aws_ecs_service" "groble_dev_redis_service" {
   
   launch_type = "EC2"
 
-  # Development EC2에만 배치하도록 제한
   placement_constraints {
     type       = "memberOf"
     expression = "attribute:environment == development"
@@ -136,7 +134,6 @@ resource "aws_ecs_service" "groble_prod_service" {
     type = "CODE_DEPLOY"
   }
 
-  # Production EC2에만 배치하도록 제한
   placement_constraints {
     type       = "memberOf"
     expression = "attribute:environment == production"
@@ -191,7 +188,6 @@ resource "aws_ecs_service" "groble_dev_service" {
     type = "CODE_DEPLOY"
   }
 
-  # Development EC2에만 배치하도록 제한
   placement_constraints {
     type       = "memberOf"
     expression = "attribute:environment == development"

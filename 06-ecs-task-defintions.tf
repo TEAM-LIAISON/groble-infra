@@ -60,14 +60,15 @@ resource "aws_ecs_task_definition" "groble_prod_mysql_task" {
         }
       ]
 
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = "/ecs/${var.project_name}-production"
-          "awslogs-region"        = var.aws_region
-          "awslogs-stream-prefix" = "prod-mysql"
-        }
-      }
+      # logConfiguration 제거 - CloudWatch Logs 사용하지 않음
+      # logConfiguration = {
+      #   logDriver = "awslogs"
+      #   options = {
+      #     "awslogs-group"         = "/ecs/${var.project_name}-production"
+      #     "awslogs-region"        = var.aws_region
+      #     "awslogs-stream-prefix" = "prod-mysql"
+      #   }
+      # }
     }
   ])
 
@@ -146,14 +147,15 @@ resource "aws_ecs_task_definition" "groble_dev_mysql_task" {
         }
       ]
 
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = "/ecs/${var.project_name}-development"
-          "awslogs-region"        = var.aws_region
-          "awslogs-stream-prefix" = "dev-mysql"
-        }
-      }
+      # logConfiguration 제거 - CloudWatch Logs 사용하지 않음
+      # logConfiguration = {
+      #   logDriver = "awslogs"
+      #   options = {
+      #     "awslogs-group"         = "/ecs/${var.project_name}-development"
+      #     "awslogs-region"        = var.aws_region
+      #     "awslogs-stream-prefix" = "dev-mysql"
+      #   }
+      # }
     }
   ])
 
@@ -205,14 +207,15 @@ resource "aws_ecs_task_definition" "groble_prod_redis_task" {
         startPeriod = 30
       }
 
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = "/ecs/${var.project_name}-production"
-          "awslogs-region"        = var.aws_region
-          "awslogs-stream-prefix" = "prod-redis"
-        }
-      }
+      # logConfiguration 제거 - CloudWatch Logs 사용하지 않음
+      # logConfiguration = {
+      #   logDriver = "awslogs"
+      #   options = {
+      #     "awslogs-group"         = "/ecs/${var.project_name}-production"
+      #     "awslogs-region"        = var.aws_region
+      #     "awslogs-stream-prefix" = "prod-redis"
+      #   }
+      # }
     }
   ])
 
@@ -258,14 +261,15 @@ resource "aws_ecs_task_definition" "groble_dev_redis_task" {
         startPeriod = 30
       }
 
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = "/ecs/${var.project_name}-development"
-          "awslogs-region"        = var.aws_region
-          "awslogs-stream-prefix" = "dev-redis"
-        }
-      }
+      # logConfiguration 제거 - CloudWatch Logs 사용하지 않음
+      # logConfiguration = {
+      #   logDriver = "awslogs"
+      #   options = {
+      #     "awslogs-group"         = "/ecs/${var.project_name}-development"
+      #     "awslogs-region"        = var.aws_region
+      #     "awslogs-stream-prefix" = "dev-redis"
+      #   }
+      # }
     }
   ])
 
@@ -353,14 +357,15 @@ resource "aws_ecs_task_definition" "groble_prod_task" {
         startPeriod = 120  # DB 연결 대기시간 증가 (90 -> 120초)
       }
 
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = "/ecs/${var.project_name}-production"
-          "awslogs-region"        = var.aws_region
-          "awslogs-stream-prefix" = "prod-api"
-        }
-      }
+      # logConfiguration 제거 - CloudWatch Logs 사용하지 않음
+      # logConfiguration = {
+      #   logDriver = "awslogs"
+      #   options = {
+      #     "awslogs-group"         = "/ecs/${var.project_name}-production"
+      #     "awslogs-region"        = var.aws_region
+      #     "awslogs-stream-prefix" = "prod-api"
+      #   }
+      # }
     }
   ])
 
@@ -448,14 +453,15 @@ resource "aws_ecs_task_definition" "groble_dev_task" {
         startPeriod = 120  # DB 연결 대기시간 증가 (90 -> 120초)
       }
 
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = "/ecs/${var.project_name}-development"
-          "awslogs-region"        = var.aws_region
-          "awslogs-stream-prefix" = "dev-api"
-        }
-      }
+      # logConfiguration 제거 - CloudWatch Logs 사용하지 않음
+      # logConfiguration = {
+      #   logDriver = "awslogs"
+      #   options = {
+      #     "awslogs-group"         = "/ecs/${var.project_name}-development"
+      #     "awslogs-region"        = var.aws_region
+      #     "awslogs-stream-prefix" = "dev-api"
+      #   }
+      # }
     }
   ])
 

@@ -74,6 +74,7 @@ usermod -a -G docker ubuntu
 mkdir -p /etc/ecs
 echo ECS_CLUSTER=${aws_ecs_cluster.groble_cluster.name} >> /etc/ecs/ecs.config
 echo ECS_INSTANCE_ATTRIBUTES='{"environment":"production","role":"prod-server"}' >> /etc/ecs/ecs.config
+echo ECS_ENABLE_EXECUTION_ROLE_LOG_DRIVER=true >> /etc/ecs/ecs.config
 echo ECS_BACKEND_HOST= >> /etc/ecs/ecs.config
 echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
 echo ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true >> /etc/ecs/ecs.config
@@ -87,12 +88,13 @@ sysctl -w net.ipv4.conf.all.route_localnet=1
 iptables -t nat -A PREROUTING -p tcp -d 169.254.170.2 --dport 80 -j DNAT --to-destination 127.0.0.1:51679
 iptables -t nat -A OUTPUT -d 169.254.170.2 -p tcp -m tcp --dport 80 -j REDIRECT --to-ports 51679
 
-# ECS Agent 다운로드 및 실행 (awsvpc 지원 추가 설정)
+# ECS Agent 다운로드 및 실행 (systemd 지원 포함)
 mkdir -p /var/log/ecs /var/lib/ecs/data
 docker run --name ecs-agent \
   --init \
   --detach=true \
   --restart=on-failure:10 \
+  --volume=/run/systemd:/run/systemd \
   --volume=/var/run:/var/run \
   --volume=/var/log/ecs/:/log \
   --volume=/var/lib/ecs/data:/data \
@@ -168,6 +170,7 @@ usermod -a -G docker ubuntu
 mkdir -p /etc/ecs
 echo ECS_CLUSTER=${aws_ecs_cluster.groble_cluster.name} >> /etc/ecs/ecs.config
 echo ECS_INSTANCE_ATTRIBUTES='{"environment":"monitoring","role":"monitor-server"}' >> /etc/ecs/ecs.config
+echo ECS_ENABLE_EXECUTION_ROLE_LOG_DRIVER=true >> /etc/ecs/ecs.config
 echo ECS_BACKEND_HOST= >> /etc/ecs/ecs.config
 echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
 echo ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true >> /etc/ecs/ecs.config
@@ -181,12 +184,13 @@ sysctl -w net.ipv4.conf.all.route_localnet=1
 iptables -t nat -A PREROUTING -p tcp -d 169.254.170.2 --dport 80 -j DNAT --to-destination 127.0.0.1:51679
 iptables -t nat -A OUTPUT -d 169.254.170.2 -p tcp -m tcp --dport 80 -j REDIRECT --to-ports 51679
 
-# ECS Agent 다운로드 및 실행 (awsvpc 지원 추가 설정)
+# ECS Agent 다운로드 및 실행 (systemd 지원 포함)
 mkdir -p /var/log/ecs /var/lib/ecs/data
 docker run --name ecs-agent \
   --init \
   --detach=true \
   --restart=on-failure:10 \
+  --volume=/run/systemd:/run/systemd \
   --volume=/var/run:/var/run \
   --volume=/var/log/ecs/:/log \
   --volume=/var/lib/ecs/data:/data \
@@ -248,6 +252,7 @@ usermod -a -G docker ubuntu
 mkdir -p /etc/ecs
 echo ECS_CLUSTER=${aws_ecs_cluster.groble_cluster.name} >> /etc/ecs/ecs.config
 echo ECS_INSTANCE_ATTRIBUTES='{"environment":"development","role":"dev-server"}' >> /etc/ecs/ecs.config
+echo ECS_ENABLE_EXECUTION_ROLE_LOG_DRIVER=true >> /etc/ecs/ecs.config
 echo ECS_BACKEND_HOST= >> /etc/ecs/ecs.config
 echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
 echo ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true >> /etc/ecs/ecs.config
@@ -261,12 +266,13 @@ sysctl -w net.ipv4.conf.all.route_localnet=1
 iptables -t nat -A PREROUTING -p tcp -d 169.254.170.2 --dport 80 -j DNAT --to-destination 127.0.0.1:51679
 iptables -t nat -A OUTPUT -d 169.254.170.2 -p tcp -m tcp --dport 80 -j REDIRECT --to-ports 51679
 
-# ECS Agent 다운로드 및 실행 (awsvpc 지원 추가 설정)
+# ECS Agent 다운로드 및 실행 (systemd 지원 포함)
 mkdir -p /var/log/ecs /var/lib/ecs/data
 docker run --name ecs-agent \
   --init \
   --detach=true \
   --restart=on-failure:10 \
+  --volume=/run/systemd:/run/systemd \
   --volume=/var/run:/var/run \
   --volume=/var/log/ecs/:/log \
   --volume=/var/lib/ecs/data:/data \
