@@ -1,6 +1,7 @@
 #################################
 # Application Load Balancer
 #################################
+
 resource "aws_lb" "groble_load_balancer" {
   name               = "${var.project_name}-load-balancer"
   internal           = false
@@ -20,6 +21,7 @@ resource "aws_lb" "groble_load_balancer" {
 #################################
 # Blue/Green Target Groups - Production
 #################################
+
 # Production Blue Target Group
 resource "aws_lb_target_group" "groble_prod_blue_tg" {
   name        = "${var.project_name}-prod-blue-tg-v2"
@@ -79,6 +81,7 @@ resource "aws_lb_target_group" "groble_prod_green_tg" {
 #################################
 # Blue/Green Target Groups - Development
 #################################
+
 # Development Blue Target Group
 resource "aws_lb_target_group" "groble_dev_blue_tg" {
   name        = "${var.project_name}-dev-blue-tg-v2"
@@ -138,6 +141,7 @@ resource "aws_lb_target_group" "groble_dev_green_tg" {
 #################################
 # Monitoring Target Group (단일 - Blue/Green 불필요)
 #################################
+
 resource "aws_lb_target_group" "groble_monitoring_tg" {
   name        = "${var.project_name}-monitoring-tg"
   port        = 3000
@@ -164,8 +168,9 @@ resource "aws_lb_target_group" "groble_monitoring_tg" {
 }
 
 #################################
-# ALB 리스너 및 라우팅 규칙
+# ALB 리스너
 #################################
+
 # HTTP 리스너 - HTTPS로 리다이렉트
 resource "aws_lb_listener" "groble_http_listener" {
   load_balancer_arn = aws_lb.groble_load_balancer.arn
@@ -196,6 +201,11 @@ resource "aws_lb_listener" "groble_https_listener" {
   }
 }
 
+
+#################################
+# ALB 라우팅 규칙
+#################################
+
 # 모니터링 라우팅 규칙 (호스트 기반)
 resource "aws_lb_listener_rule" "monitoring_rule" {
   listener_arn = aws_lb_listener.groble_https_listener.arn
@@ -213,25 +223,56 @@ resource "aws_lb_listener_rule" "monitoring_rule" {
   }
 }
 
-# 개발 라우팅 규칙 (호스트 기반) - 초기는 Blue 환경
-resource "aws_lb_listener_rule" "development_rule" {
+# API 테스트 운영 라우팅 규칙 (apitest.groble.im → Production Blue)
+resource "aws_lb_listener_rule" "api_test_production_rule" {
   listener_arn = aws_lb_listener.groble_https_listener.arn
   priority     = 200
 
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.groble_dev_blue_tg.arn  # 초기는 Blue 환경
+    target_group_arn = aws_lb_target_group.groble_prod_blue_tg.arn
   }
 
   condition {
     host_header {
-      values = ["dev.groble.im"]
+      values = ["apitest.groble.im"]
     }
+  }
+
+  tags = {
+    Name        = "API Test Production Rule"
+    Environment = "production"
+    Project     = var.project_name
+    ManagedBy   = "Terraform"
+  }
+}
+
+# API 테스트 개발 라우팅 규칙 (apidev.groble.im → Development Blue)
+resource "aws_lb_listener_rule" "api_test_development_rule" {
+  listener_arn = aws_lb_listener.groble_https_listener.arn
+  priority     = 300
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.groble_dev_blue_tg.arn
+  }
+
+  condition {
+    host_header {
+      values = ["apidev.groble.im"]
+    }
+  }
+
+  tags = {
+    Name        = "API Test Development Rule"
+    Environment = "development"
+    Project     = var.project_name
+    ManagedBy   = "Terraform"
   }
 }
 
 #################################
-# Test 리스너용 라우팅 규칙 (9443 포트)
+# ALB Test 리스너
 #################################
 
 # HTTPS 테스트 리스너 - CodeDeploy용
@@ -248,10 +289,38 @@ resource "aws_lb_listener" "groble_https_test_listener" {
   }
 }
 
-# Development 테스트 트래픽 라우팅 규칙
-resource "aws_lb_listener_rule" "dev_test_traffic_rule" {
+#################################
+# Test 리스너용 라우팅 규칙 (9443 포트)
+#################################
+
+# API 테스트 운영 - 테스트 리스너 규칙 (apitest.groble.im:9443 → Production Green)
+resource "aws_lb_listener_rule" "api_test_production_test_rule" {
   listener_arn = aws_lb_listener.groble_https_test_listener.arn
-  priority     = 100
+  priority     = 200
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.groble_prod_green_tg.arn
+  }
+
+  condition {
+    host_header {
+      values = ["apitest.groble.im"]
+    }
+  }
+
+  tags = {
+    Name        = "API Test Production Test Rule"
+    Environment = "production"
+    Project     = var.project_name
+    ManagedBy   = "Terraform"
+  }
+}
+
+# API 테스트 개발 - 테스트 리스너 규칙 (apidev.groble.im:9443 → Development Green)
+resource "aws_lb_listener_rule" "api_test_development_test_rule" {
+  listener_arn = aws_lb_listener.groble_https_test_listener.arn
+  priority     = 300
 
   action {
     type             = "forward"
@@ -260,7 +329,14 @@ resource "aws_lb_listener_rule" "dev_test_traffic_rule" {
 
   condition {
     host_header {
-      values = ["dev.groble.im"]
+      values = ["apidev.groble.im"]
     }
+  }
+
+  tags = {
+    Name        = "API Test Development Test Rule"
+    Environment = "development"
+    Project     = var.project_name
+    ManagedBy   = "Terraform"
   }
 }
