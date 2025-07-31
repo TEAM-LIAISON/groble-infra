@@ -101,8 +101,8 @@ resource "aws_ecs_task_definition" "groble_dev_mysql_task" {
       name      = "${var.project_name}-dev-mysql"
       image     = "mysql:8.0"
       essential = true
-      memory    = 512
-      cpu       = 256
+      memory    = 256  # 512MB → 256MB (메모리 최적화)
+      cpu       = 128  # 256 → 128 (CPU 최적화)
 
       portMappings = [
         {
@@ -128,6 +128,10 @@ resource "aws_ecs_task_definition" "groble_dev_mysql_task" {
         {
           name  = "MYSQL_PASSWORD"
           value = var.mysql_dev_root_password  # 수정: prod -> dev
+        },
+        {
+          name  = "MYSQL_INNODB_BUFFER_POOL_SIZE"
+          value = "128M"  # 버퍼 풀 사이즈 최적화
         }
       ]
 
@@ -242,8 +246,8 @@ resource "aws_ecs_task_definition" "groble_dev_redis_task" {
       name      = "${var.project_name}-dev-redis"
       image     = "redis:7-alpine"
       essential = true
-      memory    = 256
-      cpu       = 128
+      memory    = 128  # 256MB → 128MB (메모리 최적화)
+      cpu       = 64   # 128 → 64 (CPU 최적화)
 
       portMappings = [
         {
