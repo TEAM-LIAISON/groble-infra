@@ -132,24 +132,6 @@ resource "aws_security_group" "groble_monitor_target_group" {
     description = "SSH access from trusted IPs"
   }
 
-  # MySQL 접근 - Service Discovery Health Check 및 컨테이너 간 통신
-  ingress {
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
-    description = "MySQL access from VPC"
-  }
-
-  # Redis 접근 - Service Discovery Health Check 및 컨테이너 간 통신
-  ingress {
-    from_port   = 6379
-    to_port     = 6379
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
-    description = "Redis access from VPC"
-  }
-
   # 모니터링 대시보드 접근 (예: Grafana)
   ingress {
     from_port   = 3000

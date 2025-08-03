@@ -62,7 +62,7 @@ resource "aws_instance" "groble_prod_instance" {
 #!/bin/bash
 # 기본 패키지 업데이트
 apt update -y
-apt install -y curl wget unzip awscli jq jq
+apt install -y curl wget unzip awscli jq
 
 # Docker 설치 및 설정
 apt install -y docker.io
@@ -176,15 +176,10 @@ echo ECS_ENABLE_EXECUTION_ROLE_LOG_DRIVER=true >> /etc/ecs/ecs.config
 echo ECS_BACKEND_HOST= >> /etc/ecs/ecs.config
 echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
 echo ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true >> /etc/ecs/ecs.config
-echo ECS_ENABLE_TASK_ENI=true >> /etc/ecs/ecs.config
 echo ECS_LOGFILE=/log/ecs-agent.log >> /etc/ecs/ecs.config
 echo ECS_AVAILABLE_LOGGING_DRIVERS='["json-file","awslogs"]' >> /etc/ecs/ecs.config
 echo ECS_LOGLEVEL=info >> /etc/ecs/ecs.config
 
-# awsvpc 모드 지원을 위한 추가 시스템 설정
-sysctl -w net.ipv4.conf.all.route_localnet=1
-iptables -t nat -A PREROUTING -p tcp -d 169.254.170.2 --dport 80 -j DNAT --to-destination 127.0.0.1:51679
-iptables -t nat -A OUTPUT -d 169.254.170.2 -p tcp -m tcp --dport 80 -j REDIRECT --to-ports 51679
 
 # ECS Agent 다운로드 및 실행 (systemd 지원 포함)
 mkdir -p /var/log/ecs /var/lib/ecs/data
@@ -208,8 +203,6 @@ docker run --name ecs-agent \
   --net=host \
   --env-file=/etc/ecs/ecs.config \
   --cap-add=SYS_ADMIN \
-  --cap-add=NET_ADMIN \
-  --env ECS_ENABLE_TASK_ENI=true \
   amazon/amazon-ecs-agent:latest
 
 # 모니터링 인스턴스 준비 완료 표시
@@ -242,7 +235,7 @@ resource "aws_instance" "groble_develop_instance" {
 #!/bin/bash
 # 기본 패키지 업데이트
 apt update -y
-apt install -y curl wget unzip awscli git jq
+apt install -y curl wget unzip awscli jq
 
 # Docker 설치 및 설정
 apt install -y docker.io
