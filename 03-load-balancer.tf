@@ -255,7 +255,7 @@ resource "aws_lb_listener" "groble_https_test_listener" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.groble_prod_green_tg.arn
+    target_group_arn = aws_lb_target_group.groble_prod_blue_tg.arn
   }
 }
 
@@ -270,7 +270,7 @@ resource "aws_lb_listener_rule" "api_test_production_test_rule" {
 
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.groble_prod_green_tg.arn
+    target_group_arn = aws_lb_target_group.groble_prod_blue_tg.arn
   }
 
   condition {
@@ -286,5 +286,3 @@ resource "aws_lb_listener_rule" "api_test_production_test_rule" {
     ManagedBy   = "Terraform"
   }
 }
-
-# Development는 Blue/Green 배포를 사용하지 않으므로 테스트 리스너 규칙 제거
