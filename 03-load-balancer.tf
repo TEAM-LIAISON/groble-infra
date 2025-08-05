@@ -98,8 +98,8 @@ resource "aws_lb_target_group" "groble_dev_tg" {
     path                = var.health_check_path
     port                = "traffic-port"
     protocol            = "HTTP"
-    timeout             = 5
-    unhealthy_threshold = 2
+    timeout             = 8
+    unhealthy_threshold = 5
   }
 
   tags = {

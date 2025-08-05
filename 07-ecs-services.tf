@@ -183,9 +183,6 @@ resource "aws_ecs_service" "groble_dev_service" {
     # assign_public_ip = EC2 launch type에서는 지원하지 않음 - EC2 인스턴스 설정을 따름
   }
 
-  # ECS 네이티브 배포 사용 (CodeDeploy 제거)
-  # deployment_controller 블록 제거로 기본 ECS 배포 사용
-
   placement_constraints {
     type       = "memberOf"
     expression = "attribute:environment == development"
