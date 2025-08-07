@@ -171,6 +171,20 @@ resource "aws_lb_listener" "groble_https_listener" {
   }
 }
 
+# 추가 인증서 연결 (변수가 설정되어 있을 때만 생성)
+resource "aws_lb_listener_certificate" "groble_additional_cert" {
+  count           = var.additional_ssl_certificate_arn != "" ? 1 : 0
+  listener_arn    = aws_lb_listener.groble_https_listener.arn
+  certificate_arn = var.additional_ssl_certificate_arn
+}
+
+# 추가 인증서를 테스트 리스너에도 연결
+resource "aws_lb_listener_certificate" "groble_additional_cert_test" {
+  count           = var.additional_ssl_certificate_arn != "" ? 1 : 0
+  listener_arn    = aws_lb_listener.groble_https_test_listener.arn
+  certificate_arn = var.additional_ssl_certificate_arn
+}
+
 
 #################################
 # ALB 라우팅 규칙
@@ -193,7 +207,7 @@ resource "aws_lb_listener_rule" "monitoring_rule" {
   }
 }
 
-# API 테스트 운영 라우팅 규칙 (apitest.groble.im → Production Blue)
+# API 테스트 운영 라우팅 규칙 (api.groble.im → Production Blue)
 resource "aws_lb_listener_rule" "api_test_production_rule" {
   listener_arn = aws_lb_listener.groble_https_listener.arn
   priority     = 200
@@ -205,7 +219,7 @@ resource "aws_lb_listener_rule" "api_test_production_rule" {
 
   condition {
     host_header {
-      values = ["apitest.groble.im"]
+      values = ["api.groble.im"]
     }
   }
 
@@ -217,7 +231,7 @@ resource "aws_lb_listener_rule" "api_test_production_rule" {
   }
 }
 
-# API 테스트 개발 라우팅 규칙 (apidev.groble.im → Development)
+# API 테스트 개발 라우팅 규칙 (api.dev.groble.im → Development)
 resource "aws_lb_listener_rule" "api_test_development_rule" {
   listener_arn = aws_lb_listener.groble_https_listener.arn
   priority     = 300
@@ -229,7 +243,7 @@ resource "aws_lb_listener_rule" "api_test_development_rule" {
 
   condition {
     host_header {
-      values = ["apidev.groble.im"]
+      values = ["api.dev.groble.im"]
     }
   }
 
@@ -263,7 +277,7 @@ resource "aws_lb_listener" "groble_https_test_listener" {
 # Test 리스너용 라우팅 규칙 (9443 포트)
 #################################
 
-# API 테스트 운영 - 테스트 리스너 규칙 (apitest.groble.im:9443 → Production Green)
+# API 테스트 운영 - 테스트 리스너 규칙 (api.groble.im:9443 → Production Green)
 resource "aws_lb_listener_rule" "api_test_production_test_rule" {
   listener_arn = aws_lb_listener.groble_https_test_listener.arn
   priority     = 200
@@ -275,7 +289,7 @@ resource "aws_lb_listener_rule" "api_test_production_test_rule" {
 
   condition {
     host_header {
-      values = ["apitest.groble.im"]
+      values = ["api.groble.im"]
     }
   }
 

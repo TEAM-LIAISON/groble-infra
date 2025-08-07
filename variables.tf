@@ -133,6 +133,17 @@ variable "ssl_certificate_arn" {
   }
 }
 
+variable "additional_ssl_certificate_arn" {
+  description = "Additional SSL certificate ARN for ALB"
+  type        = string
+  default     = ""
+  
+  validation {
+    condition     = can(regex("^arn:aws:acm:[a-z0-9-]+:[0-9]+:certificate/[a-z0-9-]+$", var.additional_ssl_certificate_arn)) || var.additional_ssl_certificate_arn == ""
+    error_message = "Additional SSL certificate ARN must be a valid ACM certificate ARN or empty string."
+  }
+}
+
 # 데이터베이스 관련 변수들
 variable "mysql_prod_root_password" {
   description = "Root password for production MySQL database"
@@ -249,7 +260,7 @@ variable "spring_app_image_dev" {
 variable "spring_profiles_prod" {
   description = "Spring profiles for production environment"
   type        = string
-  default     = "prod,common,secret-prod"
+  default     = "prod,common,secret-prod,proxy"
   
   validation {
     condition     = length(var.spring_profiles_prod) > 0
@@ -260,7 +271,7 @@ variable "spring_profiles_prod" {
 variable "spring_profiles_dev" {
   description = "Spring profiles for development environment"
   type        = string
-  default     = "dev,common,secret-dev"
+  default     = "dev,common,secret-dev,proxy"
   
   validation {
     condition     = length(var.spring_profiles_dev) > 0

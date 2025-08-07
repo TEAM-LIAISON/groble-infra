@@ -246,7 +246,7 @@ resource "aws_ecs_task_definition" "groble_dev_redis_task" {
       name      = "${var.project_name}-dev-redis"
       image     = "redis:7-alpine"
       essential = true
-      memory    = 128  # 256MB → 128MB (메모리 최적화)
+      memory    = 64  # 256MB → 64MB (메모리 최적화)
       cpu       = 64   # 128 → 64 (CPU 최적화)
 
       portMappings = [
@@ -300,7 +300,7 @@ resource "aws_ecs_task_definition" "groble_prod_task" {
       name      = "${var.project_name}-prod-spring-api"
       image     = var.spring_app_image_prod
       essential = true
-      memory    = 512
+      memory    = 768
       cpu       = 256
 
       portMappings = [
@@ -350,6 +350,30 @@ resource "aws_ecs_task_definition" "groble_prod_task" {
         {
           name  = "REDIS_PORT"
           value = "6379"
+        },
+        {
+          name  = "HTTP_PROXY"
+          value = "http://${aws_instance.groble_monitoring_instance.private_ip}:3128"
+        },
+        {
+          name  = "HTTPS_PROXY"
+          value = "http://${aws_instance.groble_monitoring_instance.private_ip}:3128"
+        },
+        {
+          name  = "NO_PROXY"
+          value = "localhost,127.0.0.1,10.0.0.0/16,groble.internal"
+        },
+        {
+          name  = "JAVA_OPTS"
+          value = "-Dhttp.proxyHost=${aws_instance.groble_monitoring_instance.private_ip} -Dhttp.proxyPort=3128 -Dhttps.proxyHost=${aws_instance.groble_monitoring_instance.private_ip} -Dhttps.proxyPort=3128 -Dhttp.nonProxyHosts='localhost|127.0.0.1|10.0.*|*.internal'"
+        },
+        {
+          name  = "HTTP_PROXY_HOST"
+          value = "${aws_instance.groble_monitoring_instance.private_ip}"
+        },
+        {
+          name  = "HTTP_PROXY_PORT"
+          value = "3128"
         }
       ]
 
@@ -396,7 +420,7 @@ resource "aws_ecs_task_definition" "groble_dev_task" {
       name      = "${var.project_name}-dev-spring-api"
       image     = var.spring_app_image_dev
       essential = true
-      memory    = 512
+      memory    = 600
       cpu       = 256
 
       portMappings = [
@@ -446,6 +470,30 @@ resource "aws_ecs_task_definition" "groble_dev_task" {
         {
           name  = "REDIS_PORT"
           value = "6379"
+        },
+        {
+          name  = "HTTP_PROXY"
+          value = "http://${aws_instance.groble_monitoring_instance.private_ip}:3128"
+        },
+        {
+          name  = "HTTPS_PROXY"
+          value = "http://${aws_instance.groble_monitoring_instance.private_ip}:3128"
+        },
+        {
+          name  = "NO_PROXY"
+          value = "localhost,127.0.0.1,10.0.0.0/16,groble.internal"
+        },
+        {
+          name  = "JAVA_OPTS"
+          value = "-Dhttp.proxyHost=${aws_instance.groble_monitoring_instance.private_ip} -Dhttp.proxyPort=3128 -Dhttps.proxyHost=${aws_instance.groble_monitoring_instance.private_ip} -Dhttps.proxyPort=3128 -Dhttp.nonProxyHosts='localhost|127.0.0.1|10.0.*|*.internal'"
+        },
+        {
+          name  = "HTTP_PROXY_HOST"
+          value = "${aws_instance.groble_monitoring_instance.private_ip}"
+        },
+        {
+          name  = "HTTP_PROXY_PORT"
+          value = "3128"
         }
       ]
 

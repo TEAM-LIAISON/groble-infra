@@ -116,6 +116,18 @@ docker run --name ecs-agent \
   --env ECS_ENABLE_TASK_ENI=true \
   amazon/amazon-ecs-agent:latest
 
+# Swap 파일 설정 (배포 시 메모리 부족 방지)
+fallocate -l 1G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+# 스왑 사용 정책 최적화 (메모리 부족시에만 사용)
+echo 'vm.swappiness=10' >> /etc/sysctl.conf
+echo 'vm.vfs_cache_pressure=50' >> /etc/sysctl.conf
+sysctl -p
+
 # 데이터 디렉토리 생성 (MySQL 볼륨용)
 mkdir -p /opt/mysql-prod-data
 chown -R 999:999 /opt/mysql-prod-data
@@ -133,6 +145,7 @@ chmod +x /home/ubuntu/check-ecs-services.sh
 # 인스턴스 준비 완료 표시
 echo "Production instance ready for ECS with awsvpc support" > /home/ubuntu/instance-ready.txt
 echo "ECS Agent installed and configured with ENI support" >> /home/ubuntu/instance-ready.txt
+echo "Swap configured: 1GB with swappiness=10" >> /home/ubuntu/instance-ready.txt
 echo "Data directories created" >> /home/ubuntu/instance-ready.txt
 EOF
   )
@@ -205,9 +218,61 @@ docker run --name ecs-agent \
   --cap-add=SYS_ADMIN \
   amazon/amazon-ecs-agent:latest
 
+# Squid 프록시 서버 설치 및 설정
+apt install -y squid
+systemctl enable squid
+
+# Squid 설정 파일 백업 및 새 설정 생성
+cp /etc/squid/squid.conf /etc/squid/squid.conf.backup
+cat > /etc/squid/squid.conf << 'SQUID_EOF'
+# Squid 프록시 설정 - Groble API Server용
+
+# 접근 제어 목록 (ACL) 정의
+acl allowed_subnet src 10.0.0.0/16
+acl SSL_ports port 443 465 587 993 995
+acl Safe_ports port 80 443 25 587 465 993 995
+acl CONNECT method CONNECT
+
+# 보안 규칙 (포트 제한 적용)
+http_access deny !Safe_ports
+http_access deny CONNECT !SSL_ports
+
+# HTTP 접근 허용 (VPC 내부만)
+http_access allow allowed_subnet
+http_access deny all
+
+# 포트 설정
+http_port 3128
+
+# 로깅 설정
+access_log /var/log/squid/access.log
+cache_log /var/log/squid/cache.log
+
+# 캐시 비활성화 (프록시 전용)
+cache deny all
+
+# 포워딩된 IP 헤더 추가
+forwarded_for on
+
+# DNS 설정
+dns_nameservers 169.254.169.253 8.8.8.8
+
+# 에러 페이지 커스터마이징 (선택사항)
+error_directory /usr/share/squid/errors/English
+SQUID_EOF
+
+# Squid 서비스 시작
+systemctl start squid
+systemctl restart squid
+
+# 프록시 로그 디렉토리 권한 설정
+chown -R proxy:proxy /var/log/squid
+
 # 모니터링 인스턴스 준비 완료 표시
 echo "Monitoring instance ready for ECS" > /home/ubuntu/monitoring-ready.txt
 echo "ECS Agent installed and configured" >> /home/ubuntu/monitoring-ready.txt
+echo "Squid proxy server installed and configured" >> /home/ubuntu/monitoring-ready.txt
+echo "Proxy listening on port 3128 for VPC subnet 10.0.0.0/16" >> /home/ubuntu/monitoring-ready.txt
 echo "Docker ready for monitoring tools (Grafana, Prometheus, etc.)" >> /home/ubuntu/monitoring-ready.txt
 EOF
   )
@@ -224,7 +289,7 @@ EOF
 
 resource "aws_instance" "groble_develop_instance" {
   ami                    = data.aws_ami.ubuntu_noble.id
-  instance_type          = var.instance_type
+  instance_type          = "t3.small"
   key_name              = var.key_pair_name != "" ? var.key_pair_name : null
   vpc_security_group_ids = [aws_security_group.groble_develop_target_group.id]
   subnet_id             = aws_subnet.groble_vpc_public[1].id

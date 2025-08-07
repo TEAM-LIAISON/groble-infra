@@ -20,7 +20,7 @@ resource "aws_codedeploy_deployment_group" "groble_prod_deployment_group" {
   app_name               = aws_codedeploy_app.groble_app.name
   deployment_group_name  = "${var.project_name}-prod-deployment-group"
   service_role_arn      = aws_iam_role.codedeploy_service_role.arn
-  deployment_config_name = "CodeDeployDefault.ECSCanary10Percent5Minutes"
+  deployment_config_name = "CodeDeployDefault.ECSAllAtOnce"
 
   # ECS 배포를 위한 필수 설정
   deployment_style {
@@ -45,7 +45,7 @@ resource "aws_codedeploy_deployment_group" "groble_prod_deployment_group" {
     # 트래픽 라우팅 설정
     terminate_blue_instances_on_deployment_success {
       action                         = "TERMINATE"
-      termination_wait_time_in_minutes = 5
+      termination_wait_time_in_minutes = 2
     }
   }
 

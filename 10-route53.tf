@@ -11,10 +11,10 @@ data "aws_route53_zone" "groble_zone" {
 # API 테스트 도메인 레코드
 #################################
 
-# API 테스트 운영 도메인 (apitest.groble.im)
+# API 테스트 운영 도메인 (api.groble.im)
 resource "aws_route53_record" "api_test_production" {
   zone_id = data.aws_route53_zone.groble_zone.zone_id
-  name    = "apitest.groble.im"
+  name    = "api.groble.im"
   type    = "A"
 
   alias {
@@ -24,10 +24,10 @@ resource "aws_route53_record" "api_test_production" {
   }
 }
 
-# API 테스트 개발 도메인 (apidev.groble.im)
+# API 테스트 개발 도메인 (dev.groble.im)
 resource "aws_route53_record" "api_test_development" {
   zone_id = data.aws_route53_zone.groble_zone.zone_id
-  name    = "apidev.groble.im"
+  name    = "api.dev.groble.im"
   type    = "A"
 
   alias {

@@ -82,16 +82,14 @@ resource "aws_security_group" "groble_prod_target_group" {
     description = "SSH access from trusted IPs"
   }
 
-  # MySQL 접근 - Service Discovery Health Check 및 컨테이너 간 통신
   ingress {
     from_port   = 3306
     to_port     = 3306
     protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
+    cidr_blocks = ["0.0.0.0/0"]
     description = "MySQL access from VPC"
   }
 
-  # Redis 접근 - Service Discovery Health Check 및 컨테이너 간 통신
   ingress {
     from_port   = 6379
     to_port     = 6379
@@ -150,6 +148,15 @@ resource "aws_security_group" "groble_monitor_target_group" {
     description     = "Monitoring dashboard from load balancer"
   }
 
+  # Squid 프록시 포트 접근 허용 (VPC 내부에서)
+  ingress {
+    from_port   = 3128
+    to_port     = 3128
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+    description = "Squid proxy access from VPC"
+  }
+
   # 모든 아웃바운드 트래픽 허용
   egress {
     from_port   = 0
@@ -187,7 +194,7 @@ resource "aws_security_group" "groble_develop_target_group" {
     from_port   = 3306
     to_port     = 3306
     protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
+    cidr_blocks = ["0.0.0.0/0"]
     description = "MySQL access from VPC"
   }
 
@@ -249,49 +256,13 @@ resource "aws_security_group" "groble_api_task_sg" {
     description     = "HTTP from load balancer to API Server"
   }
 
-  # MySQL 접근 (EC2 인스턴스와 통신)
+  # 모든 아웃바운드 트래픽 허용
   egress {
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
-    description = "MySQL access to instances"
-  }
-
-  # Redis 접근 (EC2 인스턴스와 통신)
-  egress {
-    from_port   = 6379
-    to_port     = 6379
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
-    description = "Redis access to instances"
-  }
-
-  # HTTPS 아웃바운드 (Docker 이미지 다운로드 등)
-  egress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
-    description = "HTTPS outbound"
-  }
-
-  # HTTP 아웃바운드 (Docker 이미지 다운로드 등)
-  egress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "HTTP outbound"
-  }
-
-  # DNS 해석
-  egress {
-    from_port   = 53
-    to_port     = 53
-    protocol    = "udp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "DNS resolution"
+    description = "All outbound traffic"
   }
 
   tags = {
