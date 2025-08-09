@@ -154,16 +154,16 @@ resource "aws_security_group" "groble_monitor_target_group" {
     to_port     = 3128
     protocol    = "tcp"
     cidr_blocks = [var.vpc_cidr]
-    description = "Squid proxy access from VPC"
+    description = "Squid proxy access from VPC (HTTP/HTTPS)"
   }
-  
-  # SOCKS 프록시 포트 접근 허용 (VPC 내부에서)
+
+  # Squid 프록시 포트 접근 허용 (VPC 내부에서)
   ingress {
-    from_port   = 1080
-    to_port     = 1080
+    from_port   = 5587
+    to_port     = 5587
     protocol    = "tcp"
     cidr_blocks = [var.vpc_cidr]
-    description = "SOCKS5 proxy access from VPC"
+    description = "Squid proxy access from VPC (SMTP)"
   }
   
   # 모든 아웃바운드 트래픽 허용

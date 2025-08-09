@@ -149,6 +149,15 @@ resource "aws_ecs_service" "groble_prod_service" {
     container_port   = 8080
   }
 
+  # CodeDeploy가 관리하는 부분을 Terraform이 덮어쓰지 않도록 보호
+  lifecycle {
+    ignore_changes = [
+      load_balancer,      # CodeDeploy가 Blue/Green Target Group 전환 관리
+      task_definition,    # CodeDeploy가 새 Task Definition 버전 배포 관리
+      desired_count       # Auto Scaling이나 수동 조정 허용
+    ]
+  }
+
   depends_on = [
     aws_lb_listener.groble_https_listener,
     aws_iam_role_policy_attachment.ecs_task_execution_role_policy,
@@ -200,6 +209,15 @@ resource "aws_ecs_service" "groble_dev_service" {
     target_group_arn = aws_lb_target_group.groble_dev_blue_tg.arn
     container_name   = "${var.project_name}-dev-spring-api"
     container_port   = 8080
+  }
+
+  # CodeDeploy가 관리하는 부분을 Terraform이 덮어쓰지 않도록 보호
+  lifecycle {
+    ignore_changes = [
+      load_balancer,      # CodeDeploy가 Blue/Green Target Group 전환 관리
+      task_definition,    # CodeDeploy가 새 Task Definition 버전 배포 관리
+      desired_count       # Auto Scaling이나 수동 조정 허용
+    ]
   }
 
   depends_on = [

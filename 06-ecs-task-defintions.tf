@@ -300,7 +300,8 @@ resource "aws_ecs_task_definition" "groble_prod_task" {
       name      = "${var.project_name}-prod-spring-api"
       image     = var.spring_app_image_prod
       essential = true
-      memory    = 600
+      memoryReservation = 400  # ECS 배치를 위한 최소 보장 메모리
+      memory    = 700          # 컨테이너 최대 사용 가능 메모리
       cpu       = 256
 
       portMappings = [
@@ -420,7 +421,8 @@ resource "aws_ecs_task_definition" "groble_dev_task" {
       name      = "${var.project_name}-dev-spring-api"
       image     = var.spring_app_image_dev
       essential = true
-      memory    = 600
+      memoryReservation = 400  # ECS 배치를 위한 최소 보장 메모리
+      memory    = 700          # 컨테이너 최대 사용 가능 메모리
       cpu       = 256
 
       portMappings = [
