@@ -126,7 +126,6 @@ resource "aws_ecs_service" "groble_prod_service" {
   network_configuration {
     subnets          = [aws_subnet.groble_vpc_public[0].id]
     security_groups  = [aws_security_group.groble_api_task_sg.id]
-    # assign_public_ip = EC2 launch type에서는 지원하지 않음 - EC2 인스턴스 설정을 따름
   }
 
   # CodeDeploy를 위한 Deployment Controller 설정
@@ -180,7 +179,11 @@ resource "aws_ecs_service" "groble_dev_service" {
   network_configuration {
     subnets          = [aws_subnet.groble_vpc_public[1].id]
     security_groups  = [aws_security_group.groble_api_task_sg.id]
-    # assign_public_ip = EC2 launch type에서는 지원하지 않음 - EC2 인스턴스 설정을 따름
+  }
+
+  # CodeDeploy를 위한 Deployment Controller 설정
+  deployment_controller {
+    type = "CODE_DEPLOY"
   }
 
   placement_constraints {
@@ -188,13 +191,13 @@ resource "aws_ecs_service" "groble_dev_service" {
     expression = "attribute:environment == development"
   }
 
-  # Rolling 배포를 위한 설정 (t2.micro 메모리 고려)
-  deployment_minimum_healthy_percent = 0
-  deployment_maximum_percent         = 100
+  # Blue/Green 배포를 위한 설정
+  deployment_minimum_healthy_percent = 50
+  deployment_maximum_percent         = 200
 
-  # ALB 타겟 그룹 연결 (단일 타겟 그룹)
+  # ALB 타겟 그룹 연결 (Blue 타겟 그룹)
   load_balancer {
-    target_group_arn = aws_lb_target_group.groble_dev_tg.arn
+    target_group_arn = aws_lb_target_group.groble_dev_blue_tg.arn
     container_name   = "${var.project_name}-dev-spring-api"
     container_port   = 8080
   }

@@ -79,12 +79,12 @@ resource "aws_lb_target_group" "groble_prod_green_tg" {
 }
 
 #################################
-# Development Target Group (단일 - Blue/Green 제거)
+# Blue/Green Target Groups - Development
 #################################
 
-# Development Target Group
-resource "aws_lb_target_group" "groble_dev_tg" {
-  name        = "${var.project_name}-dev-tg-v2"
+# Development Blue Target Group
+resource "aws_lb_target_group" "groble_dev_blue_tg" {
+  name        = "${var.project_name}-dev-blue-tg-v2"
   port        = 8080
   protocol    = "HTTP"
   vpc_id      = aws_vpc.groble_vpc.id
@@ -103,8 +103,38 @@ resource "aws_lb_target_group" "groble_dev_tg" {
   }
 
   tags = {
-    Name        = "${var.project_name}-dev-tg"
-    Environment = "development"
+    Name                  = "${var.project_name}-dev-blue-tg"
+    Environment          = "development"
+    Color                = "blue"
+    CodeDeployApplication = "groble-app"
+  }
+}
+
+# Development Green Target Group
+resource "aws_lb_target_group" "groble_dev_green_tg" {
+  name        = "${var.project_name}-dev-green-tg-v2"
+  port        = 8080
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.groble_vpc.id
+  target_type = "ip"  # awsvpc mode support
+
+  health_check {
+    enabled             = true
+    healthy_threshold   = 2
+    interval            = 30
+    matcher             = "200-399"
+    path                = var.health_check_path
+    port                = "traffic-port"
+    protocol            = "HTTP"
+    timeout             = 8
+    unhealthy_threshold = 5
+  }
+
+  tags = {
+    Name                  = "${var.project_name}-dev-green-tg"
+    Environment          = "development"
+    Color                = "green"
+    CodeDeployApplication = "groble-app"
   }
 }
 
@@ -231,14 +261,14 @@ resource "aws_lb_listener_rule" "api_test_production_rule" {
   }
 }
 
-# API 테스트 개발 라우팅 규칙 (api.dev.groble.im → Development)
+# API 테스트 개발 라우팅 규칙 (api.dev.groble.im → Development Blue)
 resource "aws_lb_listener_rule" "api_test_development_rule" {
   listener_arn = aws_lb_listener.groble_https_listener.arn
   priority     = 300
 
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.groble_dev_tg.arn
+    target_group_arn = aws_lb_target_group.groble_dev_blue_tg.arn
   }
 
   condition {
@@ -296,6 +326,30 @@ resource "aws_lb_listener_rule" "api_test_production_test_rule" {
   tags = {
     Name        = "API Test Production Test Rule"
     Environment = "production"
+    Project     = var.project_name
+    ManagedBy   = "Terraform"
+  }
+}
+
+# API 테스트 개발 - 테스트 리스너 규칙 (api.dev.groble.im:9443 → Development Blue)
+resource "aws_lb_listener_rule" "api_test_development_test_rule" {
+  listener_arn = aws_lb_listener.groble_https_test_listener.arn
+  priority     = 300
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.groble_dev_blue_tg.arn
+  }
+
+  condition {
+    host_header {
+      values = ["api.dev.groble.im"]
+    }
+  }
+
+  tags = {
+    Name        = "API Test Development Test Rule"
+    Environment = "development"
     Project     = var.project_name
     ManagedBy   = "Terraform"
   }

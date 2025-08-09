@@ -120,7 +120,7 @@ resource "aws_security_group" "groble_monitor_target_group" {
   name        = "${var.project_name}-monitor-target-group"
   description = "Security group for Groble monitoring instance"
   vpc_id      = aws_vpc.groble_vpc.id
-
+  
   # SSH 접근 - Public Subnet 배치를 위해 특정 IP에서만 허용
   ingress {
     from_port   = 22
@@ -129,7 +129,7 @@ resource "aws_security_group" "groble_monitor_target_group" {
     cidr_blocks = var.trusted_ips
     description = "SSH access from trusted IPs"
   }
-
+  
   # 모니터링 대시보드 접근 (예: Grafana)
   ingress {
     from_port   = 3000
@@ -138,7 +138,7 @@ resource "aws_security_group" "groble_monitor_target_group" {
     cidr_blocks = [var.vpc_cidr]
     description = "Monitoring dashboard access"
   }
-
+  
   # 로드밸런서에서 3000번 포트 접근 허용
   ingress {
     from_port       = 3000
@@ -147,7 +147,7 @@ resource "aws_security_group" "groble_monitor_target_group" {
     security_groups = [aws_security_group.groble_load_balancer_sg.id]
     description     = "Monitoring dashboard from load balancer"
   }
-
+  
   # Squid 프록시 포트 접근 허용 (VPC 내부에서)
   ingress {
     from_port   = 3128
@@ -156,7 +156,16 @@ resource "aws_security_group" "groble_monitor_target_group" {
     cidr_blocks = [var.vpc_cidr]
     description = "Squid proxy access from VPC"
   }
-
+  
+  # SOCKS 프록시 포트 접근 허용 (VPC 내부에서)
+  ingress {
+    from_port   = 1080
+    to_port     = 1080
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+    description = "SOCKS5 proxy access from VPC"
+  }
+  
   # 모든 아웃바운드 트래픽 허용
   egress {
     from_port   = 0
@@ -165,7 +174,7 @@ resource "aws_security_group" "groble_monitor_target_group" {
     cidr_blocks = ["0.0.0.0/0"]
     description = "All outbound traffic"
   }
-
+  
   tags = {
     Name = "${var.project_name}-monitor-target-group"
   }

@@ -14,7 +14,7 @@ resource "aws_ecs_task_definition" "groble_prod_mysql_task" {
       name      = "${var.project_name}-prod-mysql"
       image     = "mysql:8.0"
       essential = true
-      memory    = 512
+      memory    = 500
       cpu       = 256
 
       portMappings = [
@@ -192,7 +192,7 @@ resource "aws_ecs_task_definition" "groble_prod_redis_task" {
       name      = "${var.project_name}-prod-redis"
       image     = "redis:7-alpine"
       essential = true
-      memory    = 256
+      memory    = 128
       cpu       = 128
 
       portMappings = [
@@ -246,8 +246,8 @@ resource "aws_ecs_task_definition" "groble_dev_redis_task" {
       name      = "${var.project_name}-dev-redis"
       image     = "redis:7-alpine"
       essential = true
-      memory    = 64  # 256MB → 64MB (메모리 최적화)
-      cpu       = 64   # 128 → 64 (CPU 최적화)
+      memory    = 128  # 256MB → 64MB (메모리 최적화)
+      cpu       = 128   # 128 → 64 (CPU 최적화)
 
       portMappings = [
         {
@@ -300,7 +300,7 @@ resource "aws_ecs_task_definition" "groble_prod_task" {
       name      = "${var.project_name}-prod-spring-api"
       image     = var.spring_app_image_prod
       essential = true
-      memory    = 768
+      memory    = 600
       cpu       = 256
 
       portMappings = [
