@@ -4,117 +4,96 @@
 # 
 # 이 파일은 groble 애플리케이션의 개발 환경을 위한 Terraform 설정입니다.
 # 
-# 프로젝트 구조:
-# - Infrastructure Layer: VPC, 네트워크, 보안 그룹, Load Balancer, IAM 역할, Route53
-# - Platform Layer: ECS Cluster, ECR, CodeDeploy
-# - Service Layer: API Service, MySQL Service, Redis Service
+# 구조:
+# - Shared 리소스는 data source로 참조 (VPC, IAM, Load Balancer 등)
+# - DEV 전용 리소스만 이 환경에서 관리 (ECS Services)
 
 #################################
-# Infrastructure Layer 모듈 호출
+# Shared 리소스 참조 (Data Sources)
 #################################
 
-# VPC 및 네트워크 인프라
-module "vpc" {
-  source = "../../modules/infrastructure/vpc"
-  
-  vpc_cidr             = var.vpc_cidr
-  availability_zones   = var.availability_zones
-  public_subnet_cidrs  = var.public_subnet_cidrs
-  private_subnet_cidrs = var.private_subnet_cidrs
-  project_name         = var.project_name
+# Shared 환경의 Terraform State 참조
+data "terraform_remote_state" "shared" {
+  backend = "local"
+
+  config = {
+    path = "../shared/terraform.tfstate"
+  }
 }
 
-# 보안 그룹 인프라
-module "security_groups" {
-  source = "../../modules/infrastructure/security-groups"
-  
-  vpc_id       = module.vpc.vpc_id
-  vpc_cidr     = var.vpc_cidr
-  project_name = var.project_name
-  trusted_ips  = var.trusted_ips
+# 또는 직접 리소스 참조 (local backend 사용 시)
+data "aws_vpc" "shared_vpc" {
+  filter {
+    name   = "tag:Name"
+    values = ["groble-vpc"]
+  }
 }
 
-# IAM 역할 인프라
-module "iam_roles" {
-  source = "../../modules/infrastructure/iam-roles"
+data "aws_subnets" "shared_public_subnets" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.shared_vpc.id]
+  }
   
-  project_name = var.project_name
+  filter {
+    name   = "tag:Type"
+    values = ["Public"]
+  }
 }
 
-# Load Balancer 인프라
-module "load_balancer" {
-  source = "../../modules/infrastructure/load-balancer"
+data "aws_subnets" "shared_private_subnets" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.shared_vpc.id]
+  }
   
-  vpc_id                        = module.vpc.vpc_id
-  public_subnet_ids             = module.vpc.public_subnet_ids
-  load_balancer_sg_id           = module.security_groups.load_balancer_sg_id
-  project_name                  = var.project_name
-  enable_deletion_protection    = var.enable_deletion_protection
-  health_check_path             = var.health_check_path
-  ssl_certificate_arn           = var.ssl_certificate_arn
-  additional_ssl_certificate_arn = var.additional_ssl_certificate_arn
-  idle_timeout                  = 300
+  filter {
+    name   = "tag:Type"
+    values = ["Private"]
+  }
 }
 
-# Route53 DNS 인프라
-module "route53" {
-  source = "../../modules/infrastructure/route53"
-  
-  load_balancer_dns_name = module.load_balancer.load_balancer_dns_name
-  load_balancer_zone_id  = module.load_balancer.load_balancer_zone_id
+data "aws_security_groups" "shared_security_groups" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.shared_vpc.id]
+  }
+}
+
+data "aws_iam_role" "shared_ecs_task_execution_role" {
+  name = "groble-ecs-task-execution-role"
+}
+
+data "aws_iam_role" "shared_ecs_task_role" {
+  name = "groble-ecs-task-role"
+}
+
+data "aws_ecs_cluster" "shared_cluster" {
+  cluster_name = "groble-cluster"
+}
+
+data "aws_lb" "shared_load_balancer" {
+  name = "groble-load-balancer"
+}
+
+data "aws_lb_target_group" "shared_dev_blue_tg" {
+  name = "groble-dev-blue-tg-v2"
+}
+
+data "aws_lb_target_group" "shared_dev_green_tg" {
+  name = "groble-dev-green-tg-v2"
 }
 
 #################################
-# Platform Layer 모듈 호출
+# DEV 전용 리소스
 #################################
 
-# ECS 클러스터 플랫폼
-module "ecs_cluster" {
-  source = "../../modules/platform/ecs-cluster"
-  
-  project_name                  = var.project_name
-  enable_container_insights     = true
-  
-  # CloudWatch Logs 설정
-  create_prod_logs              = false  # Development 환경에서는 prod 로그 생성 안함
-  create_dev_logs               = true
-  prod_log_retention_days       = 7
-  dev_log_retention_days        = 3
-  
-  # Instance 생성 설정
-  create_prod_instance          = false  # Development 환경에서는 prod 인스턴스 생성 안함
-  create_monitoring_instance    = true
-  create_dev_instance           = true
-  
-  # Instance 구성
-  prod_instance_count           = 1  # 사용하지 않지만 기본값
-  prod_instance_type            = "t3.small"  # 사용하지 않지만 기본값
-  monitoring_instance_type      = var.monitoring_instance_type
-  dev_instance_type             = var.dev_instance_type
-  key_pair_name                 = var.key_pair_name
-  
-  # VPC 및 네트워크
-  ubuntu_ami_id                 = module.vpc.ubuntu_ami_id
-  public_subnet_ids             = module.vpc.public_subnet_ids
-  
-  # Security Groups
-  prod_security_group_id        = module.security_groups.prod_target_group_sg_id
-  monitoring_security_group_id  = module.security_groups.monitor_target_group_sg_id
-  dev_security_group_id         = module.security_groups.develop_target_group_sg_id
-  
-  # IAM
-  ecs_instance_profile_name     = module.iam_roles.ecs_instance_profile_name
-  
-  # Load Balancer
-  monitoring_target_group_arn   = module.load_balancer.monitoring_target_group_arn
-}
-
-# ECR 컨테이너 레지스트리
+# DEV ECR 리포지토리
 module "ecr" {
   source = "../../modules/platform/ecr"
   
   project_name            = var.project_name
-  create_prod_repository  = false  # Development 환경에서는 prod repository 생성 안함
+  create_prod_repository  = false  # DEV 환경에서는 prod repository 생성 안함
   create_dev_repository   = true
   
   # ECR 설정
@@ -131,23 +110,23 @@ module "ecr" {
   
   # IAM 권한
   allowed_principals = [
-    module.iam_roles.ecs_task_execution_role_arn,
-    module.iam_roles.ecs_task_role_arn
+    data.aws_iam_role.shared_ecs_task_execution_role.arn,
+    data.aws_iam_role.shared_ecs_task_role.arn
   ]
 }
 
 #################################
-# Service Layer 모듈 호출
+# DEV Service Layer
 #################################
 
 # Development MySQL Service
-module "mysql_service" {
+module "dev_mysql_service" {
   source = "../../modules/services/development/mysql-service"
   
   project_name                 = var.project_name
-  ecs_cluster_id              = module.ecs_cluster.cluster_id
-  ecs_task_execution_role_arn = module.iam_roles.ecs_task_execution_role_arn
-  ecs_task_role_arn          = module.iam_roles.ecs_task_role_arn
+  ecs_cluster_id              = data.aws_ecs_cluster.shared_cluster.id
+  ecs_task_execution_role_arn = data.aws_iam_role.shared_ecs_task_execution_role.arn
+  ecs_task_role_arn          = data.aws_iam_role.shared_ecs_task_role.arn
   
   mysql_memory        = var.mysql_memory
   mysql_cpu          = var.mysql_cpu
@@ -156,13 +135,13 @@ module "mysql_service" {
 }
 
 # Development Redis Service
-module "redis_service" {
+module "dev_redis_service" {
   source = "../../modules/services/development/redis-service"
   
   project_name                 = var.project_name
-  ecs_cluster_id              = module.ecs_cluster.cluster_id
-  ecs_task_execution_role_arn = module.iam_roles.ecs_task_execution_role_arn
-  ecs_task_role_arn          = module.iam_roles.ecs_task_role_arn
+  ecs_cluster_id              = data.aws_ecs_cluster.shared_cluster.id
+  ecs_task_execution_role_arn = data.aws_iam_role.shared_ecs_task_execution_role.arn
+  ecs_task_role_arn          = data.aws_iam_role.shared_ecs_task_role.arn
   
   redis_memory   = var.redis_memory
   redis_cpu     = var.redis_cpu
@@ -170,13 +149,13 @@ module "redis_service" {
 }
 
 # Development API Service
-module "api_service" {
+module "dev_api_service" {
   source = "../../modules/services/development/api-service"
   
   project_name                 = var.project_name
-  ecs_cluster_id              = module.ecs_cluster.cluster_id
-  ecs_task_execution_role_arn = module.iam_roles.ecs_task_execution_role_arn
-  ecs_task_role_arn          = module.iam_roles.ecs_task_role_arn
+  ecs_cluster_id              = data.aws_ecs_cluster.shared_cluster.id
+  ecs_task_execution_role_arn = data.aws_iam_role.shared_ecs_task_execution_role.arn
+  ecs_task_role_arn          = data.aws_iam_role.shared_ecs_task_role.arn
   
   # Container 설정
   spring_app_image     = var.spring_app_image
@@ -189,76 +168,74 @@ module "api_service" {
   spring_profiles = var.spring_profiles
   server_env     = var.server_env
   
-  # Database 설정
-  db_host             = module.ecs_cluster.dev_instance_private_ip
+  # Database 설정 (shared 환경의 DEV 인스턴스 IP 참조)
+  db_host             = "43.201.98.135"  # dev instance IP
   mysql_database      = var.mysql_database
   mysql_root_password = var.mysql_root_password
   
-  # Redis 설정
-  redis_host = module.ecs_cluster.dev_instance_private_ip
+  # Redis 설정 (shared 환경의 DEV 인스턴스 IP 참조)
+  redis_host = "43.201.98.135"  # dev instance IP
   
-  # Proxy 설정
-  proxy_host = module.ecs_cluster.monitoring_instance_private_ip
+  # Proxy 설정 (shared 환경의 monitoring 인스턴스 IP 참조)
+  proxy_host = "10.0.1.200"  # monitoring instance IP
   
   # Network 설정
-  subnet_ids         = [module.vpc.public_subnet_ids[1]]  # ap-northeast-2c
-  security_group_ids = [module.security_groups.api_task_sg_id]
+  subnet_ids         = ["subnet-089b27f99fdaee7eb"]  # 원래 사용하던 정확한 서브넷
+  security_group_ids = ["sg-027503b0b8e91489f"]
   
   # Load Balancer 설정
-  target_group_arn = module.load_balancer.dev_blue_target_group_arn
+  target_group_arn = data.aws_lb_target_group.shared_dev_green_tg.arn
   
   depends_on = [
-    module.mysql_service,
-    module.redis_service
+    module.dev_mysql_service,
+    module.dev_redis_service
   ]
 }
 
 #################################
-# CodeDeploy 배포 서비스
+# 출력값 정의
 #################################
 
-module "codedeploy" {
-  source = "../../modules/platform/codedeploy"
-  
-  project_name                    = var.project_name
-  create_prod_deployment_group    = false  # Development 환경에서는 prod deployment group 생성 안함
-  create_dev_deployment_group     = true
-  create_artifacts_bucket         = true
-  
-  # IAM Role
-  codedeploy_service_role_arn     = module.iam_roles.codedeploy_service_role_arn
-  
-  # ECS 설정
-  ecs_cluster_name                = module.ecs_cluster.cluster_name
-  prod_service_name               = ""  # 사용하지 않음
-  dev_service_name                = "${var.project_name}-dev-service"
-  
-  # Deployment Configuration
-  prod_deployment_config          = "CodeDeployDefault.ECSAllAtOnce"  # 사용하지 않음
-  dev_deployment_config           = var.deployment_config
-  
-  # Blue/Green 배포 설정
-  deployment_ready_timeout_action = var.deployment_ready_timeout_action
-  deployment_ready_wait_time      = var.deployment_ready_wait_time
-  termination_wait_time           = var.termination_wait_time
-  
-  # Load Balancer 설정
-  prod_blue_target_group_name     = ""  # 사용하지 않음
-  prod_green_target_group_name    = ""  # 사용하지 않음
-  dev_blue_target_group_name      = module.load_balancer.dev_blue_target_group_name
-  dev_green_target_group_name     = module.load_balancer.dev_green_target_group_name
-  prod_listener_arns              = []  # 사용하지 않음
-  test_listener_arns              = [module.load_balancer.https_test_listener_arn]
-  
-  # 자동 롤백 설정
-  enable_auto_rollback            = var.enable_auto_rollback
-  auto_rollback_events            = var.auto_rollback_events
-  
-  # 알람 설정
-  enable_alarm_configuration      = var.enable_alarm_configuration
-  alarm_names                     = var.alarm_names
-  
-  depends_on = [
-    module.api_service
-  ]
+# ECR outputs
+output "ecr_repository_url" {
+  description = "ECR repository URL for dev images"
+  value       = module.ecr.dev_repository_url
+}
+
+output "ecr_repository_arn" {
+  description = "ECR repository ARN for dev images"
+  value       = module.ecr.dev_repository_arn
+}
+
+# API Service outputs
+output "api_service_arn" {
+  description = "API service ARN"
+  value       = module.dev_api_service.service_arn
+}
+
+output "api_task_definition_arn" {
+  description = "API task definition ARN"
+  value       = module.dev_api_service.task_definition_arn
+}
+
+# MySQL Service outputs  
+output "mysql_service_id" {
+  description = "MySQL service ID"
+  value       = module.dev_mysql_service.service_id
+}
+
+output "mysql_task_definition_arn" {
+  description = "MySQL task definition ARN"
+  value       = module.dev_mysql_service.task_definition_arn
+}
+
+# Redis Service outputs
+output "redis_service_id" {
+  description = "Redis service ID"
+  value       = module.dev_redis_service.service_id
+}
+
+output "redis_task_definition_arn" {
+  description = "Redis task definition ARN"
+  value       = module.dev_redis_service.task_definition_arn
 }

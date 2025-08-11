@@ -48,10 +48,11 @@ resource "aws_ecs_task_definition" "redis_task" {
 
 # Redis Service
 resource "aws_ecs_service" "redis_service" {
-  name            = "${var.project_name}-prod-redis-service"
-  cluster         = var.ecs_cluster_id
-  task_definition = aws_ecs_task_definition.redis_task.arn
-  desired_count   = 1
+  name                = "${var.project_name}-prod-redis-service"
+  cluster             = var.ecs_cluster_id
+  task_definition     = "groble-prod-redis-task:38"  # 현재 revision 고정
+  desired_count       = 1
+  wait_for_steady_state = false
   
   launch_type = "EC2"
 
@@ -63,6 +64,14 @@ resource "aws_ecs_service" "redis_service" {
 
   deployment_minimum_healthy_percent = 0
   deployment_maximum_percent         = 100
+
+  # 변경 방지를 위한 lifecycle 규칙
+  lifecycle {
+    ignore_changes = [
+      task_definition,
+      desired_count
+    ]
+  }
 
   tags = {
     Name        = "${var.project_name}-prod-redis-service"

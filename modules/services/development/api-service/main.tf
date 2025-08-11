@@ -119,7 +119,7 @@ resource "aws_ecs_service" "api_service" {
   
   launch_type = "EC2"
 
-  # CodeDeploy Blue/Green 배포 컸트롤러
+  # CodeDeploy Blue/Green 배포 컨트롤러
   deployment_controller {
     type = "CODE_DEPLOY"
   }
