@@ -12,12 +12,17 @@ groble-infra/
 │
 ├── environments/               # 🌍 환경별 설정
 │   ├── README.md              
-│   ├── dev/                   # 개발 환경
+│   ├── shared/                # 공유 환경 (인프라 기반 + 플랫폼)
+│   │   ├── main.tf           # 공유 리소스 메인 설정
+│   │   ├── terraform.tfvars  # 공유 환경 변수 값
+│   │   ├── variables.tf      # 공유 환경 변수 정의
+│   │   └── versions.tf       # Terraform & Provider 버전
+│   ├── dev/                   # 개발 환경 (서비스 계층)
 │   │   ├── main.tf           # 개발 환경 메인 설정
 │   │   ├── terraform.tfvars  # 개발 환경 변수 값
 │   │   ├── variables.tf      # 개발 환경 변수 정의
 │   │   └── versions.tf       # Terraform & Provider 버전
-│   └── prod/                  # 프로덕션 환경
+│   └── prod/                  # 프로덕션 환경 (서비스 계층)
 │       ├── main.tf           # 프로덕션 환경 메인 설정
 │       ├── terraform.tfvars  # 프로덕션 환경 변수 값
 │       ├── variables.tf      # 프로덕션 환경 변수 정의
@@ -64,25 +69,26 @@ groble-infra/
 ## 🏛️ 아키텍처 개요
 
 ### 3계층 아키텍처
-1. **Infrastructure Layer** (인프라 기반)
+1. **Infrastructure Layer** (인프라 기반) - `environments/shared`
    - VPC, 서브넷, 보안 그룹
    - Application Load Balancer
    - IAM 역할 및 정책
    - Route53 DNS
 
-2. **Platform Layer** (플랫폼 계층)
+2. **Platform Layer** (플랫폼 계층) - `environments/shared`
    - ECS 클러스터 관리
    - ECR 컨테이너 레지스트리
    - CodeDeploy Blue/Green 배포
 
-3. **Service Layer** (서비스 계층)
+3. **Service Layer** (서비스 계층) - `environments/dev`, `environments/prod`
    - Spring Boot API 서비스
    - MySQL 데이터베이스 서비스
    - Redis 캐시 서비스
 
 ### 환경별 분리
-- **Development**: 개발 및 테스트용 환경
-- **Production**: 실제 운영 환경
+- **Shared**: 공통 인프라 리소스 (VPC, ALB, ECS 클러스터, Route53 등)
+- **Development**: 개발 및 테스트용 서비스
+- **Production**: 실제 운영 서비스
 
 ## 🚀 빠른 시작
 
@@ -96,7 +102,22 @@ groble-infra/
 aws configure --profile groble-terraform
 ```
 
-### 개발 환경 배포
+### 1단계: 공유 인프라 배포
+```bash
+# 공유 환경 폴더로 이동
+cd environments/shared
+
+# Terraform 초기화
+terraform init
+
+# 배포 계획 확인
+terraform plan
+
+# 배포 실행
+terraform apply
+```
+
+### 2단계: 개발 환경 배포
 ```bash
 # 개발 환경 폴더로 이동
 cd environments/dev
@@ -111,7 +132,7 @@ terraform plan
 terraform apply
 ```
 
-### 프로덕션 환경 배포
+### 3단계: 프로덕션 환경 배포
 ```bash
 # 프로덕션 환경 폴더로 이동
 cd environments/prod
@@ -125,6 +146,8 @@ terraform plan
 # 배포 실행
 terraform apply
 ```
+
+> **중요**: 반드시 위 순서대로 배포해야 합니다. 공유 인프라가 먼저 생성되어야 개별 환경 서비스가 정상 작동합니다.
 
 ## 🌐 네트워크 구성
 
@@ -258,11 +281,13 @@ vpc_cidr = "10.0.0.0/16"
 - [ ] CloudWatch 로그 정리 (Retention Policy 자동)
 - [ ] 보안 그룹 규칙 검토
 - [ ] SSL 인증서 갱신 확인
+- [ ] 공유 리소스 비용 모니터링 및 최적화
 
 ### 백업 및 복구
-- [ ] Terraform 상태 파일 백업
+- [ ] Terraform 상태 파일 백업 (공유/개발/프로덕션 별도)
 - [ ] 데이터베이스 스냅샷 (수동)
 - [ ] 설정 파일 버전 관리
+- [ ] 공유 인프라 복구 절차 문서화
 
 ## 🚨 트러블슈팅
 
@@ -279,6 +304,10 @@ vpc_cidr = "10.0.0.0/16"
 4. **포트 접근 문제**
    - 보안 그룹 규칙 확인
    - 타겟 그룹 헬스 체크 상태 확인
+
+5. **공유 리소스 의존성 오류**
+   - `environments/shared` 먼저 배포 여부 확인
+   - 공유 리소스의 output 값들이 올바르게 설정되어 있는지 확인
 
 ### 로그 확인
 ```bash
@@ -298,9 +327,10 @@ aws cloudwatch list-metrics --namespace "AWS/ECS"
 
 ## 📈 향후 계획
 
-- [ ] **원격 상태 관리**: S3 + DynamoDB 백엔드 설정
+- [ ] **원격 상태 관리**: S3 + DynamoDB 백엔드 설정 (공유/개발/프로덕션 환경별)
 - [ ] **CI/CD 파이프라인**: GitHub Actions 통합
 - [ ] **모니터링 강화**: Grafana 대시보드 추가
 - [ ] **보안 강화**: AWS Config 규칙 적용
 - [ ] **비용 최적화**: Spot 인스턴스 활용
 - [ ] **멀티 리전**: 재해 복구 환경 구축
+- [ ] **공유 리소스 최적화**: 환경별 카나리아 배포 및 로드 밸런싱 개선
