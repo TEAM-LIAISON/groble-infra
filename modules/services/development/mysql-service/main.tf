@@ -98,6 +98,14 @@ resource "aws_ecs_service" "mysql_service" {
   deployment_minimum_healthy_percent = 0
   deployment_maximum_percent         = 100
 
+  # 변경 방지를 위한 lifecycle 규칙
+  lifecycle {
+    ignore_changes = [
+      task_definition,
+      desired_count
+    ]
+  }
+
   tags = {
     Name        = "${var.project_name}-dev-mysql-service"
     Environment = "development"

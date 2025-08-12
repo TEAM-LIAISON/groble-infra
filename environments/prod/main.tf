@@ -41,10 +41,29 @@ data "aws_subnets" "shared_public_subnets" {
   }
 }
 
-data "aws_security_groups" "shared_security_groups" {
+data "aws_subnet" "prod_api_subnet" {
   filter {
     name   = "vpc-id"
     values = [data.aws_vpc.shared_vpc.id]
+  }
+  filter {
+    name   = "availability-zone"
+    values = ["ap-northeast-2a"]
+  }
+  filter {
+    name   = "tag:Type"
+    values = ["Public"]
+  }
+}
+
+data "aws_security_group" "shared_api_task_sg" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.shared_vpc.id]
+  }
+  filter {
+    name   = "tag:Name"
+    values = ["groble-api-task-sg"]  # 실제 API 전용 보안그룹 태그명에 맞게 수정
   }
 }
 
@@ -64,9 +83,44 @@ data "aws_lb" "shared_load_balancer" {
   name = "groble-load-balancer"
 }
 
+data "aws_lb_target_group" "shared_prod_blue_tg" {
+  name = "groble-prod-blue-tg-v2"
+}
+
+data "aws_lb_target_group" "shared_prod_green_tg" {
+  name = "groble-prod-green-tg-v2"
+}
+
 #################################
 # PROD 전용 리소스
 #################################
+
+# PROD ECR 리포지토리
+module "ecr" {
+  source = "../../modules/platform/ecr"
+  
+  project_name            = var.project_name
+  create_prod_repository  = true  
+  create_dev_repository   = false  # PROD 환경에서는 dev repository 생성 안함
+  
+  # ECR 설정
+  image_tag_mutability    = "MUTABLE"
+  enable_image_scanning   = true
+  encryption_type         = "AES256"
+  
+  # Lifecycle 정책
+  prod_max_image_count    = var.prod_max_image_count  # 존재하는지 확인
+  dev_max_image_count     = 10  # 사용하지 않지만 기본값
+  prod_tag_prefixes       = ["v", "release", "prod"]
+  dev_tag_prefixes        = ["v", "dev", "feature", "main"]
+  untagged_image_expiry_days = 1
+  
+  # IAM 권한
+  allowed_principals = [
+    data.aws_iam_role.shared_ecs_task_execution_role.arn,
+    data.aws_iam_role.shared_ecs_task_role.arn
+  ]
+}
 
 #################################
 # PROD Service Layer
@@ -133,8 +187,8 @@ module "api_service" {
   proxy_host = "10.0.1.200"  # TODO: data source로 monitoring instance IP 참조
   
   # Network 설정
-  subnet_ids         = ["subnet-019b5f63cabd29f4d"]  # prod 인스턴스 Public 서브넷
-  security_group_ids = ["sg-027503b0b8e91489f"]       # 현재 사용 중인 보안 그룹
+  subnet_ids         = [data.aws_subnet.prod_api_subnet.id]  # prod 인스턴스 Public 서브넷
+  security_group_ids = [data.aws_security_group.shared_api_task_sg.id]       # 현재 사용 중인 보안 그룹
   
   # Load Balancer 설정 - 현재 활성 target group 사용 (CodeDeploy 관리)
   target_group_arn = "arn:aws:elasticloadbalancing:ap-northeast-2:538827147369:targetgroup/groble-prod-green-tg-v2/9397bc43a431afe3"

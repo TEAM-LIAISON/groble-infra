@@ -52,7 +52,6 @@ resource "aws_ecs_service" "redis_service" {
   cluster             = var.ecs_cluster_id
   task_definition     = "groble-prod-redis-task:38"  # 현재 revision 고정
   desired_count       = 1
-  wait_for_steady_state = false
   
   launch_type = "EC2"
 

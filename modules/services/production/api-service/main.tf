@@ -114,9 +114,8 @@ resource "aws_ecs_task_definition" "api_task" {
 resource "aws_ecs_service" "api_service" {
   name                = "${var.project_name}-prod-service"
   cluster             = var.ecs_cluster_id
-  task_definition     = "groble-prod-task:182"  # 현재 revision 고정
+  task_definition     = aws_ecs_task_definition.api_task.arn
   desired_count       = var.desired_count
-  wait_for_steady_state = false
   
   launch_type = "EC2"
 

@@ -76,20 +76,6 @@ variable "prod_instance_count" {
   default     = 1
 }
 
-variable "prod_instance_type" {
-  description = "Production EC2 instance type"
-  type        = string
-  default     = "t3.small"
-  
-  validation {
-    condition = contains([
-      "t3.micro", "t3.small", "t3.medium", "t3.large",
-      "t3.xlarge", "t3.2xlarge", "t2.micro"
-    ], var.prod_instance_type)
-    error_message = "Instance type must be a valid t3 instance type."
-  }
-}
-
 variable "monitoring_instance_type" {
   description = "Monitoring EC2 instance type"
   type        = string
@@ -100,6 +86,20 @@ variable "monitoring_instance_type" {
       "t3.micro", "t3.small", "t3.medium", "t3.large",
       "t3.xlarge", "t3.2xlarge", "t2.micro"
     ], var.monitoring_instance_type)
+    error_message = "Instance type must be a valid t3 instance type."
+  }
+}
+
+variable "prod_instance_type" {
+  description = "Production EC2 instance type"
+  type        = string
+  default     = "t3.small"
+  
+  validation {
+    condition = contains([
+      "t3.micro", "t3.small", "t3.medium", "t3.large",
+      "t3.xlarge", "t3.2xlarge", "t2.micro"
+    ], var.prod_instance_type)
     error_message = "Instance type must be a valid t3 instance type."
   }
 }

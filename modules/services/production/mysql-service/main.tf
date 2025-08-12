@@ -80,9 +80,8 @@ resource "aws_ecs_task_definition" "mysql_task" {
 resource "aws_ecs_service" "mysql_service" {
   name                = "${var.project_name}-prod-mysql-service"
   cluster             = var.ecs_cluster_id
-  task_definition     = "groble-prod-mysql-task:42"  # 현재 revision 고정
+  task_definition     = aws_ecs_task_definition.mysql_task.arn
   desired_count       = 1
-  wait_for_steady_state = false
   
   launch_type = "EC2"
 
