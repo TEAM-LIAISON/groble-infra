@@ -63,7 +63,30 @@ data "aws_security_group" "shared_api_task_sg" {
   }
   filter {
     name   = "tag:Name"
-    values = ["groble-api-task-sg"]  # 실제 API 전용 보안그룹 태그명에 맞게 수정
+    values = ["groble-api-task-sg"]
+  }
+}
+
+# Shared 환경의 EC2 인스턴스들 참조
+data "aws_instance" "shared_prod_instance" {
+  filter {
+    name   = "tag:Name"
+    values = ["groble-prod-instance-1"]  # shared 환경의 prod 인스턴스 태그명
+  }
+  filter {
+    name   = "instance-state-name"
+    values = ["running"]
+  }
+}
+
+data "aws_instance" "shared_monitoring_instance" {
+  filter {
+    name   = "tag:Name"
+    values = ["groble-monitoring-instance"]  # shared 환경의 monitoring 인스턴스 태그명
+  }
+  filter {
+    name   = "instance-state-name"
+    values = ["running"]
   }
 }
 
@@ -109,7 +132,7 @@ module "ecr" {
   encryption_type         = "AES256"
   
   # Lifecycle 정책
-  prod_max_image_count    = var.prod_max_image_count  # 존재하는지 확인
+  prod_max_image_count    = var.prod_max_image_count
   dev_max_image_count     = 10  # 사용하지 않지만 기본값
   prod_tag_prefixes       = ["v", "release", "prod"]
   dev_tag_prefixes        = ["v", "dev", "feature", "main"]
@@ -175,23 +198,23 @@ module "api_service" {
   spring_profiles = var.spring_profiles
   server_env     = var.server_env
   
-  # Database 설정 (shared 환경의 PROD 인스턴스 IP 참조)
-  db_host             = "10.0.1.150"  # TODO: data source로 prod instance IP 참조
+  # Database 설정 - data source로 참조
+  db_host             = data.aws_instance.shared_prod_instance.private_ip
   mysql_database      = var.mysql_database
   mysql_root_password = var.mysql_root_password
   
-  # Redis 설정 (shared 환경의 PROD 인스턴스 IP 참조)
-  redis_host = "10.0.1.150"  # TODO: data source로 prod instance IP 참조
+  # Redis 설정 - data source로 참조
+  redis_host = data.aws_instance.shared_prod_instance.private_ip
   
-  # Proxy 설정 (shared 환경의 monitoring 인스턴스 IP 참조)
-  proxy_host = "10.0.1.200"  # TODO: data source로 monitoring instance IP 참조
+  # Proxy 설정 - data source로 참조
+  proxy_host = data.aws_instance.shared_monitoring_instance.private_ip
   
   # Network 설정
   subnet_ids         = [data.aws_subnet.prod_api_subnet.id]  # prod 인스턴스 Public 서브넷
   security_group_ids = [data.aws_security_group.shared_api_task_sg.id]       # 현재 사용 중인 보안 그룹
   
-  # Load Balancer 설정 - 현재 활성 target group 사용 (CodeDeploy 관리)
-  target_group_arn = "arn:aws:elasticloadbalancing:ap-northeast-2:538827147369:targetgroup/groble-prod-green-tg-v2/9397bc43a431afe3"
+  # Load Balancer 설정
+  target_group_arn = data.aws_lb_target_group.shared_prod_green_tg.arn
   
   depends_on = [
     module.mysql_service,
@@ -203,15 +226,15 @@ module "api_service" {
 # 출력값 정의
 #################################
 
-# ECR outputs - 루트 리소스 직접 참조
+# ECR outputs
 output "ecr_repository_url" {
   description = "ECR repository URL for prod images"
-  value       = "538827147369.dkr.ecr.ap-northeast-2.amazonaws.com/groble-prod-spring-api"
+  value       = module.ecr.prod_repository_url
 }
 
 output "ecr_repository_arn" {
   description = "ECR repository ARN for prod images"
-  value       = "arn:aws:ecr:ap-northeast-2:538827147369:repository/groble-prod-spring-api"
+  value       = module.ecr.prod_repository_arn
 }
 
 # API Service outputs

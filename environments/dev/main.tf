@@ -67,6 +67,28 @@ data "aws_security_group" "api_task_sg" {
   }
 }
 
+data "aws_instance" "shared_dev_instance" {
+  filter {
+    name   = "tag:Name"
+    values = ["groble-develop-instance"]  # shared 환경의 dev 인스턴스 태그명
+  }
+  filter {
+    name   = "instance-state-name"
+    values = ["running"]
+  }
+}
+
+data "aws_instance" "shared_monitoring_instance" {
+  filter {
+    name   = "tag:Name"
+    values = ["groble-monitoring-instance"]  # shared 환경의 monitoring 인스턴스 태그명
+  }
+  filter {
+    name   = "instance-state-name"
+    values = ["running"]
+  }
+}
+
 data "aws_iam_role" "shared_ecs_task_execution_role" {
   name = "groble-ecs-task-execution-role"
 }
@@ -89,28 +111,6 @@ data "aws_lb_target_group" "shared_dev_blue_tg" {
 
 data "aws_lb_target_group" "shared_dev_green_tg" {
   name = "groble-dev-green-tg-v2"
-}
-
-data "aws_instance" "shared_dev_instance" {
-  filter {
-    name   = "tag:Name"
-    values = ["groble-develop-instance"]  # shared 환경의 dev 인스턴스 태그명
-  }
-  filter {
-    name   = "instance-state-name"
-    values = ["running"]
-  }
-}
-
-data "aws_instance" "shared_monitoring_instance" {
-  filter {
-    name   = "tag:Name"
-    values = ["groble-monitoring-instance"]  # shared 환경의 monitoring 인스턴스 태그명
-  }
-  filter {
-    name   = "instance-state-name"
-    values = ["running"]
-  }
 }
 
 #################################
