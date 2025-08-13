@@ -14,6 +14,7 @@ terraform {
 }
 
 provider "aws" {
+  profile = "groble-terraform"
   region = var.aws_region
 
   default_tags {
