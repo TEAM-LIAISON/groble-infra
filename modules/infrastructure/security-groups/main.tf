@@ -147,22 +147,40 @@ resource "aws_security_group" "groble_monitor_target_group" {
     description     = "Monitoring dashboard from load balancer"
   }
   
-  # Squid 프록시 포트 접근 허용 (VPC 내부에서)
+  # NAT instance - Allow all traffic from private subnets
   ingress {
-    from_port   = 3128
-    to_port     = 3128
+    from_port   = 0
+    to_port     = 65535
     protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
-    description = "Squid proxy access from VPC (HTTP/HTTPS)"
+    cidr_blocks = ["10.0.11.0/24", "10.0.12.0/24"]
+    description = "NAT traffic from private subnets (TCP)"
+  }
+  
+  # NAT instance - Allow all UDP traffic from private subnets
+  ingress {
+    from_port   = 0
+    to_port     = 65535
+    protocol    = "udp"
+    cidr_blocks = ["10.0.11.0/24", "10.0.12.0/24"]
+    description = "NAT traffic from private subnets (UDP)"
   }
 
-  # Squid 프록시 포트 접근 허용 (VPC 내부에서)
+  # NAT instance - Allow ICMP from private subnets
   ingress {
-    from_port   = 5587
-    to_port     = 5587
+    from_port   = -1
+    to_port     = -1
+    protocol    = "icmp"
+    cidr_blocks = ["10.0.11.0/24", "10.0.12.0/24"]
+    description = "ICMP from private subnets"
+  }
+
+  # SSH access from private subnets (bastion host functionality)
+  ingress {
+    from_port   = 22
+    to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
-    description = "Squid proxy access from VPC (SMTP)"
+    cidr_blocks = ["10.0.11.0/24", "10.0.12.0/24"]
+    description = "SSH access from private subnets"
   }
   
   # 모든 아웃바운드 트래픽 허용

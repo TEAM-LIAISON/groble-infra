@@ -56,9 +56,9 @@ resource "aws_instance" "prod_instance" {
   instance_type          = var.prod_instance_type
   key_name              = var.key_pair_name != "" ? var.key_pair_name : null
   vpc_security_group_ids = [var.prod_security_group_id]
-  subnet_id             = var.public_subnet_ids[count.index % length(var.public_subnet_ids)]
+  subnet_id             = var.private_subnet_ids[count.index % length(var.private_subnet_ids)]
   iam_instance_profile  = var.ecs_instance_profile_name
-  associate_public_ip_address = true
+  associate_public_ip_address = false
 
   user_data = base64encode(templatefile("${path.module}/user_data/prod_user_data.sh", {
     cluster_name = aws_ecs_cluster.cluster.name
@@ -84,6 +84,7 @@ resource "aws_instance" "monitoring_instance" {
   subnet_id             = var.public_subnet_ids[0]  # ap-northeast-2a 유지 (기존 subnet-019b5f63cabd29f4d)
   iam_instance_profile  = var.ecs_instance_profile_name
   associate_public_ip_address = true
+  source_dest_check     = false  # Disable for NAT functionality
 
   user_data = base64encode(templatefile("${path.module}/user_data/monitoring_user_data.sh", {
     cluster_name = aws_ecs_cluster.cluster.name
@@ -106,9 +107,9 @@ resource "aws_instance" "dev_instance" {
   instance_type          = var.dev_instance_type
   key_name              = var.key_pair_name != "" ? var.key_pair_name : null
   vpc_security_group_ids = [var.dev_security_group_id]
-  subnet_id             = var.public_subnet_ids[1]  # ap-northeast-2c 유지 (기존 subnet-089b27f99fdaee7eb)
+  subnet_id             = var.private_subnet_ids[1]  # ap-northeast-2c private subnet
   iam_instance_profile  = var.ecs_instance_profile_name
-  associate_public_ip_address = true
+  associate_public_ip_address = false
 
   user_data = base64encode(templatefile("${path.module}/user_data/dev_user_data.sh", {
     cluster_name = aws_ecs_cluster.cluster.name
@@ -129,4 +130,18 @@ resource "aws_lb_target_group_attachment" "monitoring_attachment" {
   target_group_arn = var.monitoring_target_group_arn
   target_id        = aws_instance.monitoring_instance[0].id
   port             = 3000
+}
+
+#################################
+# NAT 인스턴스 라우트 설정
+#################################
+
+# Private route table에 NAT instance route 추가
+resource "aws_route" "private_nat_route" {
+  count                  = var.create_monitoring_instance ? 1 : 0
+  route_table_id         = var.private_route_table_id
+  destination_cidr_block = "0.0.0.0/0"
+  network_interface_id   = aws_instance.monitoring_instance[0].primary_network_interface_id
+  
+  depends_on = [aws_instance.monitoring_instance]
 }

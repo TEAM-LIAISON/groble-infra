@@ -6,20 +6,20 @@ variable "project_name" {
 variable "enable_container_insights" {
   description = "Enable CloudWatch Container Insights"
   type        = bool
-  default     = true
+  default     = false
 }
 
 # CloudWatch Logs 관련 변수
 variable "create_prod_logs" {
   description = "Create production log group"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "create_dev_logs" {
   description = "Create development log group"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "prod_log_retention_days" {
@@ -95,6 +95,11 @@ variable "public_subnet_ids" {
   type        = list(string)
 }
 
+variable "private_subnet_ids" {
+  description = "List of private subnet IDs"
+  type        = list(string)
+}
+
 # Security Groups
 variable "prod_security_group_id" {
   description = "Production security group ID"
@@ -120,6 +125,13 @@ variable "ecs_instance_profile_name" {
 # Load Balancer
 variable "monitoring_target_group_arn" {
   description = "Monitoring target group ARN"
+  type        = string
+  default     = ""
+}
+
+# Route Tables
+variable "private_route_table_id" {
+  description = "Private route table ID for NAT instance route"
   type        = string
   default     = ""
 }

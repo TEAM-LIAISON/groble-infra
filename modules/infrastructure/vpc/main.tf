@@ -107,3 +107,23 @@ resource "aws_route_table_association" "groble_public_rta" {
   subnet_id      = aws_subnet.groble_vpc_public[count.index].id
   route_table_id = aws_route_table.groble_public_rt.id
 }
+
+#################################
+# 라우팅 테이블 - 프라이빗 (NAT 인스턴스 사용)
+#################################
+resource "aws_route_table" "groble_private_rt" {
+  vpc_id = aws_vpc.groble_vpc.id
+
+  # NAT instance route will be added dynamically via separate route resource
+  tags = {
+    Name = "${var.project_name}-private-route-table"
+  }
+}
+
+# 프라이빗 서브넷과 라우팅 테이블 연결
+resource "aws_route_table_association" "groble_private_rta" {
+  count = length(aws_subnet.groble_vpc_private)
+
+  subnet_id      = aws_subnet.groble_vpc_private[count.index].id
+  route_table_id = aws_route_table.groble_private_rt.id
+}

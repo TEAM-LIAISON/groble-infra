@@ -29,6 +29,11 @@ output "public_route_table_id" {
   value       = aws_route_table.groble_public_rt.id
 }
 
+output "private_route_table_id" {
+  description = "ID of the private route table"
+  value       = aws_route_table.groble_private_rt.id
+}
+
 output "ubuntu_ami_id" {
   description = "ID of the latest Ubuntu Noble AMI"
   value       = data.aws_ami.ubuntu_noble.id

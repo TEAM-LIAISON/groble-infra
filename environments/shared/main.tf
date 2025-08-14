@@ -96,6 +96,7 @@ module "ecs_cluster" {
   # VPC 및 네트워크
   ubuntu_ami_id                 = module.vpc.ubuntu_ami_id
   public_subnet_ids             = module.vpc.public_subnet_ids
+  private_subnet_ids            = module.vpc.private_subnet_ids
   
   # Security Groups
   prod_security_group_id        = module.security_groups.prod_target_group_sg_id
@@ -107,6 +108,9 @@ module "ecs_cluster" {
   
   # Load Balancer
   monitoring_target_group_arn   = module.load_balancer.monitoring_target_group_arn
+  
+  # Route Tables
+  private_route_table_id        = module.vpc.private_route_table_id
 }
 
 #################################
