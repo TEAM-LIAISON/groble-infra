@@ -50,9 +50,12 @@ docker run --name ecs-agent \
   amazon/amazon-ecs-agent:latest
 
 # Configure NAT functionality for private subnet internet access
+# Get the primary network interface name
+PRIMARY_INTERFACE=$(ip route | grep default | awk '{print $5}' | head -n1)
+
 # NAT traffic from private subnets to internet
-iptables -t nat -A POSTROUTING -s 10.0.11.0/24 -o eth0 -j MASQUERADE
-iptables -t nat -A POSTROUTING -s 10.0.12.0/24 -o eth0 -j MASQUERADE
+iptables -t nat -A POSTROUTING -s 10.0.11.0/24 -o $PRIMARY_INTERFACE -j MASQUERADE
+iptables -t nat -A POSTROUTING -s 10.0.12.0/24 -o $PRIMARY_INTERFACE -j MASQUERADE
 
 # Forward traffic between private subnets and internet
 iptables -A FORWARD -s 10.0.11.0/24 -j ACCEPT
@@ -64,8 +67,10 @@ iptables -A FORWARD -d 10.0.12.0/24 -m state --state RELATED,ESTABLISHED -j ACCE
 iptables -A INPUT -p tcp --dport 22 -s 10.0.11.0/24 -j ACCEPT
 iptables -A INPUT -p tcp --dport 22 -s 10.0.12.0/24 -j ACCEPT
 
-# Save iptables rules persistently
-apt install -y iptables-persistent
+# Save iptables rules persistently (non-interactive)
+echo iptables-persistent iptables-persistent/autosave_v4 boolean true | debconf-set-selections
+echo iptables-persistent iptables-persistent/autosave_v6 boolean true | debconf-set-selections
+DEBIAN_FRONTEND=noninteractive apt install -y iptables-persistent
 netfilter-persistent save
 
 # Create NAT testing script
