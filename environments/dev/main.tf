@@ -205,15 +205,13 @@ module "dev_api_service" {
   # Redis 설정 (shared 환경의 DEV 인스턴스 IP 참조)
   redis_host = data.aws_instance.shared_dev_instance.private_ip
   
-  # Proxy 설정 (shared 환경의 monitoring 인스턴스 IP 참조)
-  proxy_host = data.aws_instance.shared_monitoring_instance.private_ip
   
   # Network 설정
   subnet_ids         = [data.aws_subnet.dev_api_subnet.id]  # 원래 사용하던 정확한 서브넷
   security_group_ids = [data.aws_security_group.api_task_sg.id]
   
   # Load Balancer 설정
-  target_group_arn = data.aws_lb_target_group.shared_dev_green_tg.arn
+  target_group_arn = data.aws_lb_target_group.shared_dev_blue_tg.arn
   
   depends_on = [
     module.dev_mysql_service,

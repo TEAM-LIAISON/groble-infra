@@ -67,30 +67,6 @@ resource "aws_ecs_task_definition" "api_task" {
           name  = "REDIS_PORT"
           value = "6379"
         },
-        {
-          name  = "HTTP_PROXY"
-          value = "http://${var.proxy_host}:3128"
-        },
-        {
-          name  = "HTTPS_PROXY"
-          value = "http://${var.proxy_host}:3128"
-        },
-        {
-          name  = "NO_PROXY"
-          value = "localhost,127.0.0.1,10.0.0.0/16,groble.internal"
-        },
-        {
-          name  = "JAVA_OPTS"
-          value = "-Dhttp.proxyHost=${var.proxy_host} -Dhttp.proxyPort=3128 -Dhttps.proxyHost=${var.proxy_host} -Dhttps.proxyPort=3128 -Dhttp.nonProxyHosts='localhost|127.0.0.1|10.0.*|*.internal'"
-        },
-        {
-          name  = "HTTP_PROXY_HOST"
-          value = var.proxy_host
-        },
-        {
-          name  = "HTTP_PROXY_PORT"
-          value = "3128"
-        }
       ]
 
       healthCheck = {

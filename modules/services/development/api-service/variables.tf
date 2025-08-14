@@ -82,11 +82,6 @@ variable "redis_host" {
   type        = string
 }
 
-# Proxy 설정
-variable "proxy_host" {
-  description = "Proxy server host"
-  type        = string
-}
 
 # Network 설정
 variable "subnet_ids" {

@@ -206,15 +206,13 @@ module "api_service" {
   # Redis 설정 - data source로 참조
   redis_host = data.aws_instance.shared_prod_instance.private_ip
   
-  # Proxy 설정 - data source로 참조
-  proxy_host = data.aws_instance.shared_monitoring_instance.private_ip
   
   # Network 설정
   subnet_ids         = [data.aws_subnet.prod_api_subnet.id]  # prod 인스턴스 Public 서브넷
   security_group_ids = [data.aws_security_group.shared_api_task_sg.id]       # 현재 사용 중인 보안 그룹
   
   # Load Balancer 설정
-  target_group_arn = data.aws_lb_target_group.shared_prod_green_tg.arn
+  target_group_arn = data.aws_lb_target_group.shared_prod_blue_tg.arn
   
   depends_on = [
     module.mysql_service,
