@@ -52,7 +52,7 @@ data "aws_subnet" "dev_api_subnet" {
   }
   filter {
     name   = "tag:Type"
-    values = ["Public"]
+    values = ["Private"]
   }
 }
 
@@ -207,7 +207,7 @@ module "dev_api_service" {
   
   
   # Network 설정
-  subnet_ids         = [data.aws_subnet.dev_api_subnet.id]  # 원래 사용하던 정확한 서브넷
+  subnet_ids         = [data.aws_subnet.dev_api_subnet.id]  # dev API service Private 서브넷 (NAT instance 경유)
   security_group_ids = [data.aws_security_group.api_task_sg.id]
   
   # Load Balancer 설정

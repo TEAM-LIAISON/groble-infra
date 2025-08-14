@@ -52,7 +52,7 @@ data "aws_subnet" "prod_api_subnet" {
   }
   filter {
     name   = "tag:Type"
-    values = ["Public"]
+    values = ["Private"]
   }
 }
 
@@ -208,7 +208,7 @@ module "api_service" {
   
   
   # Network 설정
-  subnet_ids         = [data.aws_subnet.prod_api_subnet.id]  # prod 인스턴스 Public 서브넷
+  subnet_ids         = [data.aws_subnet.prod_api_subnet.id]  # prod API service Private 서브넷 (NAT instance 경유)
   security_group_ids = [data.aws_security_group.shared_api_task_sg.id]       # 현재 사용 중인 보안 그룹
   
   # Load Balancer 설정
