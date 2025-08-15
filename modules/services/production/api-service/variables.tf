@@ -96,6 +96,7 @@ variable "security_group_ids" {
 
 # Load Balancer 설정
 variable "target_group_arn" {
-  description = "Target group ARN for load balancer"
+  description = "ALB target group ARN for the service"
   type        = string
 }
+

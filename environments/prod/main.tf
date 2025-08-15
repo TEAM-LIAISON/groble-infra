@@ -102,17 +102,15 @@ data "aws_ecs_cluster" "shared_cluster" {
   cluster_name = "groble-cluster"
 }
 
-data "aws_lb" "shared_load_balancer" {
-  name = "groble-load-balancer"
-}
-
+# Shared 환경의 Load Balancer Target Group 참조
 data "aws_lb_target_group" "shared_prod_blue_tg" {
   name = "groble-prod-blue-tg-v2"
 }
 
-data "aws_lb_target_group" "shared_prod_green_tg" {
-  name = "groble-prod-green-tg-v2"
+data "aws_lb" "shared_load_balancer" {
+  name = "groble-load-balancer"
 }
+
 
 #################################
 # PROD 전용 리소스

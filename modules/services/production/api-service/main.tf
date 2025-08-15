@@ -116,16 +116,16 @@ resource "aws_ecs_service" "api_service" {
     assign_public_ip = false
   }
 
-  # Load balancer configuration
+  # Load balancer configuration required for CODE_DEPLOY
   load_balancer {
     target_group_arn = var.target_group_arn
     container_name   = "${var.project_name}-prod-spring-api"
     container_port   = 8080
   }
 
-  # 배포 중단 방지
+  # 배포 중단 방지 - CodeDeploy가 load balancer와 task definition을 관리
   lifecycle {
-    ignore_changes = [task_definition]
+    ignore_changes = [task_definition, load_balancer]
   }
 
   tags = {

@@ -105,13 +105,11 @@ data "aws_lb" "shared_load_balancer" {
   name = "groble-load-balancer"
 }
 
+# Shared 환경의 Load Balancer Target Group 참조
 data "aws_lb_target_group" "shared_dev_blue_tg" {
   name = "groble-dev-blue-tg-v2"
 }
 
-data "aws_lb_target_group" "shared_dev_green_tg" {
-  name = "groble-dev-green-tg-v2"
-}
 
 #################################
 # DEV 전용 리소스
