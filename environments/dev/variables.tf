@@ -297,7 +297,7 @@ variable "api_desired_count" {
 variable "spring_profiles" {
   description = "Spring profiles for the environment"
   type        = string
-  default     = "dev,common,secret-dev,proxy"
+  default     = "dev,common,secret-dev"
   
   validation {
     condition     = length(var.spring_profiles) > 0

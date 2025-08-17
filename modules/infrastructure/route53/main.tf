@@ -36,3 +36,16 @@ resource "aws_route53_record" "api_test_development" {
     evaluate_target_health = true
   }
 }
+
+# 모니터링 도메인 (monitor.groble.im)
+resource "aws_route53_record" "monitoring" {
+  zone_id = data.aws_route53_zone.groble_zone.zone_id
+  name    = "monitor.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = var.load_balancer_dns_name
+    zone_id                = var.load_balancer_zone_id
+    evaluate_target_health = true
+  }
+}
