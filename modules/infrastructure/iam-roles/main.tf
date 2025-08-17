@@ -119,7 +119,7 @@ resource "aws_iam_role" "ecs_task_role" {
 # S3 접근 권한 (애플리케이션에서 S3 사용 시)
 resource "aws_iam_role_policy_attachment" "ecs_task_s3_policy" {
   role       = aws_iam_role.ecs_task_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
 }
 
 # CloudWatch 로그 생성 권한 
