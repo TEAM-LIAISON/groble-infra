@@ -1,3 +1,19 @@
+# Loki Service 출력
+output "loki_service_name" {
+  description = "Name of the Loki ECS service"
+  value       = module.loki.loki_service_name
+}
+
+output "loki_endpoint" {
+  description = "Loki HTTP endpoint for other services"
+  value       = module.loki.loki_endpoint
+}
+
+output "loki_s3_bucket" {
+  description = "S3 bucket used for Loki storage"
+  value       = module.loki.loki_s3_bucket
+}
+
 # Grafana Service 출력
 output "grafana_service_arn" {
   description = "ARN of the Grafana ECS service"

@@ -62,3 +62,46 @@ variable "desired_count" {
   type        = number
   default     = 1
 }
+
+# Loki 관련 변수
+variable "loki_image" {
+  description = "Loki Docker image"
+  type        = string
+  default     = "grafana/loki"
+}
+
+variable "loki_version" {
+  description = "Loki version"
+  type        = string
+  default     = "3.0.0"
+}
+
+variable "loki_log_retention_days" {
+  description = "Log retention period in days"
+  type        = number
+  default     = 30
+}
+
+variable "loki_cpu" {
+  description = "CPU units for Loki task (256 = 0.25 vCPU)"
+  type        = number
+  default     = 256
+}
+
+variable "loki_memory" {
+  description = "Memory for Loki task (MB)"
+  type        = number
+  default     = 512
+}
+
+variable "loki_container_memory" {
+  description = "Hard memory limit for Loki container (MB)"
+  type        = number
+  default     = 512
+}
+
+variable "loki_container_memory_reservation" {
+  description = "Soft memory limit for Loki container (MB)"
+  type        = number
+  default     = 128
+}
