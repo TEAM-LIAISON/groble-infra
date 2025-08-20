@@ -203,7 +203,7 @@ variable "enable_deletion_protection" {
 variable "enable_container_insights" {
   description = "Enable CloudWatch Container Insights for ECS cluster"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "image_tag_mutability" {

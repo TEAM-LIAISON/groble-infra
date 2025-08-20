@@ -18,32 +18,32 @@ resource "aws_ecs_cluster" "cluster" {
 }
 
 #################################
-# CloudWatch 로그 그룹
+# CloudWatch 로그 그룹 (비활성화)
 #################################
 
-# Production 로그 그룹
-resource "aws_cloudwatch_log_group" "prod_logs" {
-  count             = var.create_prod_logs ? 1 : 0
-  name              = "/ecs/${var.project_name}-production"
-  retention_in_days = var.prod_log_retention_days
- 
-  tags = {
-    Name        = "${var.project_name}-prod-logs"
-    Environment = "production"
-  }
-}
+# Production 로그 그룹 (비활성화)
+# resource "aws_cloudwatch_log_group" "prod_logs" {
+#   count             = var.create_prod_logs ? 1 : 0
+#   name              = "/ecs/${var.project_name}-production"
+#   retention_in_days = var.prod_log_retention_days
+#  
+#   tags = {
+#     Name        = "${var.project_name}-prod-logs"
+#     Environment = "production"
+#   }
+# }
 
-# Development 로그 그룹
-resource "aws_cloudwatch_log_group" "dev_logs" {
-  count             = var.create_dev_logs ? 1 : 0
-  name              = "/ecs/${var.project_name}-development"
-  retention_in_days = var.dev_log_retention_days
-
-  tags = {
-    Name        = "${var.project_name}-dev-logs"
-    Environment = "development"
-  }
-}
+# Development 로그 그룹 (비활성화)
+# resource "aws_cloudwatch_log_group" "dev_logs" {
+#   count             = var.create_dev_logs ? 1 : 0
+#   name              = "/ecs/${var.project_name}-development"
+#   retention_in_days = var.dev_log_retention_days
+# 
+#   tags = {
+#     Name        = "${var.project_name}-dev-logs"
+#     Environment = "development"
+#   }
+# }
 
 #################################
 # 프로덕션 EC2 인스턴스

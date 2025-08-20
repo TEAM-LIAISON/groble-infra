@@ -81,11 +81,11 @@ module "ecs_cluster" {
   source = "../../modules/platform/ecs-cluster"
   
   project_name                  = var.project_name
-  enable_container_insights     = true
+  enable_container_insights     = false
   
-  # CloudWatch Logs 설정
-  create_prod_logs              = true
-  create_dev_logs               = true
+  # CloudWatch Logs 설정 (비활성화)
+  create_prod_logs              = false
+  create_dev_logs               = false
   prod_log_retention_days       = 7
   dev_log_retention_days        = 3
   

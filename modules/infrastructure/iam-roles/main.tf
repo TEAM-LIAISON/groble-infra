@@ -36,11 +36,11 @@ resource "aws_iam_role_policy_attachment" "ecs_instance_ecr_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
-# CloudWatch 로그 권한 추가
-resource "aws_iam_role_policy_attachment" "ecs_instance_cloudwatch_policy" {
-  role       = aws_iam_role.ecs_instance_role.name
-  policy_arn = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
-}
+# CloudWatch 로그 권한 추가 (비활성화)
+# resource "aws_iam_role_policy_attachment" "ecs_instance_cloudwatch_policy" {
+#   role       = aws_iam_role.ecs_instance_role.name
+#   policy_arn = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
+# }
 
 # 인스턴스 프로파일 생성 (EC2 인스턴스에 IAM 역할 연결)
 resource "aws_iam_instance_profile" "ecs_instance_profile" {
@@ -122,11 +122,11 @@ resource "aws_iam_role_policy_attachment" "ecs_task_s3_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
 }
 
-# CloudWatch 로그 생성 권한 
-resource "aws_iam_role_policy_attachment" "ecs_task_cloudwatch_policy" {
-  role       = aws_iam_role.ecs_task_role.name
-  policy_arn = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
-}
+# CloudWatch 로그 생성 권한 (비활성화)
+# resource "aws_iam_role_policy_attachment" "ecs_task_cloudwatch_policy" {
+#   role       = aws_iam_role.ecs_task_role.name
+#   policy_arn = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
+# }
 
 #################################
 # CodeDeploy 서비스 역할
@@ -191,7 +191,7 @@ resource "aws_iam_role_policy" "codedeploy_ecs_policy" {
           "elasticloadbalancing:DescribeRules",
           "elasticloadbalancing:ModifyRule",
           "lambda:InvokeFunction",
-          "cloudwatch:DescribeAlarms",
+          # "cloudwatch:DescribeAlarms",
           "sns:Publish",
           "s3:GetObject",
           "s3:GetObjectVersion"

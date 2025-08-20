@@ -13,16 +13,16 @@ output "cluster_arn" {
   value       = aws_ecs_cluster.cluster.arn
 }
 
-# CloudWatch Log Groups
-output "prod_log_group_name" {
-  description = "Production log group name"
-  value       = var.create_prod_logs ? aws_cloudwatch_log_group.prod_logs[0].name : null
-}
+# CloudWatch Log Groups (비활성화)
+# output "prod_log_group_name" {
+#   description = "Production log group name"
+#   value       = var.create_prod_logs ? aws_cloudwatch_log_group.prod_logs[0].name : null
+# }
 
-output "dev_log_group_name" {
-  description = "Development log group name"
-  value       = var.create_dev_logs ? aws_cloudwatch_log_group.dev_logs[0].name : null
-}
+# output "dev_log_group_name" {
+#   description = "Development log group name"
+#   value       = var.create_dev_logs ? aws_cloudwatch_log_group.dev_logs[0].name : null
+# }
 
 # Instance IDs
 output "prod_instance_ids" {
