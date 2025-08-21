@@ -44,7 +44,7 @@ variable "aws_region" {
 variable "log_retention_days" {
   description = "Log retention period in days"
   type        = number
-  default     = 30
+  default     = 14
 }
 
 # 리소스 설정 (최적화된 리소스 사용)
@@ -57,19 +57,19 @@ variable "cpu" {
 variable "memory" {
   description = "Memory for the task (MB)"
   type        = number
-  default     = 256
+  default     = 512
 }
 
 variable "container_memory" {
   description = "Hard memory limit for container (MB)"
   type        = number
-  default     = 256
+  default     = 512
 }
 
 variable "container_memory_reservation" {
   description = "Soft memory limit for container (MB)"
   type        = number
-  default     = 128
+  default     = 256
 }
 
 variable "desired_count" {

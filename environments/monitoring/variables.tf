@@ -103,5 +103,5 @@ variable "loki_container_memory" {
 variable "loki_container_memory_reservation" {
   description = "Soft memory limit for Loki container (MB)"
   type        = number
-  default     = 128
+  default     = 256
 }
