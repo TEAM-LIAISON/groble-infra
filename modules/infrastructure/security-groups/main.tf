@@ -183,6 +183,33 @@ resource "aws_security_group" "groble_monitor_target_group" {
     description = "SSH access from private subnets"
   }
   
+  # OpenTelemetry Collector OTLP gRPC
+  ingress {
+    from_port   = 4317
+    to_port     = 4317
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+    description = "OTLP gRPC receiver for telemetry"
+  }
+  
+  # OpenTelemetry Collector OTLP HTTP
+  ingress {
+    from_port   = 4318
+    to_port     = 4318
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+    description = "OTLP HTTP receiver for telemetry"
+  }
+  
+  # OpenTelemetry Collector Health Check
+  ingress {
+    from_port   = 13133
+    to_port     = 13133
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+    description = "Health check endpoint for OpenTelemetry Collector"
+  }
+  
   # 모든 아웃바운드 트래픽 허용
   egress {
     from_port   = 0
