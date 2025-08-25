@@ -210,6 +210,15 @@ resource "aws_security_group" "groble_monitor_target_group" {
     description = "Health check endpoint for OpenTelemetry Collector"
   }
   
+  # OpenTelemetry Collector Prometheus Metrics
+  ingress {
+    from_port   = 8888
+    to_port     = 8888
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+    description = "Prometheus metrics endpoint for OpenTelemetry Collector"
+  }
+  
   # 모든 아웃바운드 트래픽 허용
   egress {
     from_port   = 0
