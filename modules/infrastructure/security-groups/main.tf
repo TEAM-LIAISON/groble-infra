@@ -210,13 +210,40 @@ resource "aws_security_group" "groble_monitor_target_group" {
     description = "Health check endpoint for OpenTelemetry Collector"
   }
   
-  # OpenTelemetry Collector Prometheus Metrics
+  # OpenTelemetry Collector Prometheus Metrics (Internal)
   ingress {
     from_port   = 8888
     to_port     = 8888
     protocol    = "tcp"
     cidr_blocks = [var.vpc_cidr]
-    description = "Prometheus metrics endpoint for OpenTelemetry Collector"
+    description = "Prometheus metrics endpoint for OpenTelemetry Collector (internal)"
+  }
+  
+  # OpenTelemetry Collector Exported Metrics (from Applications)
+  ingress {
+    from_port   = 8889
+    to_port     = 8889
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+    description = "Prometheus metrics endpoint for application metrics (exported)"
+  }
+  
+  # Loki HTTP API
+  ingress {
+    from_port   = 3100
+    to_port     = 3100
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+    description = "Loki HTTP API for log ingestion and queries"
+  }
+  
+  # Prometheus HTTP API
+  ingress {
+    from_port   = 9090
+    to_port     = 9090
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+    description = "Prometheus HTTP API for metrics queries"
   }
   
   # 모든 아웃바운드 트래픽 허용
