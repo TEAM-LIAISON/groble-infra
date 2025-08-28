@@ -1,0 +1,143 @@
+# OpenTelemetry Collector Configuration
+# Enhanced for both logs and metrics collection with Prometheus integration
+
+receivers:
+  # OTLP receivers for Spring applications
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - "http://*"
+            - "https://*"
+
+processors:
+  # Memory limiter - MUST be first processor
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 200  # 80% of 256MB container memory
+    spike_limit_mib: 50
+
+  # Batch processor for performance optimization
+  batch:
+    timeout: 2s
+    send_batch_size: 512
+    send_batch_max_size: 1024
+
+  # Metrics-specific batch processor
+  batch/metrics:
+    timeout: 10s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  # Resource processor to enhance metadata
+  resource:
+    attributes:
+      - key: collector.name
+        value: "otelcol-monitoring"
+        action: insert
+      - key: collector.version
+        value: "${collector_version}"
+        action: insert
+      - key: environment
+        from_attribute: "deployment.environment"
+        action: upsert
+      - key: region
+        value: "${aws_region}"
+        action: insert
+
+  # Attributes processor for log labeling
+  attributes/logs:
+    actions:
+      # Ensure required labels exist for logs
+      - key: service.name
+        action: upsert
+        from_attribute: service.name
+      - key: level
+        action: upsert
+        from_attribute: level
+      - key: environment
+        action: upsert
+        from_attribute: deployment.environment
+
+  # Metrics processor for metric labeling
+  attributes/metrics:
+    actions:
+      # Ensure required labels exist for metrics
+      - key: service.name
+        action: upsert
+        from_attribute: service.name
+      - key: environment
+        action: upsert
+        from_attribute: deployment.environment
+      - key: instance
+        action: upsert
+        from_attribute: service.instance.id
+
+exporters:
+  # OTLP HTTP exporter to send logs to Loki via OTLP
+  otlphttp/loki:
+    endpoint: "http://localhost:3100/otlp"
+    headers:
+      "Content-Type": "application/x-protobuf"
+
+  # Prometheus exporter - sends metrics to Prometheus
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: "otelcol"
+    const_labels:
+      collector: "otelcol-monitoring"
+      region: "${aws_region}"
+    send_timestamps: false
+    metric_expiration: 180m
+    enable_open_metrics: true
+
+  # Debug logging exporter (enabled for testing)
+  debug:
+    verbosity: basic
+
+  # Debug metrics exporter (for testing metrics pipeline)
+  debug/metrics:
+    verbosity: basic
+
+extensions:
+  # Health check extension
+  health_check:
+    endpoint: 0.0.0.0:13133
+    path: "/"
+
+  # Prometheus metrics endpoint (collector's own metrics)
+  pprof:
+    endpoint: 0.0.0.0:1777
+
+  # Z-pages for debugging (optional)
+  # zpages:
+  #   endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [health_check, pprof]
+  
+  pipelines:
+    # Logs pipeline - primary focus
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource, attributes/logs]
+      exporters: [otlphttp/loki, debug]
+
+    # Metrics pipeline - NEW: handles application metrics
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch/metrics, resource, attributes/metrics]
+      exporters: [prometheus, debug/metrics]
+
+  # Internal telemetry configuration
+  telemetry:
+    logs:
+      level: "info"
+      development: false
+      encoding: "json"
+    metrics:
+      level: detailed
