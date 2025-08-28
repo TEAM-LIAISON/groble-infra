@@ -77,12 +77,12 @@ module "grafana" {
   grafana_plugins       = var.grafana_plugins
   admin_password        = var.grafana_admin_password
   
-  # 낮은 리소스 설정
-  cpu                         = var.cpu
-  memory                      = var.memory
-  container_memory           = var.container_memory
-  container_memory_reservation = var.container_memory_reservation
-  desired_count              = var.desired_count
+  # Grafana 리소스 설정
+  cpu                         = var.grafana_cpu
+  memory                      = var.grafana_memory
+  container_memory           = var.grafana_container_memory
+  container_memory_reservation = var.grafana_container_memory_reservation
+  desired_count              = var.grafana_desired_count
   
   aws_region            = var.aws_region
 

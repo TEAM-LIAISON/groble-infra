@@ -1,0 +1,100 @@
+# Prometheus Configuration for Groble Monitoring Stack
+# Simplified for host networking with localhost communication
+global:
+  scrape_interval: ${scrape_interval}
+  evaluation_interval: ${evaluation_interval}
+  external_labels:
+    region: '${aws_region}'
+    environment: 'groble'
+    prometheus_replica: 'prometheus-1'
+
+# Alerting configuration (future enhancement)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           - localhost:9093
+
+# Rule files (future enhancement)
+# rule_files:
+#   - "/etc/prometheus/rules/*.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+    metrics_path: /metrics
+    scheme: http
+
+  # OpenTelemetry Collector internal metrics
+  - job_name: 'otelcol-internal'
+    static_configs:
+      - targets: ['localhost:8888']
+    scrape_interval: 15s
+    metrics_path: /metrics
+    scheme: http
+    scrape_timeout: 10s
+
+  # OpenTelemetry Collector exported metrics (from applications)
+  - job_name: 'otelcol-exported'
+    static_configs:
+      - targets: ['localhost:8889']
+    scrape_interval: 15s
+    metrics_path: /metrics
+    scheme: http
+    scrape_timeout: 10s
+    honor_labels: true
+
+  # Loki metrics
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['localhost:3100']
+    scrape_interval: 30s
+    metrics_path: /metrics
+    scheme: http
+
+  # Grafana metrics
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['localhost:3000']
+    scrape_interval: 30s
+    metrics_path: /metrics
+    scheme: http
+
+  # Spring Boot Applications (via Service Discovery - future enhancement)
+  # - job_name: 'spring-apps'
+  #   ec2_sd_configs:
+  #     - region: ${aws_region}
+  #       port: 8080
+  #       filters:
+  #         - name: tag:Environment
+  #           values: ['production', 'development']
+  #         - name: tag:Application
+  #           values: ['groble-api']
+  #   relabel_configs:
+  #     - source_labels: [__meta_ec2_tag_Name]
+  #       target_label: instance_name
+  #     - source_labels: [__meta_ec2_tag_Environment]
+  #       target_label: environment
+  #     - source_labels: [__meta_ec2_private_ip]
+  #       target_label: __address__
+  #       replacement: ${1}:8080
+  #   scrape_interval: 15s
+  #   metrics_path: /actuator/prometheus
+  #   scheme: http
+
+# Remote storage configuration (future enhancement for long-term storage)
+# remote_write:
+#   - url: "https://prometheus-remote-write.${aws_region}.amazonaws.com/workspaces/WORKSPACE_ID/api/v1/remote_write"
+#     aws_config:
+#       region: ${aws_region}
+#     queue_config:
+#       capacity: 10000
+#       max_samples_per_send: 5000
+#       batch_send_deadline: 5s
+
+# Storage configuration (local TSDB)
+# This is handled via command line arguments in the container

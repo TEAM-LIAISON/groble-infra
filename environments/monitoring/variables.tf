@@ -33,32 +33,32 @@ variable "grafana_admin_password" {
   sensitive   = true
 }
 
-variable "cpu" {
-  description = "CPU units for the task (250 = 0.25 vCPU)"
+variable "grafana_cpu" {
+  description = "CPU units for the Grafana task (250 = 0.25 vCPU)"
   type        = number
   default     = 250
 }
 
-variable "memory" {
-  description = "Memory for the task (MB)"
+variable "grafana_memory" {
+  description = "Memory for the Grafana task (MB)"
   type        = number
   default     = 256
 }
 
-variable "container_memory" {
-  description = "Hard memory limit for container (MB)"
+variable "grafana_container_memory" {
+  description = "Hard memory limit for Grafana container (MB)"
   type        = number
   default     = 256
 }
 
-variable "container_memory_reservation" {
-  description = "Soft memory limit for container (MB)"
+variable "grafana_container_memory_reservation" {
+  description = "Soft memory limit for Grafana container (MB)"
   type        = number
   default     = 128
 }
 
-variable "desired_count" {
-  description = "Desired number of tasks"
+variable "grafana_desired_count" {
+  description = "Desired number of Grafana tasks"
   type        = number
   default     = 1
 }
@@ -226,5 +226,12 @@ variable "prometheus_log_level" {
   description = "Prometheus log level"
   type        = string
   default     = "info"
+}
+
+# Common service configuration
+variable "desired_count" {
+  description = "Desired number of tasks for services (except Grafana which has its own variable)"
+  type        = number
+  default     = 1
 }
 
