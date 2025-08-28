@@ -34,5 +34,3 @@ output "prometheus_config_content" {
   description = "Prometheus configuration content (via environment variable)"
   value       = "Configuration loaded dynamically via PROMETHEUS_CONFIG_YAML environment variable"
 }
-
-# Service discovery service removed - using host networking

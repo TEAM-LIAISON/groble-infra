@@ -228,7 +228,7 @@ resource "aws_ecs_task_definition" "prometheus" {
 resource "aws_ecs_service" "prometheus" {
   name            = "${var.environment}-prometheus"
   cluster         = var.ecs_cluster_id
-  task_definition = aws_ecs_task_definition.prometheus.arn
+  task_definition = aws_ecs_task_definition.prometheus.family
   desired_count   = var.desired_count
   
   # Deploy only to monitoring EC2 instances

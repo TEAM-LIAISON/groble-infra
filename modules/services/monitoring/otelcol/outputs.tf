@@ -87,5 +87,3 @@ output "deployment_summary" {
     security_group_created = false
   }
 }
-
-# Service discovery service removed - using host networking

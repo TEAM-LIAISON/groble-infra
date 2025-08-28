@@ -24,5 +24,3 @@ output "loki_task_definition_arn" {
   description = "Loki task definition ARN"
   value       = aws_ecs_task_definition.loki.arn
 }
-
-# Service discovery service removed - using host networking

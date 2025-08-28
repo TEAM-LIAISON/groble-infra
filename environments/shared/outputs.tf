@@ -73,13 +73,3 @@ output "monitoring_security_group_id" {
   value       = module.security_groups.monitor_target_group_sg_id
 }
 
-# Service Discovery 출력
-output "service_discovery_namespace_id" {
-  description = "Service Discovery namespace ID"
-  value       = module.service_discovery.namespace_id
-}
-
-output "service_discovery_namespace_name" {
-  description = "Service Discovery namespace name"
-  value       = module.service_discovery.namespace_name
-}

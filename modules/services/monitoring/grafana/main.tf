@@ -54,10 +54,12 @@ resource "aws_ecs_task_definition" "grafana" {
       ]
 
       # 로깅 설정 제거 (CloudWatch 사용 안함)
-      logDriver = "json-file"
-      logOptions = {
-        "max-size" = "10m"
-        "max-file" = "3"
+      logConfiguration = {
+        logDriver = "json-file"
+        options = {
+          "max-size" = "10m"
+          "max-file" = "3"
+        }
       }
 
       essential = true
@@ -88,9 +90,13 @@ resource "aws_ecs_task_definition" "grafana" {
 resource "aws_ecs_service" "grafana" {
   name            = "${var.environment}-grafana"
   cluster         = var.ecs_cluster_id
-  task_definition = aws_ecs_task_definition.grafana.arn
+  task_definition = aws_ecs_task_definition.grafana.family
   desired_count   = var.desired_count
   
+  # Host 모드에서 포트 충돌 방지를 위한 배포 설정
+  deployment_maximum_percent         = 100
+  deployment_minimum_healthy_percent = 0
+
   # 모니터링 EC2에만 배포
   placement_constraints {
     type       = "memberOf"

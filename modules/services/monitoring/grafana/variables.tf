@@ -37,7 +37,7 @@ variable "grafana_image" {
 variable "grafana_version" {
   description = "Grafana version"
   type        = string
-  default     = "latest"
+  default     = "10.2.0"
 }
 
 variable "admin_password" {
