@@ -19,10 +19,7 @@ variable "task_role_arn" {
   type        = string
 }
 
-variable "service_discovery_namespace_id" {
-  description = "Service Discovery Namespace ID"
-  type        = string
-}
+# Service discovery removed - using host networking
 
 variable "loki_image" {
   description = "Loki Docker image"
@@ -57,19 +54,19 @@ variable "cpu" {
 variable "memory" {
   description = "Memory for the task (MB)"
   type        = number
-  default     = 512
+  default     = 256  # reduced from 512
 }
 
 variable "container_memory" {
   description = "Hard memory limit for container (MB)"
   type        = number
-  default     = 512
+  default     = 256  # reduced from 512
 }
 
 variable "container_memory_reservation" {
   description = "Soft memory limit for container (MB)"
   type        = number
-  default     = 256
+  default     = 128  # reduced from 256
 }
 
 variable "desired_count" {

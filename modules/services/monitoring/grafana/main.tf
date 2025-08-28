@@ -1,8 +1,8 @@
-# Task Definition for Bridge Mode (경량화)
+# Task Definition for Host Mode (simplified)
 resource "aws_ecs_task_definition" "grafana" {
   family                = "${var.environment}-grafana"
-  network_mode          = "bridge"  # Bridge Mode 사용
-  requires_compatibilities = ["EC2"]  # EC2 타입 사용
+  network_mode          = "host"  # Host Mode for localhost communication
+  requires_compatibilities = ["EC2"]
   cpu                   = var.cpu
   memory                = var.memory
   execution_role_arn    = var.execution_role_arn
@@ -13,11 +13,10 @@ resource "aws_ecs_task_definition" "grafana" {
       name  = "grafana"
       image = "${var.grafana_image}:${var.grafana_version}"
       
-      # Bridge Mode에서는 hostPort 설정
+      # Host networking - expose port for load balancer
       portMappings = [
         {
           containerPort = 3000
-          hostPort      = 3000  # 고정 포트 할당
           protocol      = "tcp"
         }
       ]

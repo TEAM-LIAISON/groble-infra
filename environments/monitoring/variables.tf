@@ -105,3 +105,126 @@ variable "loki_container_memory_reservation" {
   type        = number
   default     = 256
 }
+
+# OpenTelemetry Collector 관련 변수
+variable "otelcol_image" {
+  description = "OpenTelemetry Collector Docker image"
+  type        = string
+  default     = "otel/opentelemetry-collector-contrib"
+}
+
+variable "otelcol_version" {
+  description = "OpenTelemetry Collector version"
+  type        = string
+  default     = "0.132.0"
+}
+
+variable "otelcol_cpu" {
+  description = "CPU units for OpenTelemetry Collector task (256 = 0.25 vCPU)"
+  type        = number
+  default     = 256
+}
+
+variable "otelcol_memory" {
+  description = "Memory for OpenTelemetry Collector task (MB)"
+  type        = number
+  default     = 256
+}
+
+variable "otelcol_container_memory" {
+  description = "Hard memory limit for OpenTelemetry Collector container (MB)"
+  type        = number
+  default     = 256
+}
+
+variable "otelcol_container_memory_reservation" {
+  description = "Soft memory limit for OpenTelemetry Collector container (MB)"
+  type        = number
+  default     = 128
+}
+
+# Prometheus 관련 변수
+variable "prometheus_image" {
+  description = "Prometheus Docker image"
+  type        = string
+  default     = "prom/prometheus"
+}
+
+variable "prometheus_version" {
+  description = "Prometheus version"
+  type        = string
+  default     = "v2.45.0"
+}
+
+variable "prometheus_domain" {
+  description = "Prometheus domain name"
+  type        = string
+  default     = "prometheus.example.com"
+}
+
+variable "prometheus_target_group_arn" {
+  description = "ALB target group ARN for Prometheus (optional)"
+  type        = string
+  default     = ""
+}
+
+variable "prometheus_cpu" {
+  description = "CPU units for Prometheus task (512 = 0.5 vCPU)"
+  type        = number
+  default     = 512
+}
+
+variable "prometheus_memory" {
+  description = "Memory for Prometheus task (MB)"
+  type        = number
+  default     = 1024
+}
+
+variable "prometheus_container_memory" {
+  description = "Hard memory limit for Prometheus container (MB)"
+  type        = number
+  default     = 1024
+}
+
+variable "prometheus_container_memory_reservation" {
+  description = "Soft memory limit for Prometheus container (MB)"
+  type        = number
+  default     = 768
+}
+
+variable "prometheus_metrics_retention_days" {
+  description = "S3 metrics retention period in days"
+  type        = number
+  default     = 90
+}
+
+variable "prometheus_local_retention_time" {
+  description = "Local TSDB retention time"
+  type        = string
+  default     = "15d"
+}
+
+variable "prometheus_local_retention_size" {
+  description = "Local TSDB retention size"
+  type        = string
+  default     = "10GB"
+}
+
+variable "prometheus_scrape_interval" {
+  description = "Global scrape interval"
+  type        = string
+  default     = "15s"
+}
+
+variable "prometheus_evaluation_interval" {
+  description = "Rule evaluation interval"
+  type        = string
+  default     = "30s"
+}
+
+variable "prometheus_log_level" {
+  description = "Prometheus log level"
+  type        = string
+  default     = "info"
+}
+

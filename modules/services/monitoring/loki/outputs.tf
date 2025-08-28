@@ -3,14 +3,11 @@ output "loki_service_name" {
   value       = aws_ecs_service.loki.name
 }
 
-output "loki_service_discovery_arn" {
-  description = "Loki service discovery ARN"
-  value       = aws_service_discovery_service.loki.arn
-}
+# Service discovery removed - using host networking
 
 output "loki_endpoint" {
   description = "Loki HTTP endpoint for other services"
-  value       = "http://loki.groble.local:3100"
+  value       = "http://localhost:3100"
 }
 
 output "loki_s3_bucket" {
@@ -27,3 +24,5 @@ output "loki_task_definition_arn" {
   description = "Loki task definition ARN"
   value       = aws_ecs_task_definition.loki.arn
 }
+
+# Service discovery service removed - using host networking

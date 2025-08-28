@@ -81,7 +81,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "loki_storage" {
 # Task Definition for Loki (Enhanced IMDSv2 support)
 resource "aws_ecs_task_definition" "loki" {
   family                = "${var.environment}-loki"
-  network_mode          = "bridge"
+  network_mode          = "host"
   requires_compatibilities = ["EC2"]
   cpu                   = var.cpu
   memory                = var.memory
@@ -93,13 +93,7 @@ resource "aws_ecs_task_definition" "loki" {
       name  = "loki"
       image = "${var.loki_image}:${var.loki_version}"
       
-      portMappings = [
-        {
-          containerPort = 3100
-          hostPort      = 3100
-          protocol      = "tcp"
-        }
-      ]
+      # Host networking - no port mappings needed
 
       memory = var.container_memory
       memoryReservation = var.container_memory_reservation
@@ -180,11 +174,7 @@ resource "aws_ecs_service" "loki" {
     expression = "attribute:environment == monitoring"
   }
 
-  service_registries {
-    registry_arn   = aws_service_discovery_service.loki.arn
-    container_name = "loki"
-    container_port = 3100
-  }
+  # No service discovery needed with host networking
 
   # 서비스 업데이트 시 이전 태스크를 정상적으로 교체
   deployment_maximum_percent         = 100
@@ -197,24 +187,4 @@ resource "aws_ecs_service" "loki" {
   }
 }
 
-# Service Discovery for Loki
-resource "aws_service_discovery_service" "loki" {
-  name = "loki"
-
-  dns_config {
-    namespace_id = var.service_discovery_namespace_id
-    
-    dns_records {
-      ttl  = 10
-      type = "SRV"
-    }
-
-    routing_policy = "MULTIVALUE"
-  }
-
-  tags = {
-    Name        = "${var.environment}-loki-discovery"
-    Environment = var.environment
-    Service     = "monitoring"
-  }
-}
+# Service discovery removed - using host networking with localhost
