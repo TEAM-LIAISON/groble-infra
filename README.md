@@ -16,7 +16,14 @@ groble-infra/
 │   │   ├── main.tf           # 공유 리소스 메인 설정
 │   │   ├── terraform.tfvars  # 공유 환경 변수 값
 │   │   ├── variables.tf      # 공유 환경 변수 정의
-│   │   └── versions.tf       # Terraform & Provider 버전
+│   │   ├── versions.tf       # Terraform & Provider 버전
+│   │   └── outputs.tf        # 다른 환경에서 참조할 출력값
+│   ├── monitoring/           # 📊 모니터링 환경 (관측성 스택)
+│   │   ├── main.tf           # 모니터링 서비스 메인 설정
+│   │   ├── terraform.tfvars  # 모니터링 환경 변수 값
+│   │   ├── variables.tf      # 모니터링 환경 변수 정의
+│   │   ├── versions.tf       # Terraform & Provider 버전
+│   │   └── README.md         # 상세 모니터링 가이드
 │   ├── dev/                   # 개발 환경 (서비스 계층)
 │   │   ├── main.tf           # 개발 환경 메인 설정
 │   │   ├── terraform.tfvars  # 개발 환경 변수 값
@@ -40,6 +47,11 @@ groble-infra/
 │   │   ├── ecr/             # 컨테이너 레지스트리
 │   │   └── codedeploy/      # Blue/Green 배포
 │   └── services/            # 🚀 서비스 계층 (변경 빈도: 높음)
+│       ├── monitoring/      # 모니터링 환경 서비스
+│       │   ├── grafana/        # Grafana 대시보드
+│       │   ├── prometheus/     # Prometheus 메트릭 수집
+│       │   ├── loki/           # Loki 로그 수집
+│       │   └── otelcol/        # OpenTelemetry Collector
 │       ├── development/     # 개발 환경 서비스
 │       │   ├── api-service/    # Spring Boot API
 │       │   ├── mysql-service/  # MySQL 데이터베이스
@@ -74,19 +86,21 @@ groble-infra/
    - Application Load Balancer
    - IAM 역할 및 정책
    - Route53 DNS
+   - EC2 인스턴스 (3대: prod, dev, monitoring)
 
 2. **Platform Layer** (플랫폼 계층) - `environments/shared`
    - ECS 클러스터 관리
    - ECR 컨테이너 레지스트리
    - CodeDeploy Blue/Green 배포
 
-3. **Service Layer** (서비스 계층) - `environments/dev`, `environments/prod`
-   - Spring Boot API 서비스
-   - MySQL 데이터베이스 서비스
-   - Redis 캐시 서비스
+3. **Service Layer** (서비스 계층) - `environments/monitoring`, `environments/dev`, `environments/prod`
+   - **Monitoring**: Grafana, Prometheus, Loki, OpenTelemetry
+   - **Application**: Spring Boot API 서비스
+   - **Data**: MySQL 데이터베이스 서비스, Redis 캐시 서비스
 
 ### 환경별 분리
-- **Shared**: 공통 인프라 리소스 (VPC, ALB, ECS 클러스터, Route53 등)
+- **Shared**: 공통 인프라 리소스 (VPC, ALB, ECS 클러스터, EC2 인스턴스, Route53 등)
+- **Monitoring**: 통합 관측성 스택 (Grafana, Prometheus, Loki, OpenTelemetry)
 - **Development**: 개발 및 테스트용 서비스
 - **Production**: 실제 운영 서비스
 
@@ -117,7 +131,22 @@ terraform plan
 terraform apply
 ```
 
-### 2단계: 개발 환경 배포
+### 2단계: 모니터링 환경 배포
+```bash
+# 모니터링 환경 폴더로 이동
+cd environments/monitoring
+
+# Terraform 초기화
+terraform init
+
+# 배포 계획 확인
+terraform plan
+
+# 배포 실행
+terraform apply
+```
+
+### 3단계: 개발 환경 배포
 ```bash
 # 개발 환경 폴더로 이동
 cd environments/dev
@@ -132,7 +161,7 @@ terraform plan
 terraform apply
 ```
 
-### 3단계: 프로덕션 환경 배포
+### 4단계: 프로덕션 환경 배포
 ```bash
 # 프로덕션 환경 폴더로 이동
 cd environments/prod
@@ -147,7 +176,7 @@ terraform plan
 terraform apply
 ```
 
-> **중요**: 반드시 위 순서대로 배포해야 합니다. 공유 인프라가 먼저 생성되어야 개별 환경 서비스가 정상 작동합니다.
+> **중요**: 반드시 위 순서대로 배포해야 합니다. 공유 인프라 → 모니터링 → 개발 → 프로덕션 순으로 의존성이 있습니다.
 
 ## 🌐 네트워크 구성
 
@@ -175,9 +204,15 @@ terraform apply
 |------|---------------|------|------|
 | Production | t3.small | 프로덕션 워크로드 | 1 |
 | Development | t3.small | 개발 워크로드 | 1 |
-| 공통 | t3.micro/small | 모니터링 | 1 |
+| Monitoring | t3.small | 모니터링 스택 | 1 |
 
 ## 🐳 컨테이너 서비스
+
+### 모니터링 스택
+- **Grafana**: 256MB, 0.25 vCPU - 통합 대시보드 (monitor.groble.im)
+- **Prometheus**: 512MB, 0.5 vCPU - 메트릭 수집 및 저장
+- **Loki**: 256MB, 0.5 vCPU - 로그 수집 및 저장
+- **OpenTelemetry**: 256MB, 0.25 vCPU - 텔레메트리 데이터 처리
 
 ### Spring Boot API
 - **이미지**: ECR에서 관리
@@ -232,10 +267,16 @@ terraform apply
 
 ## 📊 모니터링 및 로깅
 
+### 통합 관측성 스택
+- **Grafana**: 통합 대시보드 및 시각화 (https://monitor.groble.im)
+- **Prometheus**: 메트릭 수집 및 시계열 데이터베이스 (15일 로컬 보관)
+- **Loki**: 로그 수집 및 저장 (S3 백엔드, 30일 보관)
+- **OpenTelemetry**: 애플리케이션 텔레메트리 데이터 수집 및 처리
+
 ### CloudWatch
 - **Container Insights**: ECS 메트릭 수집
-- **로그 그룹**: 환경별 분리
-- **로그 보관**: 프로덕션 7일, 개발 3일
+- **로그 그룹**: 환경별 분리 (비활성화, Loki 사용)
+- **로그 보관**: Loki로 통합 관리
 
 ### 헬스 체크
 - **경로**: `/actuator/health`
@@ -309,13 +350,22 @@ vpc_cidr = "10.0.0.0/16"
    - `environments/shared` 먼저 배포 여부 확인
    - 공유 리소스의 output 값들이 올바르게 설정되어 있는지 확인
 
+6. **모니터링 연결 실패**
+   - 모니터링 환경이 배포되어 있는지 확인
+   - Service Discovery 설정 확인 (localhost 기반 통신)
+   - 보안 그룹 규칙 점검
+
 ### 로그 확인
 ```bash
-# ECS 서비스 로그 확인
-aws logs describe-log-groups --log-group-name-prefix "/ecs/groble"
+# ECS 서비스 상태 확인
+aws ecs list-services --cluster groble-cluster
 
-# CloudWatch 메트릭 확인
-aws cloudwatch list-metrics --namespace "AWS/ECS"
+# 컨테이너 로그 확인 (CloudWatch 비활성화됨)
+aws ecs execute-command --cluster groble-cluster --task <TASK_ARN> --interactive --command "/bin/bash"
+
+# 모니터링 서비스 헬스체크
+curl https://monitor.groble.im/api/health
+curl https://api.groble.im/actuator/health
 ```
 
 ## 📞 지원
@@ -327,9 +377,12 @@ aws cloudwatch list-metrics --namespace "AWS/ECS"
 
 ## 📈 향후 계획
 
-- [ ] **원격 상태 관리**: S3 + DynamoDB 백엔드 설정 (공유/개발/프로덕션 환경별)
+- [ ] **원격 상태 관리**: S3 + DynamoDB 백엔드 설정 (공유/모니터링/개발/프로덕션 환경별)
 - [ ] **CI/CD 파이프라인**: GitHub Actions 통합
-- [ ] **모니터링 강화**: Grafana 대시보드 추가
+- [ ] **모니터링 고도화**: 
+  - [ ] Alertmanager 알림 관리 시스템 추가
+  - [ ] Jaeger 분산 트레이싱 구현
+  - [ ] 커스텀 Grafana 대시보드 추가
 - [ ] **보안 강화**: AWS Config 규칙 적용
 - [ ] **비용 최적화**: Spot 인스턴스 활용
 - [ ] **멀티 리전**: 재해 복구 환경 구축

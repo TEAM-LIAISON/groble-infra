@@ -252,7 +252,7 @@ sequenceDiagram
 
 ### 1. **Loki** - 로그 집계
 - **목적**: 중앙화된 로그 저장 및 쿼리
-- **리소스**: 0.5 vCPU, 512MB RAM
+- **리소스**: 0.5 vCPU, 256MB RAM
 - **저장소**: S3 백엔드 (30일 보관)
 - **엔드포인트**: `localhost:3100`
 - **기능**: 레이블 기반 인덱싱, 압축 저장
@@ -269,7 +269,7 @@ sequenceDiagram
 
 ### 3. **Prometheus** - 메트릭 저장소 (신규!)
 - **목적**: 시계열 메트릭 수집 및 저장
-- **리소스**: 0.5 vCPU, 1GB RAM
+- **리소스**: 0.5 vCPU, 512MB RAM
 - **저장소**: 로컬 TSDB (15일) + S3 백업 (90일) 
 - **엔드포인트**: `localhost:9090`
 - **기능**: 자동 발견, 알림, PromQL 쿼리
@@ -300,12 +300,12 @@ grafana_admin_password = "your-secure-password"
 # Prometheus 구성  
 prometheus_domain      = "prometheus.groble.im"
 prometheus_cpu         = 512    # 0.5 vCPU
-prometheus_memory      = 1024   # 1GB
+prometheus_memory      = 512    # 512MB
 
 # Loki 구성
 loki_log_retention_days = 30
 loki_cpu               = 512    # 0.5 vCPU  
-loki_memory            = 512    # 512MB
+loki_memory            = 256    # 256MB
 
 # OpenTelemetry Collector
 otelcol_cpu            = 256    # 0.25 vCPU
@@ -357,8 +357,8 @@ curl http://loki.groble.local:3100/ready
 |---------|-----|--------|---------|---------|
 | **Grafana** | 0.25 vCPU | 256MB | Ephemeral | Dashboards |
 | **OpenTelemetry** | 0.25 vCPU | 256MB | Ephemeral | Data processing |
-| **Loki** | 0.5 vCPU | 512MB | S3 | Log storage |
-| **Prometheus** | 0.5 vCPU | 1GB | Local + S3 | Metrics storage |
+| **Loki** | 0.5 vCPU | 256MB | S3 | Log storage |
+| **Prometheus** | 0.5 vCPU | 512MB | Local + S3 | Metrics storage |
 
 ### Network Configuration
 - **Mode**: Bridge networking (cost-optimized)

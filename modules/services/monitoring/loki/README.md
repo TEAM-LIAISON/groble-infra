@@ -4,11 +4,12 @@ Loki is a log aggregation system designed to store and query logs from all your 
 
 ## Features
 
-- **S3 Storage Backend**: Uses S3 for long-term log storage
-- **Bridge Mode Deployment**: Optimized for EC2 instances
-- **Service Discovery**: Integrated with AWS Service Discovery
+- **S3 Storage Backend**: Uses S3 for long-term log storage with versioning
+- **Host Mode Deployment**: Direct localhost communication
+- **OTLP Integration**: Native OTLP endpoint for OpenTelemetry Collector
+- **TSDB Schema**: Uses v13 schema with TSDB shipper
 - **Auto-scaling**: Configurable resource allocation
-- **Cost Optimized**: Lifecycle policies for log retention
+- **Cost Optimized**: S3 lifecycle policies for log retention
 
 ## Architecture
 
@@ -44,6 +45,8 @@ Loki requires more resources than Grafana due to indexing and querying:
 ## Endpoints
 
 - **HTTP API**: Port 3100
+- **OTLP Endpoint**: Port 3100 (`/otlp`)
+- **gRPC API**: Port 9096
 - **Health Check**: `/ready`
 - **Metrics**: `/metrics`
 
@@ -56,29 +59,26 @@ Loki uses S3 for:
 
 Lifecycle policy automatically deletes logs after retention period.
 
-## Service Discovery
-
-Loki is registered with AWS Service Discovery as `loki.<namespace>:3100` for internal communication.
-
 ## Deployment
 
-Deploy to monitoring instances only using placement constraints:
-```
-attribute:environment == monitoring
-```
+- **Host Mode**: Direct localhost communication (no service discovery)
+- **Placement Constraint**: `attribute:environment == monitoring`
+- **S3 Integration**: Automatic bucket creation with lifecycle policies
 
 ## Integration
 
 ### With Grafana
 Add Loki as a data source in Grafana:
 ```
-URL: http://loki.<namespace>:3100
+URL: http://localhost:3100
 ```
 
-### With OpenTelemetry
-Configure OpenTelemetry Collector to export logs:
+### With OpenTelemetry Collector
+The collector exports logs via OTLP HTTP:
 ```yaml
 exporters:
-  loki:
-    endpoint: "http://loki.<namespace>:3100/loki/api/v1/push"
+  otlphttp/loki:
+    endpoint: "http://localhost:3100/otlp"
+    headers:
+      "Content-Type": "application/x-protobuf"
 ```

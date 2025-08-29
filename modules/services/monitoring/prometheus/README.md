@@ -5,9 +5,9 @@ Prometheus is a monitoring system and time series database designed for reliabil
 ## Features
 
 - **TSDB Storage**: Local time series database with configurable retention
-- **S3 Integration**: Long-term storage and backup capability
-- **Service Discovery**: Automatic service discovery via AWS Service Discovery
-- **Bridge Mode Deployment**: Optimized for EC2 instances
+- **S3 Integration**: Dedicated S3 bucket with encryption and versioning
+- **Host Mode Deployment**: Direct localhost communication
+- **Init Container**: Dynamic configuration generation using Terraform templates
 - **Auto-scaling**: Configurable resource allocation
 - **Web UI**: Built-in web interface for queries and configuration
 
@@ -16,16 +16,17 @@ Prometheus is a monitoring system and time series database designed for reliabil
 ```
 Spring API (Prod/Dev) → OpenTelemetry Collector → Prometheus (monitoring instance)
                                                       ↓
-Grafana ← Prometheus ← Local TSDB ← (Optional: Remote Storage/S3)
+Grafana ← Prometheus ← Local TSDB ← S3 Storage (Backup)
 ```
 
 ## Current Integrations
 
 ### Active Scrape Targets
-- **Prometheus Self**: Self-monitoring metrics
-- **OpenTelemetry Collector**: Collector performance metrics
-- **Loki**: Log storage metrics
-- **Grafana**: Dashboard and query metrics
+- **Prometheus Self**: `localhost:9090/metrics`
+- **OpenTelemetry Collector Internal**: `localhost:8888/metrics`
+- **OpenTelemetry Collector Exported**: `localhost:8889/metrics`
+- **Loki**: `localhost:3100/metrics`
+- **Grafana**: `localhost:3000/metrics`
 
 ### Future Integrations
 - **Spring Boot Apps**: Direct scraping via `/actuator/prometheus`
@@ -76,23 +77,19 @@ Prometheus requires moderate resources for metrics storage and processing:
 - **Purpose**: Historical analysis and compliance
 - **Cost**: Optimized with lifecycle policies
 
-## Service Discovery
-
-Prometheus is registered as `prometheus.<namespace>:9090` for internal communication.
-
 ## Deployment
 
-Deploy to monitoring instances only using placement constraints:
-```
-attribute:environment == monitoring
-```
+- **Host Mode**: Direct localhost communication (no service discovery)
+- **Placement Constraint**: `attribute:environment == monitoring`
+- **S3 Storage**: Automatic S3 bucket with versioning and encryption
+- **Init Container**: Runtime configuration generation from Terraform templates
 
 ## Integration with Existing Stack
 
 ### With Grafana
 Add Prometheus as a data source in Grafana:
 ```
-URL: http://prometheus.<namespace>:9090
+URL: http://localhost:9090
 Type: Prometheus
 ```
 

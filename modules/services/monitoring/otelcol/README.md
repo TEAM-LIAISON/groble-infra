@@ -5,23 +5,25 @@ OpenTelemetry Collector service for centralized telemetry data collection and pr
 ## Features
 
 - **OTLP Receivers**: HTTP (4318) and gRPC (4317) endpoints
-- **Service Discovery**: Registered as `otelcol.groble.local`
-- **Loki Integration**: Direct log export to Loki service
-- **Future Ready**: Prometheus metrics export capability
-- **Bridge Mode**: Optimized for EC2 instances
+- **Host Networking**: Direct localhost communication with monitoring stack
+- **Init Container**: Dynamic configuration generation using Terraform templates
+- **Loki Integration**: OTLP HTTP export to Loki service
+- **Prometheus Metrics**: Active metrics export to Prometheus
+- **Memory Management**: Built-in memory limiter and batch processing
 
 ## Architecture
 
 ```
 Spring API (Prod/Dev) → OTLP → OpenTelemetry Collector → Loki (Monitoring)
                                         ↓
-                                  (Future: Prometheus)
+                                    Prometheus (Monitoring)
 ```
 
 ## Current Data Flow
 
-1. **Log Collection**: Spring Apps → OTLP → Collector → Loki
-2. **Future Metrics**: Spring Apps → OTLP → Collector → Prometheus
+1. **Log Collection**: Spring Apps → OTLP → Collector → Loki (via OTLP HTTP)
+2. **Metrics Collection**: Spring Apps → OTLP → Collector → Prometheus (via metrics endpoint)
+3. **Internal Metrics**: Collector self-monitoring → Prometheus
 
 ## Configuration
 
@@ -31,7 +33,7 @@ Spring API (Prod/Dev) → OTLP → OpenTelemetry Collector → Loki (Monitoring)
 - `execution_role_arn`: ECS execution role
 - `task_role_arn`: ECS task role
 - `service_discovery_namespace_id`: Service discovery namespace
-- `loki_endpoint`: Loki service endpoint (default: loki.groble.local:3100)
+- `aws_region`: AWS region for resource metadata
 
 ### Optional Variables
 
@@ -44,40 +46,40 @@ Spring API (Prod/Dev) → OTLP → OpenTelemetry Collector → Loki (Monitoring)
 - **OTLP HTTP**: Port 4318 (`/v1/traces`, `/v1/metrics`, `/v1/logs`)
 - **OTLP gRPC**: Port 4317
 - **Health Check**: Port 13133 (`/`)
-- **Metrics**: Port 8888 (`/metrics`)
+- **Internal Metrics**: Port 8888 (`/metrics`)
+- **Prometheus Metrics**: Port 8889 (`/metrics`)
 
-## Service Discovery
+## Networking Mode
 
-Registered as `otelcol.groble.local:4318` for internal communication.
+Uses **host networking** mode for direct localhost communication with other monitoring services:
+- Loki: `localhost:3100`
+- Prometheus: `localhost:9090`
 
 ## Deployment
 
-Deploys only to monitoring instances using placement constraints:
-```
-attribute:environment == monitoring
-```
+- **Host Mode**: Direct communication without service discovery
+- **Placement Constraint**: `attribute:environment == monitoring`
+- **Init Container**: Generates configuration file at runtime
 
 ## Spring Application Integration
 
 Update your Spring application configuration:
 
 ```yaml
-# Before
-otel:
-  exporter:
+# Spring Boot application configuration
+management:
+  otlp:
+    tracing:
+      endpoint: "http://monitoring-host:4318/v1/traces"
+    metrics:
+      export:
+        endpoint: "http://monitoring-host:4318/v1/metrics"
+  logging:
     otlp:
-      endpoint: http://localhost:4318
-
-# After  
-otel:
-  exporter:
-    otlp:
-      endpoint: http://otelcol.groble.local:4318
-
-logs:
-  export:
-    endpoint: http://otelcol.groble.local:4318/v1/logs
+      endpoint: "http://monitoring-host:4318/v1/logs"
 ```
+
+Note: Replace `monitoring-host` with the actual IP/hostname of your monitoring instance.
 
 ## Usage
 
@@ -90,8 +92,6 @@ module "otelcol" {
   execution_role_arn             = var.execution_role_arn
   task_role_arn                  = var.task_role_arn
   service_discovery_namespace_id = var.service_discovery_namespace_id
-  
-  loki_endpoint                  = "http://loki.groble.local:3100"
   
   cpu                           = 256
   memory                        = 512

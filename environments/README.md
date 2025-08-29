@@ -402,8 +402,8 @@ management:
 - **URL**: https://monitor.groble.im
 - **계정**: admin / [terraform.tfvars의 grafana_admin_password]
 - **데이터소스**: 
-  - Prometheus (메트릭): `http://prometheus.groble.local:9090`
-  - Loki (로그): `http://loki.groble.local:3100`
+  - Prometheus (메트릭): `http://localhost:9090`
+  - Loki (로그): `http://localhost:3100`
 
 ## 🔐 보안 고려사항
 

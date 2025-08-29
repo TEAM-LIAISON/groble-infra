@@ -1,13 +1,14 @@
 # Grafana Module
 
-This module deploys Grafana as an ECS service on EC2 instances using bridge networking mode.
+This module deploys Grafana as an ECS service on EC2 instances using host networking mode.
 
 ## Features
 
 - **Low Resource Usage**: Configured for 0.25 vCPU and 256MB memory
-- **Bridge Mode Networking**: Uses dynamic port allocation
+- **Host Mode Networking**: Direct communication with monitoring stack
 - **Placement Constraints**: Deploys only on monitoring EC2 instances
 - **Cost Optimized**: No CloudWatch logs or EBS volumes
+- **Plugin Support**: Configurable plugin installation
 
 ## Usage
 
@@ -41,8 +42,9 @@ module "grafana" {
 
 - ECS Cluster with EC2 instances
 - EC2 instances tagged with `attribute:environment == monitoring`
-- ALB Target Group for Grafana
+- ALB Target Group for Grafana (optional for external access)
 - IAM roles for ECS execution and task
+- Host mode networking for localhost communication
 
 ## Outputs
 
