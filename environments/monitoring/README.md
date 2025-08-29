@@ -1,10 +1,10 @@
-# Monitoring Environment
+# 모니터링 환경
 
-Complete observability stack deployment with logs, metrics, and visualization.
+로그, 메트릭, 시각화를 포함한 완전한 관측성 스택 배포.
 
-## 🏗️ Architecture Overview
+## 🏗️ 아키텍처 개요
 
-### Complete System Architecture
+### 완전한 시스템 아키텍처
 ```mermaid
 flowchart TB
     %% Spring Applications
@@ -108,40 +108,40 @@ flowchart TB
     class users,alb userStyle
 ```
 
-## 📖 Architecture Diagram Guide
+## 📖 아키텍처 다이어그램 가이드
 
-### 🎯 **Complete System Architecture**
-The first diagram shows the complete system with all components, ports, and data processing pipelines. It includes:
-- **Color-coded Components**: Different services are color-coded for easy identification
-- **Detailed Port Information**: All service ports and their purposes
-- **Data Processing Pipelines**: How logs and metrics are processed through OpenTelemetry
-- **Storage Strategy**: Both local and S3 storage layers
-- **Service Discovery**: Internal communication patterns
+### 🎯 **완전한 시스템 아키텍처**
+첫 번째 다이어그램은 모든 구성 요소, 포트 및 데이터 처리 파이프라인을 포함한 완전한 시스템을 보여줍니다. 포함 내용:
+- **색상별 구성 요소**: 쉬운 식별을 위해 서로 다른 서비스가 색상으로 구분됨
+- **상세한 포트 정보**: 모든 서비스 포트와 그 용도
+- **데이터 처리 파이프라인**: OpenTelemetry를 통해 로그와 메트릭이 처리되는 방식
+- **저장소 전략**: 로컬 및 S3 저장소 계층
+- **서비스 디스커버리**: 내부 통신 패턴
 
-### 🔄 **Simplified Overview** 
-The second diagram provides a high-level view focusing on:
-- **Main Data Flow**: OTLP → Processing → Storage → Visualization
-- **Key Endpoints**: Essential ports and access points
-- **Storage Retention**: Different retention policies for logs vs metrics
-- **User Access**: How users interact with the system
+### 🔄 **간소화된 개요** 
+두 번째 다이어그램은 다음 사항에 중점을 둔 고급 보기를 제공합니다:
+- **주요 데이터 흐름**: OTLP → 처리 → 저장 → 시각화
+- **주요 엔드포인트**: 필수 포트 및 액세스 지점
+- **저장소 보관**: 로그 대 메트릭에 대한 다른 보관 정책
+- **사용자 액세스**: 사용자가 시스템과 상호 작용하는 방식
 
-### ⏱️ **Data Flow Sequence**
-The sequence diagram shows the temporal flow of data:
-- **Log Processing**: How logs move from app to storage
-- **Metrics Collection**: Both push (OTLP) and pull (Prometheus scraping) patterns
-- **Real-time Operations**: Continuous monitoring and dashboard updates
-- **Storage Operations**: When and how data is persisted
+### ⏱️ **데이터 흐름 시퀀스**
+시퀀스 다이어그램은 데이터의 시간적 흐름을 보여줍니다:
+- **로그 처리**: 로그가 앱에서 저장소로 이동하는 방식
+- **메트릭 수집**: 푸시(OTLP) 및 풀(Prometheus 스크래핑) 패턴 모두
+- **실시간 작업**: 지속적인 모니터링 및 대시보드 업데이트
+- **저장소 작업**: 데이터가 언제, 어떻게 지속되는지
 
-### 🎨 **Visual Legend**
-- 🚀 **Applications**: Spring Boot services
-- 🔄 **Processing**: OpenTelemetry Collector
-- 🗂️ **Log Storage**: Loki components
-- 📊 **Metrics Storage**: Prometheus components
-- ☁️ **Long-term Storage**: S3 buckets
-- 📈 **Visualization**: Grafana dashboards
-- 👥 **Access**: User interfaces
+### 🎨 **시각적 범례**
+- 🚀 **애플리케이션**: Spring Boot 서비스
+- 🔄 **처리**: OpenTelemetry Collector
+- 🗂️ **로그 저장소**: Loki 구성 요소
+- 📊 **메트릭 저장소**: Prometheus 구성 요소
+- ☁️ **장기 저장소**: S3 버킷
+- 📈 **시각화**: Grafana 대시보드
+- 👥 **액세스**: 사용자 인터페이스
 
-### Simplified Overview
+### 간소화된 개요
 ```mermaid
 graph TB
     %% Applications
@@ -199,7 +199,7 @@ graph TB
     class grafana,users user
 ```
 
-### Data Flow Sequence
+### 데이터 흐름 시퀀스
 ```mermaid
 sequenceDiagram
     participant App as 🚀 Spring App
@@ -248,61 +248,61 @@ sequenceDiagram
     end
 ```
 
-## 📦 Deployed Services
+## 📦 배포된 서비스
 
-### 1. **Loki** - Log Aggregation
-- **Purpose**: Centralized log storage and querying
-- **Resources**: 0.5 vCPU, 512MB RAM
-- **Storage**: S3 backend (30-day retention)
-- **Endpoint**: `loki.groble.local:3100`
-- **Features**: Label-based indexing, compressed storage
+### 1. **Loki** - 로그 집계
+- **목적**: 중앙화된 로그 저장 및 쿼리
+- **리소스**: 0.5 vCPU, 512MB RAM
+- **저장소**: S3 백엔드 (30일 보관)
+- **엔드포인트**: `localhost:3100`
+- **기능**: 레이블 기반 인덱싱, 압축 저장
 
-### 2. **OpenTelemetry Collector** - Data Processing
-- **Purpose**: Telemetry data collection and processing
-- **Resources**: 0.25 vCPU, 256MB RAM  
-- **Ports**: 
-  - 4317 (gRPC), 4318 (HTTP): OTLP ingestion
-  - 8888: Internal metrics
-  - 8889: Application metrics export
-  - 13133: Health check
-- **Pipelines**: Logs → Loki, Metrics → Prometheus
+### 2. **OpenTelemetry Collector** - 데이터 처리
+- **목적**: 텔레메트리 데이터 수집 및 처리
+- **리소스**: 0.25 vCPU, 256MB RAM  
+- **포트**: 
+  - 4317 (gRPC), 4318 (HTTP): OTLP 수집
+  - 8888: 내부 메트릭
+  - 8889: 애플리케이션 메트릭 내보내기
+  - 13133: 상태 확인
+- **파이프라인**: 로그 → Loki, 메트릭 → Prometheus
 
-### 3. **Prometheus** - Metrics Storage (NEW!)
-- **Purpose**: Time series metrics collection and storage
-- **Resources**: 0.5 vCPU, 1GB RAM
-- **Storage**: Local TSDB (15d) + S3 backup (90d) 
-- **Endpoint**: `prometheus.groble.local:9090`
-- **Features**: Auto-discovery, alerting, PromQL queries
+### 3. **Prometheus** - 메트릭 저장소 (신규!)
+- **목적**: 시계열 메트릭 수집 및 저장
+- **리소스**: 0.5 vCPU, 1GB RAM
+- **저장소**: 로컬 TSDB (15일) + S3 백업 (90일) 
+- **엔드포인트**: `localhost:9090`
+- **기능**: 자동 발견, 알림, PromQL 쿼리
 
-### 4. **Grafana** - Visualization
-- **Purpose**: Unified observability dashboards
-- **Resources**: 0.25 vCPU, 256MB RAM
-- **Access**: `https://monitor.groble.im`
-- **Data Sources**: Loki (logs) + Prometheus (metrics)
+### 4. **Grafana** - 시각화
+- **목적**: 통합 관측성 대시보드
+- **리소스**: 0.25 vCPU, 256MB RAM
+- **액세스**: `https://monitor.groble.im`
+- **데이터 소스**: Loki(로그) + Prometheus(메트릭)
 
-## 🚀 Quick Start
+## 🚀 빠른 시작
 
-### Prerequisites
-1. **Shared environment** deployed first
-2. **Monitoring EC2** with `environment == monitoring` tag
-3. **Domain names** configured for Grafana/Prometheus
-4. **Service Discovery** namespace from shared environment
+### 사전 요구 사항
+1. **공유 환경**이 먼저 배포됨
+2. `environment == monitoring` 태그가 있는 **모니터링 EC2**
+3. Grafana/Prometheus용으로 구성된 **도메인 이름**
+4. 공유 환경의 **서비스 디스커버리** 네임스페이스
 
-### 1. Configure Variables
+### 1. 변수 구성
 
-Update `terraform.tfvars`:
+`terraform.tfvars` 업데이트:
 
 ```hcl
-# Grafana Configuration
+# Grafana 구성
 grafana_domain         = "monitor.groble.im"
 grafana_admin_password = "your-secure-password"
 
-# Prometheus Configuration  
+# Prometheus 구성  
 prometheus_domain      = "prometheus.groble.im"
 prometheus_cpu         = 512    # 0.5 vCPU
 prometheus_memory      = 1024   # 1GB
 
-# Loki Configuration
+# Loki 구성
 loki_log_retention_days = 30
 loki_cpu               = 512    # 0.5 vCPU  
 loki_memory            = 512    # 512MB
@@ -312,22 +312,22 @@ otelcol_cpu            = 256    # 0.25 vCPU
 otelcol_memory         = 256    # 256MB
 ```
 
-### 2. Deploy Infrastructure
+### 2. 인프라 배포
 
 ```bash
-# Initialize Terraform
+# Terraform 초기화
 terraform init
 
-# Validate configuration
+# 구성 검증
 terraform validate
 
-# Plan deployment
+# 배포 계획
 terraform plan
 
-# Deploy all services
+# 모든 서비스 배포
 terraform apply
 
-# Or deploy services individually
+# 또는 서비스를 개별적으로 배포
 terraform apply -target=module.loki
 terraform apply -target=module.otelcol  
 terraform apply -target=module.prometheus
@@ -469,7 +469,6 @@ Prometheus automatically scrapes these targets:
 
 ### Application Metrics (via OpenTelemetry)
 - **Spring Boot**: JVM, HTTP, custom metrics
-- **Business KPIs**: Orders, users, revenue
 - **Performance**: Response times, error rates
 
 ## 🚨 Alerting & Monitoring
@@ -495,25 +494,6 @@ container_memory_usage_bytes / container_spec_memory_limit_bytes > 0.8
 node_filesystem_size_bytes > 0.9
 ```
 
-## 💰 Cost Optimization
-
-### Infrastructure Costs
-- **Bridge Networking**: No NAT Gateway charges
-- **Single AZ**: Deploy to monitoring instances only  
-- **Spot Instances**: Consider for non-critical environments
-- **Reserved Capacity**: For production workloads
-
-### Storage Costs
-- **S3 Lifecycle**: Auto-delete after retention period
-- **Compression**: Loki/Prometheus built-in compression
-- **Intelligent Tiering**: S3 cost optimization
-- **Local Storage**: Ephemeral volumes (no EBS costs)
-
-### Monitoring Costs
-- **No CloudWatch Logs**: Use local logging
-- **Minimal Metrics**: Focus on key business metrics
-- **Efficient Queries**: Optimize PromQL/LogQL queries
-
 ## 🛠️ Operations
 
 ### Backup & Recovery
@@ -533,28 +513,6 @@ curl -H "Authorization: Bearer $GRAFANA_TOKEN" \
 - **Prometheus**: Restore from S3 backup or rebuild from sources
 - **Grafana**: Re-import dashboards from backup
 
-### Scaling
-
-#### Vertical Scaling
-```hcl
-# Increase resources in terraform.tfvars
-prometheus_cpu    = 1024  # 1 vCPU
-prometheus_memory = 2048  # 2GB
-```
-
-#### Horizontal Scaling
-- **Multiple Prometheus**: Federation setup
-- **Loki Clustering**: Multi-instance deployment
-- **Load Balancing**: ALB for high availability
-
-### Troubleshooting
-
-#### Common Issues
-1. **Service Discovery**: Check namespace and DNS resolution
-2. **Port Conflicts**: Verify security group and port mappings
-3. **Memory Issues**: Monitor container memory usage
-4. **Storage Full**: Check local disk space and S3 quotas
-
 #### Debug Commands
 ```bash
 # Check ECS service status
@@ -564,8 +522,8 @@ aws ecs describe-services --cluster monitoring-cluster --services monitoring-pro
 aws logs get-log-events --log-group-name /ecs/monitoring-prometheus
 
 # Test endpoints directly
-curl http://prometheus.groble.local:9090/api/v1/targets
-curl http://loki.groble.local:3100/loki/api/v1/labels
+curl http://localhost:9090/api/v1/targets
+curl http://localhost:3100/loki/api/v1/labels
 ```
 
 ## 🔄 Updates & Maintenance
@@ -588,102 +546,69 @@ terraform plan -target=module.prometheus
 terraform apply -target=module.prometheus
 ```
 
-## 📈 Next Steps
+## 📈 다음 단계
 
-### Immediate (Week 1)
-- [ ] Deploy Prometheus module
-- [ ] Update OpenTelemetry Collector
-- [ ] Add Prometheus data source to Grafana
-- [ ] Create basic metrics dashboards
+### 즉시 (1주차)
+- [ ] Prometheus 모듈 배포
+- [ ] OpenTelemetry Collector 업데이트
+- [ ] Grafana에 Prometheus 데이터 소스 추가
+- [ ] 기본 메트릭 대시보드 생성
 
-### Short-term (Month 1)
-- [ ] Configure Spring Boot OTLP integration
-- [ ] Set up business KPI dashboards
-- [ ] Implement basic alerting rules
-- [ ] Document runbooks
+### 단기 (1개월)
+- [ ] Spring Boot OTLP 통합 구성
+- [ ] 비즈니스 KPI 대시보드 설정
+- [ ] 기본 알림 규칙 구현
+- [ ] 런북 문서화
 
-### Long-term (Quarter 1)
-- [ ] Add Alertmanager for advanced alerting
-- [ ] Implement Jaeger for distributed tracing
-- [ ] Set up automated backup procedures
-- [ ] Advanced cost optimization
+### 장기 (1분기)
+- [ ] 고급 알림을 위한 Alertmanager 추가
+- [ ] 분산 추적을 위한 Jaeger 구현
+- [ ] 자동화된 백업 절차 설정
+- [ ] 고급 비용 최적화
 
-## 📋 Outputs
-
-After successful deployment, you'll get:
+## 📋 출력값
 
 ```bash
-# Service endpoints
+# 서비스 엔드포인트
 grafana_url           = "https://monitor.groble.im"
 prometheus_url        = "https://prometheus.groble.im"
 loki_endpoint        = "loki.groble.local:3100"
-otelcol_endpoint_http = "otelcol.groble.local:4318"
-otelcol_endpoint_grpc = "otelcol.groble.local:4317"
+otelcol_endpoint_http = "localhost:4318"
+otelcol_endpoint_grpc = "localhost:4317"
 
-# S3 storage buckets
+# S3 저장소 버킷
 loki_s3_bucket       = "monitoring-loki-storage-abc12345"
 prometheus_s3_bucket = "monitoring-prometheus-storage-def67890"
 
-# Service names (for ECS management)
+# 서비스 이름 (ECS 관리용)
 grafana_service_name    = "monitoring-grafana"
 prometheus_service_name = "monitoring-prometheus"
 loki_service_name      = "monitoring-loki"
 otelcol_service_name   = "monitoring-otelcol"
 ```
 
-## 🎯 Success Criteria
+## 🎯 성공 기준
 
-After deployment, verify these key indicators:
+### ✅ 서비스 상태
+- [ ] 모든 ECS 서비스 실행 중 (4/4)
+- [ ] 상태 확인 통과
+- [ ] 서비스 디스커버리 작동
+- [ ] 로드 밸런서 정상
 
-### ✅ Service Health
-- [ ] All ECS services running (4/4)
-- [ ] Health checks passing
-- [ ] Service discovery working
-- [ ] Load balancers healthy
+### ✅ 데이터 흐름
+- [ ] OpenTelemetry가 OTLP 데이터 수신
+- [ ] Loki가 로그 수집
+- [ ] Prometheus가 메트릭 스크래핑
+- [ ] Grafana가 두 데이터 소스 쿼리
 
-### ✅ Data Flow
-- [ ] OpenTelemetry receiving OTLP data
-- [ ] Loki ingesting logs
-- [ ] Prometheus scraping metrics
-- [ ] Grafana querying both data sources
+### ✅ 접근성
+- [ ] 도메인을 통해 Grafana 대시보드 접근 가능
+- [ ] Prometheus UI 접근 가능 (구성된 경우)
+- [ ] 내부 서비스 통신 작동
+- [ ] 인증이 적절히 구성됨
 
-### ✅ Accessibility
-- [ ] Grafana dashboard accessible via domain
-- [ ] Prometheus UI accessible (if configured)
-- [ ] Internal service communication working
-- [ ] Authentication configured properly
-
-### ✅ Storage
-- [ ] S3 buckets created and accessible
-- [ ] Lifecycle policies active
-- [ ] Data retention working as expected
-- [ ] Local storage within limits
-
-## 🎊 Congratulations!
-
-You now have a **complete observability stack** that provides:
-
-- **📊 Full Visibility**: Logs + Metrics + (Future: Traces)
-- **🔍 Powerful Queries**: LogQL + PromQL integration
-- **📈 Rich Dashboards**: Unified view in Grafana
-- **💰 Cost Optimized**: Efficient resource usage
-- **🚀 Production Ready**: Scalable and maintainable
-
-### What You've Achieved
-
-1. **Industry Standard Stack**: OpenTelemetry + Prometheus + Loki + Grafana
-2. **Unified Observability**: Single pane of glass for all telemetry
-3. **Cost Efficiency**: Bridge networking + S3 lifecycle + resource optimization
-4. **Modern Architecture**: Container-based, cloud-native, API-driven
-5. **Future Proof**: Ready for tracing, alerting, and advanced features
-
-### Quick Links
-- 📊 **Grafana**: https://monitor.groble.im
-- 🔍 **Prometheus**: https://prometheus.groble.im
-- 📖 **Documentation**: This README + module docs
-- 🛠️ **Integration Guide**: Spring Boot setup examples
-- 🚨 **Troubleshooting**: Debug commands and common issues
-
----
-
-**Happy Monitoring! 🎉** Your applications now have enterprise-grade observability.
+### ✅ 저장소
+- [ ] S3 버킷 생성 및 접근 가능
+- [ ] 라이프사이클 정책 활성화
+- [ ] 데이터 보존이 예상대로 작동
+- [ ] 로컬 저장소가 제한 내에 있음
