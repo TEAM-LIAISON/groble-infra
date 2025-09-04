@@ -166,7 +166,7 @@ resource "aws_ecs_task_definition" "loki" {
 resource "aws_ecs_service" "loki" {
   name            = "${var.environment}-loki"
   cluster         = var.ecs_cluster_id
-  task_definition = aws_ecs_task_definition.loki.family
+  task_definition = aws_ecs_task_definition.loki.arn
   desired_count   = var.desired_count
   
   placement_constraints {

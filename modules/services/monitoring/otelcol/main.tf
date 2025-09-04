@@ -139,7 +139,7 @@ resource "local_file" "otelcol_config" {
 resource "aws_ecs_service" "otelcol" {
   name            = "${var.environment}-otelcol"
   cluster         = var.ecs_cluster_id
-  task_definition = aws_ecs_task_definition.otelcol.family
+  task_definition = aws_ecs_task_definition.otelcol.arn
   desired_count   = var.desired_count
   
   # Deploy only to monitoring EC2 instances
