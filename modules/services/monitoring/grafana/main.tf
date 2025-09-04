@@ -17,6 +17,7 @@ resource "aws_ecs_task_definition" "grafana" {
       portMappings = [
         {
           containerPort = 3000
+          hostPort      = 3000
           protocol      = "tcp"
         }
       ]
@@ -90,7 +91,7 @@ resource "aws_ecs_task_definition" "grafana" {
 resource "aws_ecs_service" "grafana" {
   name            = "${var.environment}-grafana"
   cluster         = var.ecs_cluster_id
-  task_definition = aws_ecs_task_definition.grafana.family
+  task_definition = aws_ecs_task_definition.grafana.arn
   desired_count   = var.desired_count
   
   # Host 모드에서 포트 충돌 방지를 위한 배포 설정
