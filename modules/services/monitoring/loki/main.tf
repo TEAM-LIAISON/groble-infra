@@ -89,9 +89,65 @@ resource "aws_ecs_task_definition" "loki" {
   task_role_arn         = var.task_role_arn
 
   container_definitions = jsonencode([
+    # Init container to fetch AWS credentials
+    {
+      name  = "aws-credentials-init"
+      image = "amazon/aws-cli:latest"
+      essential = false
+      
+      environment = [
+        {
+          name  = "AWS_DEFAULT_REGION"
+          value = var.aws_region
+        },
+        {
+          name  = "AWS_REGION" 
+          value = var.aws_region
+        },
+        {
+          name  = "AWS_EC2_METADATA_DISABLED"
+          value = "false"
+        },
+        {
+          name  = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
+          value = ""
+        },
+        {
+          name  = "ECS_CONTAINER_METADATA_URI_V4"
+          value = ""
+        },
+        {
+          name  = "ECS_CONTAINER_METADATA_URI"
+          value = ""
+        },
+        {
+          name  = "AWS_IMDSv2_ENABLED"
+          value = "true"
+        }
+      ]
+      
+      entryPoint = ["sh", "-c"]
+      command = [
+        "echo 'Using EC2 instance credentials only...' && unset AWS_CONTAINER_CREDENTIALS_RELATIVE_URI && unset ECS_CONTAINER_METADATA_URI_V4 && unset ECS_CONTAINER_METADATA_URI && echo 'Testing EC2 metadata service...' && TOKEN=$(curl -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600' http://169.254.169.254/latest/api/token) && curl -H \"X-aws-ec2-metadata-token: $TOKEN\" http://169.254.169.254/latest/meta-data/iam/security-credentials/ && echo 'EC2 metadata service accessible' && aws sts get-caller-identity && echo 'AWS credentials available'"
+      ]
+      
+      logDriver = "json-file"
+      logOptions = {
+        "max-size" = "5m"
+        "max-file" = "2"
+      }
+    },
     {
       name  = "loki"
       image = "${var.loki_image}:${var.loki_version}"
+      
+      # Depend on init container
+      dependsOn = [
+        {
+          containerName = "aws-credentials-init"
+          condition = "SUCCESS"
+        }
+      ]
       
       # Host networking - no port mappings needed
 
@@ -126,12 +182,52 @@ resource "aws_ecs_task_definition" "loki" {
         {
           name  = "AWS_EC2_METADATA_V1_DISABLED"
           value = "false"
+        },
+        {
+          name  = "AWS_SDK_LOAD_CONFIG"
+          value = "1"
+        },
+        {
+          name  = "AWS_IMDSv2_ENABLED"
+          value = "true"
+        },
+        {
+          name  = "AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE"
+          value = "IPv4"
+        },
+        {
+          name  = "AWS_EC2_METADATA_SERVICE_ENDPOINT"
+          value = "http://169.254.169.254"
+        },
+        {
+          name  = "AWS_CREDENTIAL_PROFILES_FILE"
+          value = ""
+        },
+        {
+          name  = "AWS_SHARED_CREDENTIALS_FILE"
+          value = ""
+        },
+        {
+          name  = "AWS_EC2_METADATA_DISABLED"
+          value = "false"
+        },
+        {
+          name  = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
+          value = ""
+        },
+        {
+          name  = "ECS_CONTAINER_METADATA_URI_V4"
+          value = ""
+        },
+        {
+          name  = "ECS_CONTAINER_METADATA_URI"
+          value = ""
         }
       ]
 
       entryPoint = ["/bin/sh", "-c"]
       command = [
-        "echo \"$LOKI_CONFIG_YAML\" > /etc/loki/loki-config.yaml && echo 'Config file created successfully:' && cat /etc/loki/loki-config.yaml && echo 'AWS region: $AWS_DEFAULT_REGION' && echo 'Starting Loki with enhanced AWS configuration...' && /usr/bin/loki -config.file=/etc/loki/loki-config.yaml"
+        "unset AWS_CONTAINER_CREDENTIALS_RELATIVE_URI && unset ECS_CONTAINER_METADATA_URI_V4 && unset ECS_CONTAINER_METADATA_URI && echo \"$LOKI_CONFIG_YAML\" > /etc/loki/loki-config.yaml && echo 'Config file created successfully:' && cat /etc/loki/loki-config.yaml && echo 'AWS region: $AWS_DEFAULT_REGION' && echo 'Starting Loki with S3 storage and EC2 credentials...' && /usr/bin/loki -config.file=/etc/loki/loki-config.yaml"
       ]
 
       logDriver = "json-file"

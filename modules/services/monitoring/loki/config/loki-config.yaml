@@ -37,8 +37,9 @@ storage_config:
   tsdb_shipper:
     active_index_directory: /loki/tsdb-index
     cache_location: /loki/tsdb-cache
-  filesystem:
-    directory: /loki/chunks
+  aws:
+    s3: s3://${s3_bucket}
+    region: ${aws_region}
 
 limits_config:
   reject_old_samples: true
