@@ -203,6 +203,8 @@ module "dev_api_service" {
   # Redis 설정 (shared 환경의 DEV 인스턴스 IP 참조)
   redis_host = data.aws_instance.shared_dev_instance.private_ip
   
+  # OpenTelemetry 설정 (monitoring 인스턴스 IP 참조)
+  otel_exporter_endpoint = "http://${data.aws_instance.shared_monitoring_instance.private_ip}:4318"
   
   # Network 설정
   subnet_ids         = [data.aws_subnet.dev_api_subnet.id]  # dev API service Private 서브넷 (NAT instance 경유)

@@ -67,6 +67,34 @@ resource "aws_ecs_task_definition" "api_task" {
           name  = "REDIS_PORT"
           value = "6379"
         },
+        {
+          name  = "OTEL_SERVICE_NAME"
+          value = "groble-api"
+        },
+        {
+          name  = "OTEL_SERVICE_VERSION"
+          value = "1.0.0"
+        },
+        {
+          name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
+          value = var.otel_exporter_endpoint
+        },
+        {
+          name  = "OTEL_EXPORTER_OTLP_PROTOCOL"
+          value = "http/protobuf"
+        },
+        {
+          name  = "OTEL_RESOURCE_ATTRIBUTES"
+          value = "service.name=groble-api,service.version=1.0.0,environment=production"
+        },
+        {
+          name  = "OTEL_TRACES_SAMPLER"
+          value = "traceidratio"
+        },
+        {
+          name  = "OTEL_TRACES_SAMPLER_ARG"
+          value = "0.1"
+        }
       ]
 
       healthCheck = {

@@ -82,6 +82,12 @@ variable "redis_host" {
   type        = string
 }
 
+# OpenTelemetry 설정
+variable "otel_exporter_endpoint" {
+  description = "OpenTelemetry exporter endpoint"
+  type        = string
+}
+
 
 # Network 설정
 variable "subnet_ids" {
