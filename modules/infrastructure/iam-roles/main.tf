@@ -42,6 +42,23 @@ resource "aws_iam_role_policy_attachment" "ecs_instance_ecr_policy" {
 #   policy_arn = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
 # }
 
+# ECS 태스크 역할 가정 권한 (EC2 인스턴스가 ECS 태스크 역할을 가정할 수 있도록)
+resource "aws_iam_role_policy" "ecs_instance_assume_task_role" {
+  name = "${var.project_name}-ecs-instance-assume-task-role"
+  role = aws_iam_role.ecs_instance_role.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = "sts:AssumeRole"
+        Resource = "arn:aws:iam::*:role/${var.project_name}-ecs-task-role"
+      }
+    ]
+  })
+}
+
 # 인스턴스 프로파일 생성 (EC2 인스턴스에 IAM 역할 연결)
 resource "aws_iam_instance_profile" "ecs_instance_profile" {
   name = "${var.project_name}-ecs-instance-profile"
