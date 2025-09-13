@@ -41,6 +41,18 @@ data "aws_subnets" "shared_public_subnets" {
   }
 }
 
+data "aws_subnets" "shared_private_subnets" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.shared_vpc.id]
+  }
+  
+  filter {
+    name   = "tag:Type"
+    values = ["Private"]
+  }
+}
+
 data "aws_subnet" "prod_api_subnet" {
   filter {
     name   = "vpc-id"
@@ -66,6 +78,8 @@ data "aws_security_group" "shared_api_task_sg" {
     values = ["groble-api-task-sg"]
   }
 }
+
+# RDS 보안 그룹은 terraform remote state에서 참조
 
 # Shared 환경의 EC2 인스턴스들 참조
 data "aws_instance" "shared_prod_instance" {
@@ -144,6 +158,42 @@ module "ecr" {
 }
 
 #################################
+# PROD RDS MySQL
+#################################
+
+# Production RDS MySQL Instance
+module "rds_mysql" {
+  source = "../../modules/infrastructure/rds-mysql"
+  
+  project_name           = var.project_name
+  environment            = "prod"
+  private_subnet_ids     = data.aws_subnets.shared_private_subnets.ids
+  rds_security_group_id  = data.terraform_remote_state.shared.outputs.rds_mysql_security_group_id
+  
+  # RDS 설정
+  instance_class         = var.rds_instance_class
+  database_name          = var.mysql_database
+  database_username      = "groble_root"
+  database_password      = var.mysql_root_password
+  
+  # Storage 설정
+  allocated_storage      = var.rds_allocated_storage
+  max_allocated_storage  = var.rds_max_allocated_storage
+  
+  # Backup 설정
+  backup_retention_period = var.rds_backup_retention_period
+  backup_window          = var.rds_backup_window
+  maintenance_window     = var.rds_maintenance_window
+  
+  # 고가용성 설정
+  multi_az               = var.rds_multi_az
+  
+  # 보안 설정
+  deletion_protection    = var.rds_deletion_protection
+  skip_final_snapshot    = var.rds_skip_final_snapshot
+}
+
+#################################
 # PROD Service Layer
 #################################
 
@@ -196,8 +246,8 @@ module "api_service" {
   spring_profiles = var.spring_profiles
   server_env     = var.server_env
   
-  # Database 설정 - data source로 참조
-  db_host             = data.aws_instance.shared_prod_instance.private_ip
+  # Database 설정 - RDS MySQL 엔드포인트 사용
+  db_host             = module.rds_mysql.rds_address
   mysql_database      = var.mysql_database
   mysql_root_password = var.mysql_root_password
   
@@ -215,7 +265,7 @@ module "api_service" {
   target_group_arn = data.aws_lb_target_group.shared_prod_blue_tg.arn
   
   depends_on = [
-    module.mysql_service,
+    module.rds_mysql,
     module.redis_service
   ]
 }
@@ -266,4 +316,20 @@ output "redis_service_id" {
 output "redis_task_definition_arn" {
   description = "Redis task definition ARN"
   value       = module.redis_service.task_definition_arn
+}
+
+# RDS MySQL outputs
+output "rds_endpoint" {
+  description = "RDS MySQL endpoint"
+  value       = module.rds_mysql.rds_endpoint
+}
+
+output "rds_address" {
+  description = "RDS MySQL address"
+  value       = module.rds_mysql.rds_address
+}
+
+output "rds_instance_id" {
+  description = "RDS MySQL instance ID"
+  value       = module.rds_mysql.rds_instance_id
 }

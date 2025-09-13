@@ -214,6 +214,94 @@ variable "mysql_database" {
   }
 }
 
+# RDS MySQL 관련 변수들
+variable "rds_instance_class" {
+  description = "RDS instance class"
+  type        = string
+  default     = "db.t3.micro"
+  
+  validation {
+    condition = contains([
+      "db.t3.micro", "db.t3.small", "db.t3.medium", "db.t3.large",
+      "db.t3.xlarge", "db.t3.2xlarge", "db.t2.micro"
+    ], var.rds_instance_class)
+    error_message = "RDS instance class must be a valid t3 or t2 instance type."
+  }
+}
+
+variable "rds_allocated_storage" {
+  description = "Initial allocated storage for RDS instance (GB)"
+  type        = number
+  default     = 20
+  
+  validation {
+    condition     = var.rds_allocated_storage >= 20 && var.rds_allocated_storage <= 65536
+    error_message = "RDS allocated storage must be between 20 and 65536 GB."
+  }
+}
+
+variable "rds_max_allocated_storage" {
+  description = "Maximum allocated storage for RDS autoscaling (GB)"
+  type        = number
+  default     = 100
+  
+  validation {
+    condition     = var.rds_max_allocated_storage >= 20
+    error_message = "RDS max allocated storage must be greater than or equal to 20 GB."
+  }
+}
+
+variable "rds_backup_retention_period" {
+  description = "Number of days to retain RDS backups"
+  type        = number
+  default     = 7
+  
+  validation {
+    condition     = var.rds_backup_retention_period >= 1 && var.rds_backup_retention_period <= 35
+    error_message = "RDS backup retention period must be between 1 and 35 days."
+  }
+}
+
+variable "rds_backup_window" {
+  description = "Daily backup window for RDS (UTC)"
+  type        = string
+  default     = "03:00-04:00"
+  
+  validation {
+    condition     = can(regex("^([0-1]?[0-9]|2[0-3]):[0-5][0-9]-([0-1]?[0-9]|2[0-3]):[0-5][0-9]$", var.rds_backup_window))
+    error_message = "RDS backup window must be in format 'HH:MM-HH:MM' (e.g., '03:00-04:00')."
+  }
+}
+
+variable "rds_maintenance_window" {
+  description = "Weekly maintenance window for RDS (UTC)"
+  type        = string
+  default     = "sun:04:00-sun:05:00"
+  
+  validation {
+    condition     = can(regex("^(mon|tue|wed|thu|fri|sat|sun):[0-2][0-9]:[0-5][0-9]-(mon|tue|wed|thu|fri|sat|sun):[0-2][0-9]:[0-5][0-9]$", var.rds_maintenance_window))
+    error_message = "RDS maintenance window must be in format 'ddd:HH:MM-ddd:HH:MM' (e.g., 'sun:04:00-sun:05:00')."
+  }
+}
+
+variable "rds_multi_az" {
+  description = "Enable Multi-AZ deployment for RDS"
+  type        = bool
+  default     = false
+}
+
+variable "rds_deletion_protection" {
+  description = "Enable deletion protection for RDS instance"
+  type        = bool
+  default     = true
+}
+
+variable "rds_skip_final_snapshot" {
+  description = "Skip final snapshot when destroying RDS instance"
+  type        = bool
+  default     = false
+}
+
 # Redis 관련 변수들
 variable "redis_memory" {
   description = "Memory allocation for Redis container (MB)"
