@@ -358,3 +358,44 @@ resource "aws_security_group" "groble_api_task_sg" {
     Type = "task-security-group"
   }
 }
+
+#################################
+# RDS MySQL 보안 그룹
+#################################
+resource "aws_security_group" "groble_rds_mysql_sg" {
+  name        = "${var.project_name}-rds-mysql-sg"
+  description = "Security group for RDS MySQL instance"
+  vpc_id      = var.vpc_id
+
+  # MySQL 접근 - 프로덕션 타겟 그룹에서만
+  ingress {
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.groble_prod_target_group.id]
+    description     = "MySQL access from production instances"
+  }
+
+  # MySQL 접근 - API 태스크에서
+  ingress {
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.groble_api_task_sg.id]
+    description     = "MySQL access from API tasks"
+  }
+
+  # MySQL 접근 - 모니터링 인스턴스에서 (RDS Exporter용 + Bastion Host 관리용)
+  ingress {
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.groble_monitor_target_group.id]
+    description     = "MySQL access from monitoring instance for RDS Exporter and bastion host administration"
+  }
+
+  tags = {
+    Name = "${var.project_name}-rds-mysql-sg"
+    Type = "database-security-group"
+  }
+}

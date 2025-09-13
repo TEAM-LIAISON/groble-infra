@@ -28,6 +28,12 @@ output "api_task_sg_id" {
   value       = aws_security_group.groble_api_task_sg.id
 }
 
+# RDS MySQL 보안 그룹 출력
+output "rds_mysql_sg_id" {
+  description = "ID of the RDS MySQL security group"
+  value       = aws_security_group.groble_rds_mysql_sg.id
+}
+
 # 모든 보안 그룹 ID 리스트
 output "all_security_group_ids" {
   description = "List of all security group IDs"
@@ -36,6 +42,7 @@ output "all_security_group_ids" {
     aws_security_group.groble_prod_target_group.id,
     aws_security_group.groble_develop_target_group.id,
     aws_security_group.groble_monitor_target_group.id,
-    aws_security_group.groble_api_task_sg.id
+    aws_security_group.groble_api_task_sg.id,
+    aws_security_group.groble_rds_mysql_sg.id
   ]
 }

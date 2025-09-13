@@ -73,3 +73,8 @@ output "monitoring_security_group_id" {
   value       = module.security_groups.monitor_target_group_sg_id
 }
 
+output "rds_mysql_security_group_id" {
+  description = "ID of the RDS MySQL security group"
+  value       = module.security_groups.rds_mysql_sg_id
+}
+
