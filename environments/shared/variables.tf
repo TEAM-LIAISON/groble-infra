@@ -160,3 +160,70 @@ variable "alarm_names" {
   type        = list(string)
   default     = []
 }
+
+#################################
+# WAF 관련 변수들
+#################################
+
+variable "allowed_country_codes" {
+  description = "List of allowed country codes for WAF geo-blocking"
+  type        = list(string)
+  default = [
+    "KR", # South Korea
+    "JP", # Japan
+    "SG", # Singapore
+    "AU", # Australia
+    "NZ", # New Zealand
+    "HK", # Hong Kong
+    "TW", # Taiwan
+    "TH", # Thailand
+    "VN", # Vietnam
+    "MY", # Malaysia
+    "PH", # Philippines
+    "ID", # Indonesia
+    "IN"  # India
+  ]
+}
+
+variable "rate_limit_per_ip" {
+  description = "WAF rate limit per IP address (requests per 5 minutes)"
+  type        = number
+  default     = 2000
+}
+
+variable "rate_limit_global" {
+  description = "WAF global rate limit (requests per 5 minutes)"
+  type        = number
+  default     = 50000
+}
+
+variable "enable_cloudwatch_metrics" {
+  description = "Enable CloudWatch metrics for WAF"
+  type        = bool
+  default     = true
+}
+
+variable "enable_sampled_requests" {
+  description = "Enable sampled requests logging for WAF"
+  type        = bool
+  default     = true
+}
+
+variable "log_retention_days" {
+  description = "Number of days to retain WAF logs in CloudWatch"
+  type        = number
+  default     = 30
+}
+
+
+variable "rate_limit_login_endpoints" {
+  description = "WAF rate limit for login/auth endpoints (requests per 5 minutes)"
+  type        = number
+  default     = 50
+}
+
+variable "max_request_size" {
+  description = "Maximum request body size in bytes for WAF (1MB = 1048576)"
+  type        = number
+  default     = 1048576
+}
