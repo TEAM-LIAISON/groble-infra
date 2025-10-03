@@ -64,27 +64,22 @@ scrape_configs:
     metrics_path: /metrics
     scheme: http
 
-  # Spring Boot Applications (via Service Discovery - future enhancement)
-  # - job_name: 'spring-apps'
-  #   ec2_sd_configs:
-  #     - region: ${aws_region}
-  #       port: 8080
-  #       filters:
-  #         - name: tag:Environment
-  #           values: ['production', 'development']
-  #         - name: tag:Application
-  #           values: ['groble-api']
-  #   relabel_configs:
-  #     - source_labels: [__meta_ec2_tag_Name]
-  #       target_label: instance_name
-  #     - source_labels: [__meta_ec2_tag_Environment]
-  #       target_label: environment
-  #     - source_labels: [__meta_ec2_private_ip]
-  #       target_label: __address__
-  #       replacement: ${1}:8080
-  #   scrape_interval: 15s
-  #   metrics_path: /actuator/prometheus
-  #   scheme: http
+  # Spring Boot Applications - 직접 스크래핑
+  - job_name: 'spring-apps'
+    static_configs:
+      - targets: ['api.groble.im:443']  # HTTPS 엔드포인트
+    scrape_interval: 15s
+    metrics_path: /actuator/prometheus
+    scheme: https
+    scrape_timeout: 10s
+    # 라벨 추가
+    relabel_configs:
+      - target_label: application
+        replacement: groble
+      - target_label: environment  
+        replacement: production
+      - target_label: job
+        replacement: groble-api
 
 # Remote storage configuration (future enhancement for long-term storage)
 # remote_write:
