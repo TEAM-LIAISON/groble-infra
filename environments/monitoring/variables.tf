@@ -235,3 +235,24 @@ variable "desired_count" {
   default     = 1
 }
 
+# RDS Exporter configuration
+variable "rds_endpoint" {
+  description = "RDS endpoint address for monitoring"
+  type        = string
+  default     = ""
+}
+
+variable "rds_database_username" {
+  description = "RDS database username for exporter"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "rds_database_password" {
+  description = "RDS database password for exporter"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+

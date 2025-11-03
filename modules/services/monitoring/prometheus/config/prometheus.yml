@@ -99,6 +99,15 @@ scrape_configs:
     scheme: http
     scrape_timeout: 10s
 
+  # RDS Exporter - MySQL/RDS metrics
+  - job_name: 'rds-exporter'
+    static_configs:
+      - targets: ['localhost:9042']
+    scrape_interval: 30s
+    metrics_path: /metrics
+    scheme: http
+    scrape_timeout: 10s
+
 # Remote storage configuration (future enhancement for long-term storage)
 # remote_write:
 #   - url: "https://prometheus-remote-write.${aws_region}.amazonaws.com/workspaces/WORKSPACE_ID/api/v1/remote_write"

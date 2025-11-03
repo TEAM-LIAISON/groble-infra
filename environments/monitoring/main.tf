@@ -128,3 +128,38 @@ module "prometheus" {
 
   # No dependencies needed with localhost
 }
+
+# Node Exporter Service (DAEMON - runs on all instances)
+module "node_exporter" {
+  source = "../../modules/services/monitoring/node-exporter"
+
+  environment        = "monitoring"
+  ecs_cluster_id     = data.terraform_remote_state.shared.outputs.ecs_cluster_id
+  execution_role_arn = data.terraform_remote_state.shared.outputs.ecs_execution_role_arn
+  task_role_arn      = data.terraform_remote_state.shared.outputs.ecs_task_role_arn
+}
+
+# cAdvisor Service (DAEMON - runs on all instances)
+module "cadvisor" {
+  source = "../../modules/services/monitoring/cadvisor"
+
+  environment        = "monitoring"
+  ecs_cluster_id     = data.terraform_remote_state.shared.outputs.ecs_cluster_id
+  execution_role_arn = data.terraform_remote_state.shared.outputs.ecs_execution_role_arn
+  task_role_arn      = data.terraform_remote_state.shared.outputs.ecs_task_role_arn
+}
+
+# RDS Exporter Service (single instance on monitoring)
+module "rds_exporter" {
+  source = "../../modules/services/monitoring/rds-exporter"
+  count  = var.rds_endpoint != "" ? 1 : 0
+
+  environment        = "monitoring"
+  ecs_cluster_id     = data.terraform_remote_state.shared.outputs.ecs_cluster_id
+  execution_role_arn = data.terraform_remote_state.shared.outputs.ecs_execution_role_arn
+  task_role_arn      = data.terraform_remote_state.shared.outputs.ecs_task_role_arn
+
+  rds_endpoint       = var.rds_endpoint
+  database_username  = var.rds_database_username
+  database_password  = var.rds_database_password
+}
