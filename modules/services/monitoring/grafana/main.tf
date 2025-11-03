@@ -8,6 +8,12 @@ resource "aws_ecs_task_definition" "grafana" {
   execution_role_arn    = var.execution_role_arn
   task_role_arn         = var.task_role_arn
 
+  # Volume for Grafana data persistence
+  volume {
+    name      = "grafana-data"
+    host_path = "/opt/grafana/data"
+  }
+
   container_definitions = jsonencode([
     {
       name  = "grafana"
@@ -25,6 +31,15 @@ resource "aws_ecs_task_definition" "grafana" {
       # 메모리 설정 (낮은 리소스 사용)
       memory = var.container_memory
       memoryReservation = var.container_memory_reservation
+
+      # Volume mounts for data persistence
+      mountPoints = [
+        {
+          sourceVolume  = "grafana-data"
+          containerPath = "/var/lib/grafana"
+          readOnly      = false
+        }
+      ]
 
       environment = [
         {
