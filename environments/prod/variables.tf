@@ -169,29 +169,7 @@ variable "prod_max_image_count" {
   }
 }
 
-# MySQL 관련 변수들
-variable "mysql_memory" {
-  description = "Memory allocation for MySQL container (MB)"
-  type        = number
-  default     = 500
-  
-  validation {
-    condition     = var.mysql_memory >= 128
-    error_message = "MySQL memory must be at least 128 MB."
-  }
-}
-
-variable "mysql_cpu" {
-  description = "CPU allocation for MySQL container"
-  type        = number
-  default     = 256
-  
-  validation {
-    condition     = var.mysql_cpu >= 128
-    error_message = "MySQL CPU must be at least 128."
-  }
-}
-
+# MySQL 관련 변수들 (RDS용)
 variable "mysql_root_password" {
   description = "Root password for MySQL database"
   type        = string

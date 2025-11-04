@@ -65,8 +65,10 @@ resource "aws_instance" "prod_instance" {
   }))
 
   tags = {
-    Name = "${var.project_name}-prod-instance-${count.index + 1}"
-    Type = "Production"
+    Name        = "${var.project_name}-prod-instance-${count.index + 1}"
+    Type        = "Production"
+    Cluster     = "${var.project_name}-cluster"
+    environment = "production"
   }
 }
 
@@ -86,13 +88,28 @@ resource "aws_instance" "monitoring_instance" {
   associate_public_ip_address = true
   source_dest_check     = false  # Disable for NAT functionality
 
+  # Root volume configuration with increased storage
+  root_block_device {
+    volume_size           = var.monitoring_root_volume_size
+    volume_type           = var.monitoring_root_volume_type
+    delete_on_termination = true
+    encrypted             = true
+
+    tags = {
+      Name = "${var.project_name}-monitoring-root-volume"
+      Type = "Monitoring"
+    }
+  }
+
   user_data = base64encode(templatefile("${path.module}/user_data/monitoring_user_data.sh", {
     cluster_name = aws_ecs_cluster.cluster.name
   }))
 
   tags = {
-    Name = "${var.project_name}-monitoring-instance"
-    Type = "Monitoring"
+    Name        = "${var.project_name}-monitoring-instance"
+    Type        = "Monitoring"
+    Cluster     = "${var.project_name}-cluster"
+    environment = "monitoring"
   }
 }
 
@@ -116,8 +133,10 @@ resource "aws_instance" "dev_instance" {
   }))
 
   tags = {
-    Name = "${var.project_name}-develop-instance"
-    Type = "Development"
+    Name        = "${var.project_name}-develop-instance"
+    Type        = "Development"
+    Cluster     = "${var.project_name}-cluster"
+    environment = "development"
   }
 }
 

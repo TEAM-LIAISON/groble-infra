@@ -135,3 +135,16 @@ variable "private_route_table_id" {
   type        = string
   default     = ""
 }
+
+# EBS Volume settings
+variable "monitoring_root_volume_size" {
+  description = "Root volume size for monitoring instance in GB"
+  type        = number
+  default     = 30
+}
+
+variable "monitoring_root_volume_type" {
+  description = "Root volume type for monitoring instance"
+  type        = string
+  default     = "gp3"
+}

@@ -119,16 +119,25 @@ resource "aws_security_group" "groble_monitor_target_group" {
   name        = "${var.project_name}-monitor-target-group"
   description = "Security group for Groble monitoring instance"
   vpc_id      = var.vpc_id
-  
-  # SSH 접근 - Public Subnet 배치를 위해 특정 IP에서만 허용
+
+  # WireGuard VPN 접근 - 인터넷에서 접근 허용
+  ingress {
+    from_port   = 51820
+    to_port     = 51820
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "WireGuard VPN access"
+  }
+
+  # SSH 접근 - WireGuard VPN 서브넷에서만 허용
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = var.trusted_ips
-    description = "SSH access from trusted IPs"
+    cidr_blocks = ["10.6.0.0/24"]
+    description = "SSH access from WireGuard VPN subnet only"
   }
-  
+
   # 모니터링 대시보드 접근 (예: Grafana)
   ingress {
     from_port   = 3000

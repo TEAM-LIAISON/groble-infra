@@ -197,21 +197,6 @@ module "rds_mysql" {
 # PROD Service Layer
 #################################
 
-# Production MySQL Service
-module "mysql_service" {
-  source = "../../modules/services/production/mysql-service"
-  
-  project_name                 = var.project_name
-  ecs_cluster_id              = data.aws_ecs_cluster.shared_cluster.id
-  ecs_task_execution_role_arn = data.aws_iam_role.shared_ecs_task_execution_role.arn
-  ecs_task_role_arn          = data.aws_iam_role.shared_ecs_task_role.arn
-  
-  mysql_memory        = var.mysql_memory
-  mysql_cpu          = var.mysql_cpu
-  mysql_root_password = var.mysql_root_password
-  mysql_database     = var.mysql_database
-}
-
 # Production Redis Service
 module "redis_service" {
   source = "../../modules/services/production/redis-service"
@@ -270,6 +255,8 @@ module "api_service" {
   ]
 }
 
+# Note: MySQL service removed - using RDS MySQL instead
+
 #################################
 # 출력값 정의
 #################################
@@ -294,17 +281,6 @@ output "api_service_arn" {
 output "api_task_definition_arn" {
   description = "API task definition ARN"
   value       = module.api_service.task_definition_arn
-}
-
-# MySQL Service outputs  
-output "mysql_service_id" {
-  description = "MySQL service ID"
-  value       = module.mysql_service.service_id
-}
-
-output "mysql_task_definition_arn" {
-  description = "MySQL task definition ARN"
-  value       = module.mysql_service.task_definition_arn
 }
 
 # Redis Service outputs
