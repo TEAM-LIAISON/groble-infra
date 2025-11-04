@@ -18,7 +18,8 @@ resource "aws_ecs_task_definition" "grafana" {
     {
       name  = "grafana"
       image = "${var.grafana_image}:${var.grafana_version}"
-      
+      user  = "472:472"  # Run as grafana user
+
       # Host networking - expose port for load balancer
       portMappings = [
         {

@@ -13,11 +13,18 @@ resource "aws_ecs_task_definition" "rds_exporter" {
       name  = "rds-exporter"
       image = "${var.rds_exporter_image}:${var.rds_exporter_version}"
 
-      # Host networking - exposes on port 9042
+      # Command to run exporter with connection string
+      command = [
+        "--mysqld.address=${var.rds_endpoint}:3306",
+        "--mysqld.username=${var.database_username}",
+        "--web.listen-address=:9104"
+      ]
+
+      # Host networking - exposes on port 9104
       portMappings = [
         {
-          containerPort = 9042
-          hostPort      = 9042
+          containerPort = 9104
+          hostPort      = 9104
           protocol      = "tcp"
         }
       ]
@@ -28,8 +35,8 @@ resource "aws_ecs_task_definition" "rds_exporter" {
       # Environment variables for RDS connection
       environment = [
         {
-          name  = "DATA_SOURCE_NAME"
-          value = "${var.database_username}:${var.database_password}@tcp(${var.rds_endpoint})/mysql"
+          name  = "MYSQLD_EXPORTER_PASSWORD"
+          value = var.database_password
         }
       ]
 
@@ -48,7 +55,7 @@ resource "aws_ecs_task_definition" "rds_exporter" {
       healthCheck = {
         command = [
           "CMD-SHELL",
-          "wget --no-verbose --tries=1 --spider http://localhost:9042/metrics || exit 1"
+          "wget --no-verbose --tries=1 --spider http://localhost:9104/metrics || exit 1"
         ]
         interval    = 30
         timeout     = 5
