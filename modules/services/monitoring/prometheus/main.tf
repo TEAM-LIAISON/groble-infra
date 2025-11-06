@@ -1,6 +1,6 @@
-# S3 접근 권한 추가 (기존 task role에 인라인 정책으로 추가)
-resource "aws_iam_role_policy" "prometheus_s3_access" {
-  name = "${var.environment}-prometheus-s3-access"
+# S3 and EC2 access permissions for Prometheus
+resource "aws_iam_role_policy" "prometheus_access" {
+  name = "${var.environment}-prometheus-access"
   role = split("/", var.task_role_arn)[1]  # Extract role name from ARN
 
   policy = jsonencode({
@@ -18,6 +18,15 @@ resource "aws_iam_role_policy" "prometheus_s3_access" {
           aws_s3_bucket.prometheus_storage.arn,
           "${aws_s3_bucket.prometheus_storage.arn}/*"
         ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:DescribeInstances",
+          "ec2:DescribeAvailabilityZones",
+          "ec2:DescribeRegions"
+        ]
+        Resource = "*"
       }
     ]
   })

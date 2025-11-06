@@ -98,6 +98,24 @@ resource "aws_security_group" "groble_prod_target_group" {
     description = "Redis access from VPC"
   }
 
+  # Node Exporter - Allow Prometheus to scrape host metrics
+  ingress {
+    from_port       = 9100
+    to_port         = 9100
+    protocol        = "tcp"
+    security_groups = [aws_security_group.groble_monitor_target_group.id]
+    description     = "Node Exporter metrics from monitoring instance"
+  }
+
+  # cAdvisor - Allow Prometheus to scrape container metrics
+  ingress {
+    from_port       = 8081
+    to_port         = 8081
+    protocol        = "tcp"
+    security_groups = [aws_security_group.groble_monitor_target_group.id]
+    description     = "cAdvisor metrics from monitoring instance"
+  }
+
   # 모든 아웃바운드 트래픽 허용
   egress {
     from_port   = 0
@@ -320,6 +338,24 @@ resource "aws_security_group" "groble_develop_target_group" {
     protocol        = "tcp"
     security_groups = [aws_security_group.groble_load_balancer_sg.id]
     description     = "Dynamic port mapping for ECS"
+  }
+
+  # Node Exporter - Allow Prometheus to scrape host metrics
+  ingress {
+    from_port       = 9100
+    to_port         = 9100
+    protocol        = "tcp"
+    security_groups = [aws_security_group.groble_monitor_target_group.id]
+    description     = "Node Exporter metrics from monitoring instance"
+  }
+
+  # cAdvisor - Allow Prometheus to scrape container metrics
+  ingress {
+    from_port       = 8081
+    to_port         = 8081
+    protocol        = "tcp"
+    security_groups = [aws_security_group.groble_monitor_target_group.id]
+    description     = "cAdvisor metrics from monitoring instance"
   }
 
   # 모든 아웃바운드 트래픽 허용

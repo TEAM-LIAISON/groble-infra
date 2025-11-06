@@ -82,27 +82,89 @@ scrape_configs:
         replacement: groble-api
 
   # Node Exporter - Host metrics (CPU, memory, disk, network)
+  # Scrapes from all EC2 instances in the cluster
   - job_name: 'node-exporter'
     static_configs:
-      - targets: ['localhost:9100']
+      - targets:
+          - '10.0.1.193:9100'  # monitoring instance
+          - '10.0.11.62:9100'  # production instance
+          - '10.0.12.215:9100' # development instance
+        labels:
+          job: 'node-exporter'
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '10\.0\.1\.193:.*'
+        target_label: instance_name
+        replacement: 'groble-monitoring-instance'
+      - source_labels: [__address__]
+        regex: '10\.0\.1\.193:.*'
+        target_label: environment
+        replacement: 'monitoring'
+      - source_labels: [__address__]
+        regex: '10\.0\.11\.62:.*'
+        target_label: instance_name
+        replacement: 'groble-prod-instance-1'
+      - source_labels: [__address__]
+        regex: '10\.0\.11\.62:.*'
+        target_label: environment
+        replacement: 'production'
+      - source_labels: [__address__]
+        regex: '10\.0\.12\.215:.*'
+        target_label: instance_name
+        replacement: 'groble-develop-instance'
+      - source_labels: [__address__]
+        regex: '10\.0\.12\.215:.*'
+        target_label: environment
+        replacement: 'development'
     scrape_interval: 15s
     metrics_path: /metrics
     scheme: http
     scrape_timeout: 10s
 
   # cAdvisor - Container metrics
+  # Scrapes from all EC2 instances in the cluster
   - job_name: 'cadvisor'
     static_configs:
-      - targets: ['localhost:8081']
+      - targets:
+          - '10.0.1.193:8081'  # monitoring instance
+          - '10.0.11.62:8081'  # production instance
+          - '10.0.12.215:8081' # development instance
+        labels:
+          job: 'cadvisor'
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '10\.0\.1\.193:.*'
+        target_label: instance_name
+        replacement: 'groble-monitoring-instance'
+      - source_labels: [__address__]
+        regex: '10\.0\.1\.193:.*'
+        target_label: environment
+        replacement: 'monitoring'
+      - source_labels: [__address__]
+        regex: '10\.0\.11\.62:.*'
+        target_label: instance_name
+        replacement: 'groble-prod-instance-1'
+      - source_labels: [__address__]
+        regex: '10\.0\.11\.62:.*'
+        target_label: environment
+        replacement: 'production'
+      - source_labels: [__address__]
+        regex: '10\.0\.12\.215:.*'
+        target_label: instance_name
+        replacement: 'groble-develop-instance'
+      - source_labels: [__address__]
+        regex: '10\.0\.12\.215:.*'
+        target_label: environment
+        replacement: 'development'
     scrape_interval: 15s
     metrics_path: /metrics
     scheme: http
     scrape_timeout: 10s
 
-  # RDS Exporter - MySQL/RDS metrics
+  # RDS Exporter - MySQL/RDS metrics (only on monitoring instance)
   - job_name: 'rds-exporter'
     static_configs:
-      - targets: ['localhost:9042']
+      - targets: ['localhost:9104']
     scrape_interval: 30s
     metrics_path: /metrics
     scheme: http
