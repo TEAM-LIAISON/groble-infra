@@ -148,3 +148,22 @@ variable "monitoring_root_volume_type" {
   type        = string
   default     = "gp3"
 }
+
+# Private IP addresses
+variable "prod_instance_private_ip" {
+  description = "Static private IP address for production instance"
+  type        = string
+  default     = "10.0.11.62"
+}
+
+variable "dev_instance_private_ip" {
+  description = "Static private IP address for development instance"
+  type        = string
+  default     = "10.0.12.215"
+}
+
+variable "monitoring_instance_private_ip" {
+  description = "Static private IP address for monitoring instance"
+  type        = string
+  default     = "10.0.1.193"
+}

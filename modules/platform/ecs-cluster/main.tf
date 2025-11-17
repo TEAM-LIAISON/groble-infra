@@ -57,8 +57,22 @@ resource "aws_instance" "prod_instance" {
   key_name              = var.key_pair_name != "" ? var.key_pair_name : null
   vpc_security_group_ids = [var.prod_security_group_id]
   subnet_id             = var.private_subnet_ids[count.index % length(var.private_subnet_ids)]
+  private_ip            = var.prod_instance_private_ip
   iam_instance_profile  = var.ecs_instance_profile_name
   associate_public_ip_address = false
+
+  # Root volume configuration
+  root_block_device {
+    volume_size           = 30
+    volume_type           = "gp3"
+    delete_on_termination = true
+    encrypted             = true
+
+    tags = {
+      Name = "${var.project_name}-prod-root-volume-${count.index + 1}"
+      Type = "Production"
+    }
+  }
 
   user_data = base64encode(templatefile("${path.module}/user_data/prod_user_data.sh", {
     cluster_name = aws_ecs_cluster.cluster.name
@@ -84,6 +98,7 @@ resource "aws_instance" "monitoring_instance" {
   key_name              = var.key_pair_name != "" ? var.key_pair_name : null
   vpc_security_group_ids = [var.monitoring_security_group_id]
   subnet_id             = var.public_subnet_ids[0]  # ap-northeast-2a 유지 (기존 subnet-019b5f63cabd29f4d)
+  private_ip            = var.monitoring_instance_private_ip
   iam_instance_profile  = var.ecs_instance_profile_name
   associate_public_ip_address = true
   source_dest_check     = false  # Disable for NAT functionality
@@ -125,8 +140,22 @@ resource "aws_instance" "dev_instance" {
   key_name              = var.key_pair_name != "" ? var.key_pair_name : null
   vpc_security_group_ids = [var.dev_security_group_id]
   subnet_id             = var.private_subnet_ids[1]  # ap-northeast-2c private subnet
+  private_ip            = var.dev_instance_private_ip
   iam_instance_profile  = var.ecs_instance_profile_name
   associate_public_ip_address = false
+
+  # Root volume configuration
+  root_block_device {
+    volume_size           = 30
+    volume_type           = "gp3"
+    delete_on_termination = true
+    encrypted             = true
+
+    tags = {
+      Name = "${var.project_name}-dev-root-volume"
+      Type = "Development"
+    }
+  }
 
   user_data = base64encode(templatefile("${path.module}/user_data/dev_user_data.sh", {
     cluster_name = aws_ecs_cluster.cluster.name
