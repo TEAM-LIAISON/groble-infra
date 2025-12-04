@@ -145,6 +145,37 @@ resource "aws_iam_role_policy_attachment" "ecs_task_s3_policy" {
 #   policy_arn = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
 # }
 
+# KMS 암호화/복호화 권한 (애플리케이션에서 KMS 사용)
+resource "aws_iam_role_policy_attachment" "ecs_task_kms_policy" {
+  role       = aws_iam_role.ecs_task_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSKeyManagementServicePowerUser"
+}
+
+# KMS 키 사용 권한 (특정 키에 대한 명시적 권한)
+resource "aws_iam_role_policy" "ecs_task_kms_key_usage" {
+  name = "${var.project_name}-ecs-task-kms-key-usage"
+  role = aws_iam_role.ecs_task_role.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:Encrypt",
+          "kms:GenerateDataKey",
+          "kms:GenerateDataKeyWithoutPlaintext",
+          "kms:DescribeKey",
+          "kms:CreateGrant",
+          "kms:RetireGrant"
+        ]
+        Resource = "arn:aws:kms:ap-northeast-2:538827147369:key/*"
+      }
+    ]
+  })
+}
+
 #################################
 # CodeDeploy 서비스 역할
 #################################
