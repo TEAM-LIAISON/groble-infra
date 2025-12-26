@@ -273,3 +273,32 @@ resource "aws_iam_role_policy" "ecs_task_execution_ecr_policy" {
     ]
   })
 }
+
+#################################
+# SSM Parameter Store 접근 권한 정책
+#################################
+resource "aws_iam_role_policy" "ecs_task_execution_ssm_policy" {
+  name = "${var.project_name}-ecs-task-execution-ssm-policy"
+  role = aws_iam_role.ecs_task_execution_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameters",
+          "ssm:GetParameter"
+        ]
+        Resource = "arn:aws:ssm:ap-northeast-2:*:parameter/${var.project_name}/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt"
+        ]
+        Resource = "arn:aws:kms:ap-northeast-2:*:key/*"
+      }
+    ]
+  })
+}

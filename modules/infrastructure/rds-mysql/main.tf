@@ -70,6 +70,7 @@ resource "aws_db_instance" "mysql" {
   
   lifecycle {
     prevent_destroy = true
+    ignore_changes  = [final_snapshot_identifier]
   }
 }
 
@@ -79,8 +80,9 @@ resource "aws_db_parameter_group" "mysql_params" {
   name   = "${var.project_name}-${var.environment}-mysql-params"
   
   parameter {
-    name  = "innodb_buffer_pool_size"
-    value = "{DBInstanceClassMemory*3/4}"
+    name         = "innodb_buffer_pool_size"
+    value        = "{DBInstanceClassMemory*3/4}"
+    apply_method = "immediate"
   }
   
   parameter {
