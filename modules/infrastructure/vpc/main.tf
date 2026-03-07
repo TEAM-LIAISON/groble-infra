@@ -2,12 +2,12 @@
 # 데이터 소스 - 최신 Ubuntu Noble 24.04 LTS AMI 조회
 #################################
 data "aws_ami" "ubuntu_noble" {
-  most_recent = false
+  most_recent = true
   owners      = ["099720109477"] # Canonical (Ubuntu 공식 계정)
 
   filter {
-    name   = "image-id"
-    values = ["ami-0ff140cadd6129869"] # Pinned to current AMI to prevent unwanted instance replacements
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"]
   }
 
   filter {

@@ -78,6 +78,10 @@ resource "aws_instance" "prod_instance" {
     cluster_name = aws_ecs_cluster.cluster.name
   }))
 
+  lifecycle {
+    ignore_changes = [ami]
+  }
+
   tags = {
     Name        = "${var.project_name}-prod-instance-${count.index + 1}"
     Type        = "Production"
@@ -120,6 +124,10 @@ resource "aws_instance" "monitoring_instance" {
     cluster_name = aws_ecs_cluster.cluster.name
   }))
 
+  lifecycle {
+    ignore_changes = [ami]
+  }
+
   tags = {
     Name        = "${var.project_name}-monitoring-instance"
     Type        = "Monitoring"
@@ -160,6 +168,10 @@ resource "aws_instance" "dev_instance" {
   user_data = base64encode(templatefile("${path.module}/user_data/dev_user_data.sh", {
     cluster_name = aws_ecs_cluster.cluster.name
   }))
+
+  lifecycle {
+    ignore_changes = [ami]
+  }
 
   tags = {
     Name        = "${var.project_name}-develop-instance"
