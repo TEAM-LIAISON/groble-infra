@@ -23,6 +23,9 @@ terraform.tfvars.local
 .vscode/
 .idea/
 
+# Rendered config files (auto-generated)
+rendered-*
+
 # OS files
 .DS_Store
 Thumbs.db
