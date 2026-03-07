@@ -387,15 +387,3 @@ variable "auto_rollback_events" {
     error_message = "Auto rollback events must be valid deployment events."
   }
 }
-
-variable "enable_alarm_configuration" {
-  description = "Enable CloudWatch alarm configuration for deployments"
-  type        = bool
-  default     = false
-}
-
-variable "alarm_names" {
-  description = "List of CloudWatch alarm names to monitor during deployment"
-  type        = list(string)
-  default     = []
-}

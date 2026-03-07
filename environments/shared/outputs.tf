@@ -89,8 +89,4 @@ output "waf_web_acl_id" {
   value       = module.waf.web_acl_id
 }
 
-output "waf_log_group_name" {
-  description = "Name of the WAF CloudWatch log group"
-  value       = module.waf.cloudwatch_log_group_name
-}
 

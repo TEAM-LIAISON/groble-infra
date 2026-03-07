@@ -75,36 +75,8 @@ variable "max_request_size" {
 }
 
 #################################
-# Monitoring Configuration
-#################################
-
-variable "enable_cloudwatch_metrics" {
-  description = "Enable CloudWatch metrics for WAF"
-  type        = bool
-  default     = true
-}
-
-variable "enable_sampled_requests" {
-  description = "Enable sampled requests logging"
-  type        = bool
-  default     = true
-}
-
-variable "log_retention_days" {
-  description = "Number of days to retain WAF logs in CloudWatch"
-  type        = number
-  default     = 30
-}
-
-#################################
 # Optional Variables
 #################################
-
-variable "enable_waf_logging" {
-  description = "Enable WAF request logging to CloudWatch"
-  type        = bool
-  default     = true
-}
 
 variable "custom_rules" {
   description = "List of custom WAF rules (for future expansion)"

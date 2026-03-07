@@ -149,17 +149,6 @@ variable "auto_rollback_events" {
   default     = ["DEPLOYMENT_FAILURE", "DEPLOYMENT_STOP_ON_ALARM"]
 }
 
-variable "enable_alarm_configuration" {
-  description = "Enable CloudWatch alarm configuration for deployments"
-  type        = bool
-  default     = false
-}
-
-variable "alarm_names" {
-  description = "List of CloudWatch alarm names to monitor during deployment"
-  type        = list(string)
-  default     = []
-}
 
 #################################
 # WAF 관련 변수들
@@ -196,25 +185,6 @@ variable "rate_limit_global" {
   type        = number
   default     = 50000
 }
-
-variable "enable_cloudwatch_metrics" {
-  description = "Enable CloudWatch metrics for WAF"
-  type        = bool
-  default     = true
-}
-
-variable "enable_sampled_requests" {
-  description = "Enable sampled requests logging for WAF"
-  type        = bool
-  default     = true
-}
-
-variable "log_retention_days" {
-  description = "Number of days to retain WAF logs in CloudWatch"
-  type        = number
-  default     = 30
-}
-
 
 variable "rate_limit_login_endpoints" {
   description = "WAF rate limit for login/auth endpoints (requests per 5 minutes)"

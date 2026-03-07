@@ -132,18 +132,5 @@ variable "auto_rollback_events" {
   default     = ["DEPLOYMENT_FAILURE", "DEPLOYMENT_STOP_ON_ALARM"]
 }
 
-# 알람 설정
-variable "enable_alarm_configuration" {
-  description = "Enable alarm configuration"
-  type        = bool
-  default     = false
-}
-
-variable "alarm_names" {
-  description = "List of CloudWatch alarm names"
-  type        = list(string)
-  default     = []
-}
-
 # Note: ECS service dependencies are managed at the main.tf level
 # where CodeDeploy module is called after ECS services are created

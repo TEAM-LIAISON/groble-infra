@@ -35,9 +35,9 @@ resource "aws_wafv2_web_acl" "groble_waf" {
     }
 
     visibility_config {
-      cloudwatch_metrics_enabled = true
+      cloudwatch_metrics_enabled = false
       metric_name                = "CommonRuleSetMetric"
-      sampled_requests_enabled   = true
+      sampled_requests_enabled   = false
     }
   }
 
@@ -58,9 +58,9 @@ resource "aws_wafv2_web_acl" "groble_waf" {
     }
 
     visibility_config {
-      cloudwatch_metrics_enabled = true
+      cloudwatch_metrics_enabled = false
       metric_name                = "KnownBadInputsMetric"
-      sampled_requests_enabled   = true
+      sampled_requests_enabled   = false
     }
   }
 
@@ -81,9 +81,9 @@ resource "aws_wafv2_web_acl" "groble_waf" {
     }
 
     visibility_config {
-      cloudwatch_metrics_enabled = true
+      cloudwatch_metrics_enabled = false
       metric_name                = "SQLiRuleSetMetric"
-      sampled_requests_enabled   = true
+      sampled_requests_enabled   = false
     }
   }
 
@@ -104,9 +104,9 @@ resource "aws_wafv2_web_acl" "groble_waf" {
     }
 
     visibility_config {
-      cloudwatch_metrics_enabled = true
+      cloudwatch_metrics_enabled = false
       metric_name                = "IpReputationMetric"
-      sampled_requests_enabled   = true
+      sampled_requests_enabled   = false
     }
   }
 
@@ -145,9 +145,9 @@ resource "aws_wafv2_web_acl" "groble_waf" {
     }
 
     visibility_config {
-      cloudwatch_metrics_enabled = true
+      cloudwatch_metrics_enabled = false
       metric_name                = "RateLimitPerIPMetric"
-      sampled_requests_enabled   = true
+      sampled_requests_enabled   = false
     }
   }
 
@@ -182,9 +182,9 @@ resource "aws_wafv2_web_acl" "groble_waf" {
     }
 
     visibility_config {
-      cloudwatch_metrics_enabled = true
+      cloudwatch_metrics_enabled = false
       metric_name                = "RateLimitGlobalMetric"
-      sampled_requests_enabled   = true
+      sampled_requests_enabled   = false
     }
   }
 
@@ -233,9 +233,9 @@ resource "aws_wafv2_web_acl" "groble_waf" {
     }
 
     visibility_config {
-      cloudwatch_metrics_enabled = true
+      cloudwatch_metrics_enabled = false
       metric_name                = "ActuatorProtectionMetric"
-      sampled_requests_enabled   = true
+      sampled_requests_enabled   = false
     }
   }
 
@@ -265,9 +265,9 @@ resource "aws_wafv2_web_acl" "groble_waf" {
     }
 
     visibility_config {
-      cloudwatch_metrics_enabled = true
+      cloudwatch_metrics_enabled = false
       metric_name                = "RequestSizeLimitMetric"
-      sampled_requests_enabled   = true
+      sampled_requests_enabled   = false
     }
   }
 
@@ -295,9 +295,9 @@ resource "aws_wafv2_web_acl" "groble_waf" {
     }
 
     visibility_config {
-      cloudwatch_metrics_enabled = true
+      cloudwatch_metrics_enabled = false
       metric_name                = "GeoBlockingMetric"
-      sampled_requests_enabled   = true
+      sampled_requests_enabled   = false
     }
   }
 
@@ -332,16 +332,16 @@ resource "aws_wafv2_web_acl" "groble_waf" {
     }
 
     visibility_config {
-      cloudwatch_metrics_enabled = true
+      cloudwatch_metrics_enabled = false
       metric_name                = "LoginBruteForceMetric"
-      sampled_requests_enabled   = true
+      sampled_requests_enabled   = false
     }
   }
 
   visibility_config {
-    cloudwatch_metrics_enabled = var.enable_cloudwatch_metrics
+    cloudwatch_metrics_enabled = false
     metric_name                = "${var.project_name}WAF"
-    sampled_requests_enabled   = var.enable_sampled_requests
+    sampled_requests_enabled   = false
   }
 
   tags = {
@@ -359,41 +359,4 @@ resource "aws_wafv2_web_acl" "groble_waf" {
 resource "aws_wafv2_web_acl_association" "groble_waf_alb_association" {
   resource_arn = var.load_balancer_arn
   web_acl_arn  = aws_wafv2_web_acl.groble_waf.arn
-}
-
-#################################
-# CloudWatch Log Group for WAF
-#################################
-
-resource "aws_cloudwatch_log_group" "waf_log_group" {
-  name              = "aws-waf-logs-${var.project_name}-waf"
-  retention_in_days = var.log_retention_days
-
-  tags = {
-    Name        = "${var.project_name}-waf-logs"
-    Environment = var.environment
-    Project     = var.project_name
-    ManagedBy   = "Terraform"
-  }
-}
-
-#################################
-# WAF Logging Configuration
-#################################
-
-resource "aws_wafv2_web_acl_logging_configuration" "groble_waf_logging" {
-  resource_arn            = aws_wafv2_web_acl.groble_waf.arn
-  log_destination_configs = [aws_cloudwatch_log_group.waf_log_group.arn]
-
-  redacted_fields {
-    single_header {
-      name = "authorization"
-    }
-  }
-
-  redacted_fields {
-    single_header {
-      name = "cookie"
-    }
-  }
 }

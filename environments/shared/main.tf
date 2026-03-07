@@ -82,11 +82,6 @@ module "waf" {
 
   # Request size 설정
   max_request_size = var.max_request_size
-
-  # 모니터링 설정
-  enable_cloudwatch_metrics = var.enable_cloudwatch_metrics
-  enable_sampled_requests   = var.enable_sampled_requests
-  log_retention_days        = var.log_retention_days
 }
 
 
@@ -180,7 +175,4 @@ module "codedeploy" {
   enable_auto_rollback = var.enable_auto_rollback
   auto_rollback_events = var.auto_rollback_events
 
-  # 알람 설정
-  enable_alarm_configuration = var.enable_alarm_configuration
-  alarm_names                = var.alarm_names
 }

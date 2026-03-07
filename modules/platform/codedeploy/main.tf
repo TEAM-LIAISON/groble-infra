@@ -76,12 +76,6 @@ resource "aws_codedeploy_deployment_group" "prod_deployment_group" {
     events  = var.auto_rollback_events
   }
 
-  # 알람 설정
-  alarm_configuration {
-    enabled = var.enable_alarm_configuration
-    alarms  = var.alarm_names
-  }
-
   tags = {
     Name        = "${var.project_name}-prod-deployment-group"
     Environment = "production"
@@ -152,12 +146,6 @@ resource "aws_codedeploy_deployment_group" "dev_deployment_group" {
   auto_rollback_configuration {
     enabled = var.enable_auto_rollback
     events  = var.auto_rollback_events
-  }
-
-  # 알람 설정
-  alarm_configuration {
-    enabled = var.enable_alarm_configuration
-    alarms  = var.alarm_names
   }
 
   tags = {
