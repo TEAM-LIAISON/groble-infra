@@ -177,6 +177,29 @@ resource "aws_iam_role_policy" "ecs_task_kms_key_usage" {
 }
 
 #################################
+# SSM Parameter Store 접근 권한 (애플리케이션 런타임)
+#################################
+resource "aws_iam_role_policy" "ecs_task_ssm_policy" {
+  name = "${var.project_name}-ecs-task-ssm-policy"
+  role = aws_iam_role.ecs_task_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:GetParametersByPath"
+        ]
+        Resource = "arn:aws:ssm:ap-northeast-2:*:parameter/${var.project_name}/*"
+      }
+    ]
+  })
+}
+
+#################################
 # CodeDeploy 서비스 역할
 #################################
 
