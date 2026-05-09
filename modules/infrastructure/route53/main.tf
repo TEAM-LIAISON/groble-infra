@@ -37,6 +37,30 @@ resource "aws_route53_record" "api_test_development" {
   }
 }
 
+# CAA 레코드 (Amazon 인증서 발급 허용)
+resource "aws_route53_record" "caa" {
+  zone_id = data.aws_route53_zone.groble_zone.zone_id
+  name    = var.domain_name
+  type    = "CAA"
+  ttl     = 300
+
+  records = [
+    "0 issue \"amazon.com\""
+  ]
+}
+
+# CAA 레코드 - api.dev.groble.im (Amazon 인증서 발급 허용)
+resource "aws_route53_record" "api_dev_caa" {
+  zone_id = data.aws_route53_zone.groble_zone.zone_id
+  name    = "api.dev.${var.domain_name}"
+  type    = "CAA"
+  ttl     = 300
+
+  records = [
+    "0 issue \"amazon.com\""
+  ]
+}
+
 # 모니터링 도메인 (monitor.groble.im)
 resource "aws_route53_record" "monitoring" {
   zone_id = data.aws_route53_zone.groble_zone.zone_id

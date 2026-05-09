@@ -202,16 +202,14 @@ resource "aws_lb_listener" "groble_https_listener" {
   }
 }
 
-# 추가 인증서 연결 (변수가 설정되어 있을 때만 생성)
+# 추가 인증서 연결
 resource "aws_lb_listener_certificate" "groble_additional_cert" {
-  count           = var.additional_ssl_certificate_arn != "" ? 1 : 0
   listener_arn    = aws_lb_listener.groble_https_listener.arn
   certificate_arn = var.additional_ssl_certificate_arn
 }
 
 # 추가 인증서를 테스트 리스너에도 연결
 resource "aws_lb_listener_certificate" "groble_additional_cert_test" {
-  count           = var.additional_ssl_certificate_arn != "" ? 1 : 0
   listener_arn    = aws_lb_listener.groble_https_test_listener.arn
   certificate_arn = var.additional_ssl_certificate_arn
 }

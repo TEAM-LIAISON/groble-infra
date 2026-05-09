@@ -100,12 +100,6 @@ variable "ssl_certificate_arn" {
   default     = ""
 }
 
-variable "additional_ssl_certificate_arn" {
-  description = "Additional SSL certificate ARN for ALB"
-  type        = string
-  default     = ""
-}
-
 # CodeDeploy 관련 변수들
 variable "prod_deployment_config" {
   description = "CodeDeploy deployment configuration for production"

@@ -52,7 +52,7 @@ module "load_balancer" {
   enable_deletion_protection     = var.enable_deletion_protection
   health_check_path              = var.health_check_path
   ssl_certificate_arn            = var.ssl_certificate_arn
-  additional_ssl_certificate_arn = var.additional_ssl_certificate_arn
+  additional_ssl_certificate_arn = aws_acm_certificate_validation.dev_wildcard.certificate_arn
   idle_timeout                   = 300
 }
 
@@ -62,6 +62,46 @@ module "route53" {
 
   load_balancer_dns_name = module.load_balancer.load_balancer_dns_name
   load_balancer_zone_id  = module.load_balancer.load_balancer_zone_id
+}
+
+#################################
+# ACM 인증서 - *.dev.groble.im
+#################################
+
+resource "aws_acm_certificate" "dev_wildcard" {
+  domain_name       = "api.dev.groble.im"
+  validation_method = "DNS"
+
+  tags = {
+    Name = "api-dev-groble-im"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_route53_record" "dev_wildcard_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.dev_wildcard.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  }
+
+  zone_id = module.route53.hosted_zone_id
+  name    = each.value.name
+  type    = each.value.type
+  ttl     = 300
+  records = [each.value.record]
+
+  allow_overwrite = true
+}
+
+resource "aws_acm_certificate_validation" "dev_wildcard" {
+  certificate_arn         = aws_acm_certificate.dev_wildcard.arn
+  validation_record_fqdns = [for record in aws_route53_record.dev_wildcard_validation : record.fqdn]
 }
 
 # WAF 보안 인프라
