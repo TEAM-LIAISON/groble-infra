@@ -200,6 +200,11 @@ resource "aws_lb_listener" "groble_https_listener" {
     type             = "forward"
     target_group_arn = aws_lb_target_group.groble_prod_blue_tg.arn  # 초기는 Blue 환경
   }
+
+  # CodeDeploy Blue/Green 배포가 target_group_arn을 관리하므로 Terraform은 무시
+  lifecycle {
+    ignore_changes = [default_action[0].target_group_arn]
+  }
 }
 
 # 추가 인증서 연결
@@ -257,6 +262,11 @@ resource "aws_lb_listener_rule" "api_test_production_rule" {
     Project     = var.project_name
     ManagedBy   = "Terraform"
   }
+
+  # CodeDeploy Blue/Green 배포가 target_group_arn을 관리하므로 Terraform은 무시
+  lifecycle {
+    ignore_changes = [action[0].target_group_arn]
+  }
 }
 
 # API 테스트 개발 라우팅 규칙 (api.dev.groble.im → Development Blue)
@@ -281,6 +291,11 @@ resource "aws_lb_listener_rule" "api_test_development_rule" {
     Project     = var.project_name
     ManagedBy   = "Terraform"
   }
+
+  # CodeDeploy Blue/Green 배포가 target_group_arn을 관리하므로 Terraform은 무시
+  lifecycle {
+    ignore_changes = [action[0].target_group_arn]
+  }
 }
 
 #################################
@@ -298,6 +313,11 @@ resource "aws_lb_listener" "groble_https_test_listener" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.groble_prod_blue_tg.arn
+  }
+
+  # CodeDeploy Blue/Green 배포가 target_group_arn을 관리하므로 Terraform은 무시
+  lifecycle {
+    ignore_changes = [default_action[0].target_group_arn]
   }
 }
 
@@ -327,6 +347,11 @@ resource "aws_lb_listener_rule" "api_test_production_test_rule" {
     Project     = var.project_name
     ManagedBy   = "Terraform"
   }
+
+  # CodeDeploy Blue/Green 배포가 target_group_arn을 관리하므로 Terraform은 무시
+  lifecycle {
+    ignore_changes = [action[0].target_group_arn]
+  }
 }
 
 # API 테스트 개발 - 테스트 리스너 규칙 (api.dev.groble.im:9443 → Development Blue)
@@ -350,5 +375,10 @@ resource "aws_lb_listener_rule" "api_test_development_test_rule" {
     Environment = "development"
     Project     = var.project_name
     ManagedBy   = "Terraform"
+  }
+
+  # CodeDeploy Blue/Green 배포가 target_group_arn을 관리하므로 Terraform은 무시
+  lifecycle {
+    ignore_changes = [action[0].target_group_arn]
   }
 }
