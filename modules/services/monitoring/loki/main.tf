@@ -1,7 +1,7 @@
 # S3 접근 권한 추가 (기존 task role에 인라인 정책으로 추가)
 resource "aws_iam_role_policy" "loki_s3_access" {
   name = "${var.environment}-loki-s3-access"
-  role = split("/", var.task_role_arn)[1]  # Extract role name from ARN
+  role = split("/", var.task_role_arn)[1] # Extract role name from ARN
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -80,84 +80,28 @@ resource "aws_s3_bucket_lifecycle_configuration" "loki_storage" {
 
 # Task Definition for Loki (Enhanced IMDSv2 support)
 resource "aws_ecs_task_definition" "loki" {
-  family                = "${var.environment}-loki"
-  network_mode          = "host"
+  family                   = "${var.environment}-loki"
+  network_mode             = "host"
   requires_compatibilities = ["EC2"]
-  cpu                   = var.cpu
-  memory                = var.memory
-  execution_role_arn    = var.execution_role_arn
-  task_role_arn         = var.task_role_arn
+  cpu                      = var.cpu
+  memory                   = var.memory
+  execution_role_arn       = var.execution_role_arn
+  task_role_arn            = var.task_role_arn
 
   container_definitions = jsonencode([
-    # Init container to fetch AWS credentials
-    {
-      name  = "aws-credentials-init"
-      image = "amazon/aws-cli:latest"
-      essential = false
-      
-      environment = [
-        {
-          name  = "AWS_DEFAULT_REGION"
-          value = var.aws_region
-        },
-        {
-          name  = "AWS_REGION" 
-          value = var.aws_region
-        },
-        {
-          name  = "AWS_EC2_METADATA_DISABLED"
-          value = "false"
-        },
-        {
-          name  = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
-          value = ""
-        },
-        {
-          name  = "ECS_CONTAINER_METADATA_URI_V4"
-          value = ""
-        },
-        {
-          name  = "ECS_CONTAINER_METADATA_URI"
-          value = ""
-        },
-        {
-          name  = "AWS_IMDSv2_ENABLED"
-          value = "true"
-        }
-      ]
-      
-      entryPoint = ["sh", "-c"]
-      command = [
-        "echo 'Using EC2 instance credentials only...' && unset AWS_CONTAINER_CREDENTIALS_RELATIVE_URI && unset ECS_CONTAINER_METADATA_URI_V4 && unset ECS_CONTAINER_METADATA_URI && echo 'Testing EC2 metadata service...' && TOKEN=$(curl -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600' http://169.254.169.254/latest/api/token) && curl -H \"X-aws-ec2-metadata-token: $TOKEN\" http://169.254.169.254/latest/meta-data/iam/security-credentials/ && echo 'EC2 metadata service accessible' && aws sts get-caller-identity && echo 'AWS credentials available'"
-      ]
-      
-      logDriver = "json-file"
-      logOptions = {
-        "max-size" = "5m"
-        "max-file" = "2"
-      }
-    },
     {
       name  = "loki"
       image = "${var.loki_image}:${var.loki_version}"
-      
-      # Depend on init container
-      dependsOn = [
-        {
-          containerName = "aws-credentials-init"
-          condition = "SUCCESS"
-        }
-      ]
-      
+
       # Host networking - no port mappings needed
 
-      memory = var.container_memory
+      memory            = var.container_memory
       memoryReservation = var.container_memory_reservation
 
       # Environment variables for Loki configuration and AWS settings
       environment = [
         {
-          name  = "LOKI_CONFIG_YAML"
+          name = "LOKI_CONFIG_YAML"
           value = templatefile("${path.module}/config/loki-config.yaml", {
             aws_region = var.aws_region
             s3_bucket  = aws_s3_bucket.loki_storage.bucket
@@ -176,7 +120,7 @@ resource "aws_ecs_task_definition" "loki" {
           value = "10"
         },
         {
-          name  = "AWS_METADATA_SERVICE_NUM_ATTEMPTS" 
+          name  = "AWS_METADATA_SERVICE_NUM_ATTEMPTS"
           value = "3"
         },
         {
@@ -210,24 +154,12 @@ resource "aws_ecs_task_definition" "loki" {
         {
           name  = "AWS_EC2_METADATA_DISABLED"
           value = "false"
-        },
-        {
-          name  = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
-          value = ""
-        },
-        {
-          name  = "ECS_CONTAINER_METADATA_URI_V4"
-          value = ""
-        },
-        {
-          name  = "ECS_CONTAINER_METADATA_URI"
-          value = ""
         }
       ]
 
       entryPoint = ["/bin/sh", "-c"]
       command = [
-        "unset AWS_CONTAINER_CREDENTIALS_RELATIVE_URI && unset ECS_CONTAINER_METADATA_URI_V4 && unset ECS_CONTAINER_METADATA_URI && echo \"$LOKI_CONFIG_YAML\" > /etc/loki/loki-config.yaml && echo 'Config file created successfully:' && cat /etc/loki/loki-config.yaml && echo 'AWS region: $AWS_DEFAULT_REGION' && echo 'Starting Loki with S3 storage and EC2 credentials...' && /usr/bin/loki -config.file=/etc/loki/loki-config.yaml"
+        "echo \"$LOKI_CONFIG_YAML\" > /etc/loki/loki-config.yaml && echo 'Config file created successfully:' && cat /etc/loki/loki-config.yaml && echo 'Starting Loki with S3 storage using ECS task role credentials...' && /usr/bin/loki -config.file=/etc/loki/loki-config.yaml"
       ]
 
       logDriver = "json-file"
@@ -264,7 +196,7 @@ resource "aws_ecs_service" "loki" {
   cluster         = var.ecs_cluster_id
   task_definition = aws_ecs_task_definition.loki.arn
   desired_count   = var.desired_count
-  
+
   placement_constraints {
     type       = "memberOf"
     expression = "attribute:environment == monitoring"

@@ -49,6 +49,14 @@ docker run --name ecs-agent \
   --cap-add=SYS_ADMIN \
   amazon/amazon-ecs-agent:latest
 
+# ECS task IAM role credential proxy (normally installed by amazon-ecs-init).
+# Redirects the task credential endpoint 169.254.170.2:80 to the ECS agent's
+# credential server on 127.0.0.1:51679 so host-mode tasks such as Loki can
+# obtain their task-role credentials. Without this, the AWS SDK fails with
+# "NoCredentialProviders" and all S3 access times out.
+iptables -t nat -A OUTPUT     -p tcp -d 169.254.170.2 --dport 80 -j REDIRECT --to-ports 51679
+iptables -t nat -A PREROUTING -p tcp -d 169.254.170.2 --dport 80 -j DNAT --to-destination 127.0.0.1:51679
+
 # Configure NAT functionality for private subnet internet access
 # Get the primary network interface name
 PRIMARY_INTERFACE=$(ip route | grep default | awk '{print $5}' | head -n1)

@@ -5,13 +5,13 @@
 # ECS 클러스터 생성
 resource "aws_ecs_cluster" "cluster" {
   name = "${var.project_name}-cluster"
-  
+
   # Container Insights
   setting {
     name  = "containerInsights"
     value = var.enable_container_insights ? "enabled" : "disabled"
   }
-  
+
   tags = {
     Name = "${var.project_name}-ecs-cluster"
   }
@@ -52,13 +52,13 @@ resource "aws_ecs_cluster" "cluster" {
 resource "aws_instance" "prod_instance" {
   count = var.create_prod_instance ? var.prod_instance_count : 0
 
-  ami                    = var.ubuntu_ami_id
-  instance_type          = var.prod_instance_type
-  key_name              = var.key_pair_name != "" ? var.key_pair_name : null
-  vpc_security_group_ids = [var.prod_security_group_id]
-  subnet_id             = var.private_subnet_ids[count.index % length(var.private_subnet_ids)]
-  private_ip            = var.prod_instance_private_ip
-  iam_instance_profile  = var.ecs_instance_profile_name
+  ami                         = var.ubuntu_ami_id
+  instance_type               = var.prod_instance_type
+  key_name                    = var.key_pair_name != "" ? var.key_pair_name : null
+  vpc_security_group_ids      = [var.prod_security_group_id]
+  subnet_id                   = var.private_subnet_ids[count.index % length(var.private_subnet_ids)]
+  private_ip                  = var.prod_instance_private_ip
+  iam_instance_profile        = var.ecs_instance_profile_name
   associate_public_ip_address = false
 
   # Root volume configuration
@@ -97,15 +97,15 @@ resource "aws_instance" "prod_instance" {
 resource "aws_instance" "monitoring_instance" {
   count = var.create_monitoring_instance ? 1 : 0
 
-  ami                    = var.ubuntu_ami_id
-  instance_type          = var.monitoring_instance_type
-  key_name              = var.key_pair_name != "" ? var.key_pair_name : null
-  vpc_security_group_ids = [var.monitoring_security_group_id]
-  subnet_id             = var.public_subnet_ids[0]  # ap-northeast-2a 유지 (기존 subnet-019b5f63cabd29f4d)
-  private_ip            = var.monitoring_instance_private_ip
-  iam_instance_profile  = var.ecs_instance_profile_name
+  ami                         = var.ubuntu_ami_id
+  instance_type               = var.monitoring_instance_type
+  key_name                    = var.key_pair_name != "" ? var.key_pair_name : null
+  vpc_security_group_ids      = [var.monitoring_security_group_id]
+  subnet_id                   = var.public_subnet_ids[0] # ap-northeast-2a 유지 (기존 subnet-019b5f63cabd29f4d)
+  private_ip                  = var.monitoring_instance_private_ip
+  iam_instance_profile        = var.ecs_instance_profile_name
   associate_public_ip_address = true
-  source_dest_check     = false  # Disable for NAT functionality
+  source_dest_check           = false # Disable for NAT functionality
 
   # Root volume configuration with increased storage
   root_block_device {
@@ -124,8 +124,10 @@ resource "aws_instance" "monitoring_instance" {
     cluster_name = aws_ecs_cluster.cluster.name
   }))
 
+  # user_data는 인스턴스 재생성을 유발하므로 무시 (credential 프록시 iptables 등
+  # 스크립트 변경은 의도적 재생성 시에만 반영). ami와 동일한 이유로 고정.
   lifecycle {
-    ignore_changes = [ami]
+    ignore_changes = [ami, user_data]
   }
 
   tags = {
@@ -143,13 +145,13 @@ resource "aws_instance" "monitoring_instance" {
 resource "aws_instance" "dev_instance" {
   count = var.create_dev_instance ? 1 : 0
 
-  ami                    = var.ubuntu_ami_id
-  instance_type          = var.dev_instance_type
-  key_name              = var.key_pair_name != "" ? var.key_pair_name : null
-  vpc_security_group_ids = [var.dev_security_group_id]
-  subnet_id             = var.private_subnet_ids[1]  # ap-northeast-2c private subnet
-  private_ip            = var.dev_instance_private_ip
-  iam_instance_profile  = var.ecs_instance_profile_name
+  ami                         = var.ubuntu_ami_id
+  instance_type               = var.dev_instance_type
+  key_name                    = var.key_pair_name != "" ? var.key_pair_name : null
+  vpc_security_group_ids      = [var.dev_security_group_id]
+  subnet_id                   = var.private_subnet_ids[1] # ap-northeast-2c private subnet
+  private_ip                  = var.dev_instance_private_ip
+  iam_instance_profile        = var.ecs_instance_profile_name
   associate_public_ip_address = false
 
   # Root volume configuration
@@ -202,6 +204,6 @@ resource "aws_route" "private_nat_route" {
   route_table_id         = var.private_route_table_id
   destination_cidr_block = "0.0.0.0/0"
   network_interface_id   = aws_instance.monitoring_instance[0].primary_network_interface_id
-  
+
   depends_on = [aws_instance.monitoring_instance]
 }
