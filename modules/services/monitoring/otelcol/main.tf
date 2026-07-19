@@ -1,12 +1,5 @@
-# Generate OpenTelemetry Collector configuration from template
-locals {
-  otelcol_config = templatefile("${path.module}/config/otelcol-config.yaml", {
-    collector_version = var.otelcol_version
-    aws_region       = var.aws_region
-  })
-}
-
 # Task Definition for OpenTelemetry Collector
+# config는 이미지에 구워져 있음(/etc/otelcol/config.yaml). 동적 값은 AWS_REGION 하나뿐.
 resource "aws_ecs_task_definition" "otelcol" {
   family                   = "${var.environment}-otelcol"
   network_mode             = "host"
@@ -14,79 +7,21 @@ resource "aws_ecs_task_definition" "otelcol" {
   cpu                      = var.cpu
   memory                   = var.memory
   execution_role_arn       = var.execution_role_arn
-  task_role_arn           = var.task_role_arn
-
-
-
-  # Volume for temporary config storage
-  volume {
-    name = "tmp-volume"
-    host_path = "/tmp"
-  }
+  task_role_arn            = var.task_role_arn
 
   container_definitions = jsonencode([
-    # Init container to create config file
-    {
-      name  = "otelcol-init"
-      image = "busybox:latest"
-      essential = false
-      
-      mountPoints = [
-        {
-          sourceVolume  = "tmp-volume"
-          containerPath = "/tmp"
-          readOnly      = false
-        }
-      ]
-      
-      environment = [
-        {
-          name  = "OTELCOL_CONFIG_YAML"
-          value = local.otelcol_config
-        }
-      ]
-      
-      command = [
-        "sh", "-c",
-        "echo \"$OTELCOL_CONFIG_YAML\" > /tmp/otelcol-config.yaml && echo 'Config file created at /tmp/otelcol-config.yaml' && ls -la /tmp/otelcol-config.yaml"
-      ]
-      
-      logDriver = "json-file"
-      logOptions = {
-        "max-size" = "5m"
-        "max-file" = "2"
-      }
-    },
     {
       name  = "otelcol"
-      image = "${var.otelcol_image}:${var.otelcol_version}"
-      
-      # Depend on init container
-      dependsOn = [
-        {
-          containerName = "otelcol-init"
-          condition = "SUCCESS"
-        }
-      ]
-      
-      mountPoints = [
-        {
-          sourceVolume  = "tmp-volume"
-          containerPath = "/tmp"
-          readOnly      = true
-        }
-      ]
+      image = var.otelcol_image
 
-      # Memory configuration
       memory            = var.container_memory
       memoryReservation = var.container_memory_reservation
 
-
-      # OpenTelemetry Collector startup - use config from shared volume
+      # config는 이미지에 baked. AWS_REGION 은 otelcol 네이티브 ${env:AWS_REGION} 로 확장.
       command = [
-        "--config=/tmp/otelcol-config.yaml"
+        "--config=/etc/otelcol/config.yaml"
       ]
-      
+
       environment = [
         {
           name  = "AWS_DEFAULT_REGION"
@@ -98,7 +33,6 @@ resource "aws_ecs_task_definition" "otelcol" {
         }
       ]
 
-      # Logging configuration
       logDriver = "json-file"
       logOptions = {
         "max-size" = "10m"
@@ -106,18 +40,6 @@ resource "aws_ecs_task_definition" "otelcol" {
       }
 
       essential = true
-
-      # Health check configuration
-      # healthCheck = {
-      #   command = [
-      #     "CMD-SHELL",
-      #     "wget --no-verbose --tries=1 --spider http://localhost:13133/ || exit 1"
-      #   ]
-      #   interval    = var.health_check_interval
-      #   timeout     = 5
-      #   retries     = 3
-      #   startPeriod = 30
-      # }
     }
   ])
 
@@ -129,19 +51,13 @@ resource "aws_ecs_task_definition" "otelcol" {
   }
 }
 
-# Write the templated configuration to a local file for deployment
-resource "local_file" "otelcol_config" {
-  content  = local.otelcol_config
-  filename = "${path.module}/config/rendered-otelcol-config.yaml"
-}
-
 # ECS Service for OpenTelemetry Collector
 resource "aws_ecs_service" "otelcol" {
   name            = "${var.environment}-otelcol"
   cluster         = var.ecs_cluster_id
   task_definition = aws_ecs_task_definition.otelcol.arn
   desired_count   = var.desired_count
-  
+
   # Deploy only to monitoring EC2 instances
   placement_constraints {
     type       = "memberOf"

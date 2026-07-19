@@ -6,7 +6,7 @@ OpenTelemetry Collector service for centralized telemetry data collection and pr
 
 - **OTLP Receivers**: HTTP (4318) and gRPC (4317) endpoints
 - **Host Networking**: Direct localhost communication with monitoring stack
-- **Init Container**: Dynamic configuration generation using Terraform templates
+- **Baked Config**: config는 `groble-images`가 빌드한 이미지(`/etc/otelcol/config.yaml`)에 구워져 있음. 동적 값은 `AWS_REGION` 하나뿐이며 otelcol 네이티브 `${env:AWS_REGION}`로 확장
 - **Loki Integration**: OTLP HTTP export to Loki service
 - **Prometheus Metrics**: Active metrics export to Prometheus
 - **Memory Management**: Built-in memory limiter and batch processing
@@ -35,10 +35,12 @@ Spring API (Prod/Dev) → OTLP → OpenTelemetry Collector → Loki (Monitoring)
 - `service_discovery_namespace_id`: Service discovery namespace
 - `aws_region`: AWS region for resource metadata
 
+### Required Variables (cont.)
+
+- `otelcol_image`: baked-config 이미지 full ref (`repo:tag`) — 예: `538827147369.dkr.ecr.ap-northeast-2.amazonaws.com/groble-otelcol:0.132.0-57015e3`
+
 ### Optional Variables
 
-- `otelcol_image`: OpenTelemetry Collector image (default: otel/opentelemetry-collector-contrib)
-- `otelcol_version`: Collector version (default: latest)
 - `cpu/memory`: Resource allocation (default: 0.25 vCPU, 512MB)
 
 ## Endpoints
@@ -59,7 +61,7 @@ Uses **host networking** mode for direct localhost communication with other moni
 
 - **Host Mode**: Direct communication without service discovery
 - **Placement Constraint**: `attribute:environment == monitoring`
-- **Init Container**: Generates configuration file at runtime
+- **Baked Config**: 이미지의 `/etc/otelcol/config.yaml`를 `--config`로 직접 참조 (init 컨테이너 없음)
 
 ## Spring Application Integration
 

@@ -44,8 +44,7 @@ module "otelcol" {
   execution_role_arn = data.terraform_remote_state.shared.outputs.ecs_execution_role_arn
   task_role_arn      = data.terraform_remote_state.shared.outputs.ecs_task_role_arn
 
-  otelcol_image   = var.otelcol_image
-  otelcol_version = var.otelcol_version
+  otelcol_image = var.monitoring_otelcol_image
 
   # Resource configuration
   cpu                          = var.otelcol_cpu

@@ -107,16 +107,15 @@ variable "loki_container_memory_reservation" {
 }
 
 # OpenTelemetry Collector 관련 변수
-variable "otelcol_image" {
-  description = "OpenTelemetry Collector Docker image"
+# config baking: groble-images CI가 push한 full image ref(repo:tag) 하나만 받음.
+variable "monitoring_otelcol_image" {
+  description = "otelcol baked-config image (repo:tag) from groble-images CI"
   type        = string
-  default     = "otel/opentelemetry-collector-contrib"
-}
 
-variable "otelcol_version" {
-  description = "OpenTelemetry Collector version"
-  type        = string
-  default     = "0.132.0"
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9._/-]+:[a-zA-Z0-9._-]+$", var.monitoring_otelcol_image))
+    error_message = "monitoring_otelcol_image must be a valid Docker image ref (repo:tag)."
+  }
 }
 
 variable "otelcol_cpu" {

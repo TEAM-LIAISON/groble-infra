@@ -22,15 +22,13 @@ variable "task_role_arn" {
 # Service discovery removed - using host networking
 
 variable "otelcol_image" {
-  description = "OpenTelemetry Collector Docker image"
+  description = "Full ECR image ref (repo:tag) with baked config"
   type        = string
-  default     = "otel/opentelemetry-collector-contrib"
-}
 
-variable "otelcol_version" {
-  description = "OpenTelemetry Collector version"
-  type        = string
-  default     = "0.132.0"
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9._/-]+:[a-zA-Z0-9._-]+$", var.otelcol_image))
+    error_message = "otelcol_image must be a valid Docker image ref (repo:tag)."
+  }
 }
 
 # Loki endpoint hardcoded to localhost in config
