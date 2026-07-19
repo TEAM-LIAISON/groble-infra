@@ -1,7 +1,7 @@
 # S3 and EC2 access permissions for Prometheus
 resource "aws_iam_role_policy" "prometheus_access" {
   name = "${var.environment}-prometheus-access"
-  role = split("/", var.task_role_arn)[1]  # Extract role name from ARN
+  role = split("/", var.task_role_arn)[1] # Extract role name from ARN
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -66,21 +66,6 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "prometheus_storag
   }
 }
 
-# Generate Prometheus configuration from template
-locals {
-  prometheus_config = templatefile("${path.module}/config/prometheus.yml", {
-    aws_region          = var.aws_region
-    scrape_interval     = var.scrape_interval
-    evaluation_interval = var.evaluation_interval
-  })
-}
-
-# Write the templated configuration to a local file for deployment
-resource "local_file" "prometheus_config" {
-  content  = local.prometheus_config
-  filename = "${path.module}/config/rendered-prometheus.yml"
-}
-
 resource "aws_s3_bucket_lifecycle_configuration" "prometheus_storage" {
   bucket = aws_s3_bucket.prometheus_storage.id
 
@@ -110,7 +95,7 @@ resource "aws_ecs_task_definition" "prometheus" {
   cpu                      = var.cpu
   memory                   = var.memory
   execution_role_arn       = var.execution_role_arn
-  task_role_arn           = var.task_role_arn
+  task_role_arn            = var.task_role_arn
 
   # Volume for Prometheus data (local storage)
   volume {
@@ -121,10 +106,10 @@ resource "aws_ecs_task_definition" "prometheus" {
   container_definitions = jsonencode([
     # Init container to fix permissions
     {
-      name  = "init-prometheus"
-      image = "busybox:latest"
+      name      = "init-prometheus"
+      image     = "busybox:latest"
       essential = false
-      
+
       mountPoints = [
         {
           sourceVolume  = "prometheus-data"
@@ -132,12 +117,12 @@ resource "aws_ecs_task_definition" "prometheus" {
           readOnly      = false
         }
       ]
-      
+
       command = [
         "sh", "-c",
         "mkdir -p /prometheus && chown -R 65534:65534 /prometheus && chmod -R 755 /prometheus"
       ]
-      
+
       logDriver = "json-file"
       logOptions = {
         "max-size" = "5m"
@@ -146,16 +131,16 @@ resource "aws_ecs_task_definition" "prometheus" {
     },
     {
       name  = "prometheus"
-      image = "${var.prometheus_image}:${var.prometheus_version}"
-      
+      image = var.prometheus_image
+
       # Depend on init container
       dependsOn = [
         {
           containerName = "init-prometheus"
-          condition = "SUCCESS"
+          condition     = "SUCCESS"
         }
       ]
-      
+
       # Host networking - no port mappings needed
 
       memory            = var.container_memory
@@ -170,12 +155,8 @@ resource "aws_ecs_task_definition" "prometheus" {
         }
       ]
 
-      # Environment variables for Prometheus configuration
+      # config는 이미지에 baked(/etc/prometheus/prometheus.yml). 동적 값 없음.
       environment = [
-        {
-          name  = "PROMETHEUS_CONFIG_YAML"
-          value = local.prometheus_config
-        },
         {
           name  = "AWS_DEFAULT_REGION"
           value = var.aws_region
@@ -189,17 +170,19 @@ resource "aws_ecs_task_definition" "prometheus" {
       # Run as prometheus user (UID 65534)
       user = "65534:65534"
 
-      # Prometheus startup command - create config and start
-      entryPoint = ["/bin/sh", "-c"]
+      # baked config를 직접 참조. 기존 echo 엔트리포인트가 담던 플래그를 그대로 이관.
       command = [
-        <<-EOT
-        echo 'Creating Prometheus config in writable location...' &&
-        echo "$PROMETHEUS_CONFIG_YAML" > /tmp/prometheus.yml &&
-        echo 'Prometheus config created:' &&
-        cat /tmp/prometheus.yml &&
-        echo 'Starting Prometheus with localhost config...' &&
-        /bin/prometheus --config.file=/tmp/prometheus.yml --storage.tsdb.path=/prometheus --storage.tsdb.retention.time=${var.local_retention_time} --storage.tsdb.retention.size=${var.local_retention_size} --web.console.libraries=/etc/prometheus/console_libraries --web.console.templates=/etc/prometheus/consoles --web.enable-lifecycle --web.enable-admin-api --web.external-url=https://${var.prometheus_domain} --web.route-prefix=/ --log.level=${var.log_level}
-        EOT
+        "--config.file=/etc/prometheus/prometheus.yml",
+        "--storage.tsdb.path=/prometheus",
+        "--storage.tsdb.retention.time=${var.local_retention_time}",
+        "--storage.tsdb.retention.size=${var.local_retention_size}",
+        "--web.console.libraries=/etc/prometheus/console_libraries",
+        "--web.console.templates=/etc/prometheus/consoles",
+        "--web.enable-lifecycle",
+        "--web.enable-admin-api",
+        "--web.external-url=https://${var.prometheus_domain}",
+        "--web.route-prefix=/",
+        "--log.level=${var.log_level}",
       ]
 
       # Logging configuration
@@ -239,7 +222,7 @@ resource "aws_ecs_service" "prometheus" {
   cluster         = var.ecs_cluster_id
   task_definition = aws_ecs_task_definition.prometheus.arn
   desired_count   = var.desired_count
-  
+
   # Deploy only to monitoring EC2 instances
   placement_constraints {
     type       = "memberOf"

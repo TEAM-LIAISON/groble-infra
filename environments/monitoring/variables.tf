@@ -143,16 +143,15 @@ variable "otelcol_container_memory_reservation" {
 }
 
 # Prometheus 관련 변수
-variable "prometheus_image" {
-  description = "Prometheus Docker image"
+# config baking: groble-images CI가 push한 full image ref(repo:tag) 하나만 받음.
+variable "monitoring_prometheus_image" {
+  description = "prometheus baked-config image (repo:tag) from groble-images CI"
   type        = string
-  default     = "prom/prometheus"
-}
 
-variable "prometheus_version" {
-  description = "Prometheus version"
-  type        = string
-  default     = "v2.45.0"
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9._/-]+:[a-zA-Z0-9._-]+$", var.monitoring_prometheus_image))
+    error_message = "monitoring_prometheus_image must be a valid Docker image ref (repo:tag)."
+  }
 }
 
 variable "prometheus_domain" {

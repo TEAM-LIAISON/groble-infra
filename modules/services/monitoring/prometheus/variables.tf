@@ -31,15 +31,13 @@ variable "task_role_arn" {
 
 # Prometheus Configuration
 variable "prometheus_image" {
-  description = "Prometheus Docker image"
+  description = "Full ECR image ref (repo:tag) with baked config"
   type        = string
-  default     = "prom/prometheus"
-}
 
-variable "prometheus_version" {
-  description = "Prometheus version"
-  type        = string
-  default     = "v2.45.0"
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9._/-]+:[a-zA-Z0-9._-]+$", var.prometheus_image))
+    error_message = "prometheus_image must be a valid Docker image ref (repo:tag)."
+  }
 }
 
 variable "prometheus_domain" {
@@ -52,25 +50,25 @@ variable "prometheus_domain" {
 variable "cpu" {
   description = "CPU units for Prometheus task (1024 = 1 vCPU)"
   type        = number
-  default     = 512  # 0.5 vCPU
+  default     = 512 # 0.5 vCPU
 }
 
 variable "memory" {
   description = "Memory in MB for Prometheus task"
   type        = number
-  default     = 512  # 0.5GB (reduced from 1GB)
+  default     = 512 # 0.5GB (reduced from 1GB)
 }
 
 variable "container_memory" {
   description = "Hard memory limit for Prometheus container"
   type        = number
-  default     = 512  # reduced from 1024
+  default     = 512 # reduced from 1024
 }
 
 variable "container_memory_reservation" {
   description = "Soft memory limit for Prometheus container"
   type        = number
-  default     = 256  # reduced from 384
+  default     = 256 # reduced from 384
 }
 
 variable "desired_count" {
@@ -83,7 +81,7 @@ variable "desired_count" {
 variable "metrics_retention_days" {
   description = "S3 metrics retention period in days"
   type        = number
-  default     = 90  # 3 months
+  default     = 90 # 3 months
 }
 
 variable "local_retention_time" {

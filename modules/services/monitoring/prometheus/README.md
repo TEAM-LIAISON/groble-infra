@@ -7,7 +7,8 @@ Prometheus is a monitoring system and time series database designed for reliabil
 - **TSDB Storage**: Local time series database with configurable retention
 - **S3 Integration**: Dedicated S3 bucket with encryption and versioning
 - **Host Mode Deployment**: Direct localhost communication
-- **Init Container**: Dynamic configuration generation using Terraform templates
+- **Baked Config**: config는 `groble-images`가 빌드한 이미지(`/etc/prometheus/prometheus.yml`)에 구워져 있음. 동적 값 없음(스크레이프 타겟/인터벌 모두 리터럴 baked)
+- **Init Container**: TSDB 데이터 볼륨 소유권(`chown 65534`) 설정용. config와 무관하며 유지됨
 - **Auto-scaling**: Configurable resource allocation
 - **Web UI**: Built-in web interface for queries and configuration
 
@@ -42,9 +43,12 @@ Grafana ← Prometheus ← Local TSDB ← S3 Storage (Backup)
 - `task_role_arn`: ECS task role with S3 permissions
 - `service_discovery_namespace_id`: Service discovery namespace
 
+### Required Variables (cont.)
+
+- `prometheus_image`: baked-config 이미지 full ref (`repo:tag`) — 예: `538827147369.dkr.ecr.ap-northeast-2.amazonaws.com/groble-prometheus:v2.45.0-5acea36`
+
 ### Optional Variables
 
-- `prometheus_version`: Prometheus version (default: v2.45.0)
 - `scrape_interval`: Global scrape interval (default: 15s)
 - `evaluation_interval`: Rule evaluation interval (default: 30s)
 - `local_retention_time`: Local storage retention (default: 15d)
@@ -82,7 +86,8 @@ Prometheus requires moderate resources for metrics storage and processing:
 - **Host Mode**: Direct localhost communication (no service discovery)
 - **Placement Constraint**: `attribute:environment == monitoring`
 - **S3 Storage**: Automatic S3 bucket with versioning and encryption
-- **Init Container**: Runtime configuration generation from Terraform templates
+- **Baked Config**: 이미지의 `/etc/prometheus/prometheus.yml`을 `--config.file`로 직접 참조
+- **Init Container**: TSDB 데이터 볼륨 소유권 설정용(config 생성 아님)
 
 ## Integration with Existing Stack
 
