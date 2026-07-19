@@ -23,8 +23,7 @@ module "loki" {
   execution_role_arn = data.terraform_remote_state.shared.outputs.ecs_execution_role_arn
   task_role_arn      = data.terraform_remote_state.shared.outputs.ecs_task_role_arn
 
-  loki_image                   = var.loki_image
-  loki_version                 = var.loki_version
+  loki_image                   = var.monitoring_loki_image
   log_retention_days           = var.loki_log_retention_days
   cpu                          = var.loki_cpu
   memory                       = var.loki_memory

@@ -91,21 +91,20 @@ resource "aws_ecs_task_definition" "loki" {
   container_definitions = jsonencode([
     {
       name  = "loki"
-      image = "${var.loki_image}:${var.loki_version}"
+      image = var.loki_image
 
       # Host networking - no port mappings needed
 
       memory            = var.container_memory
       memoryReservation = var.container_memory_reservation
 
-      # Environment variables for Loki configuration and AWS settings
+      # config는 이미지에 baked(/etc/loki/config.yaml). 동적 값은 런타임 env로 주입하고
+      # loki -config.expand-env=true 가 ${S3_BUCKET}/${AWS_REGION} 를 확장한다.
       environment = [
         {
-          name = "LOKI_CONFIG_YAML"
-          value = templatefile("${path.module}/config/loki-config.yaml", {
-            aws_region = var.aws_region
-            s3_bucket  = aws_s3_bucket.loki_storage.bucket
-          })
+          # 진짜 동적 값: S3 버킷명(random suffix). config의 ${S3_BUCKET} 로 확장됨.
+          name  = "S3_BUCKET"
+          value = aws_s3_bucket.loki_storage.bucket
         },
         {
           name  = "AWS_DEFAULT_REGION"
@@ -157,9 +156,10 @@ resource "aws_ecs_task_definition" "loki" {
         }
       ]
 
-      entryPoint = ["/bin/sh", "-c"]
+      # baked config를 직접 참조. ${S3_BUCKET}/${AWS_REGION} 는 expand-env로 런타임 확장.
       command = [
-        "echo \"$LOKI_CONFIG_YAML\" > /etc/loki/loki-config.yaml && echo 'Config file created successfully:' && cat /etc/loki/loki-config.yaml && echo 'Starting Loki with S3 storage using ECS task role credentials...' && /usr/bin/loki -config.file=/etc/loki/loki-config.yaml"
+        "-config.file=/etc/loki/config.yaml",
+        "-config.expand-env=true",
       ]
 
       logDriver = "json-file"

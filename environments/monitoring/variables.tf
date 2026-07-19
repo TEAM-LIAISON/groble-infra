@@ -64,16 +64,15 @@ variable "grafana_desired_count" {
 }
 
 # Loki 관련 변수
-variable "loki_image" {
-  description = "Loki Docker image"
+# config baking: groble-images CI가 push한 full image ref(repo:tag) 하나만 받음.
+variable "monitoring_loki_image" {
+  description = "loki baked-config image (repo:tag) from groble-images CI"
   type        = string
-  default     = "grafana/loki"
-}
 
-variable "loki_version" {
-  description = "Loki version"
-  type        = string
-  default     = "3.0.0"
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9._/-]+:[a-zA-Z0-9._-]+$", var.monitoring_loki_image))
+    error_message = "monitoring_loki_image must be a valid Docker image ref (repo:tag)."
+  }
 }
 
 variable "loki_log_retention_days" {
