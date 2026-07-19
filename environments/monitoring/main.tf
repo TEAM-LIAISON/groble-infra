@@ -198,3 +198,25 @@ output "monitoring_ecr_repository_urls" {
   description = "모니터링 이미지 push 대상 ECR URL (groble-images CI에서 사용)"
   value       = module.ecr.generic_repository_urls
 }
+
+#################################
+# GitHub Actions OIDC - groble-images CI가 access key 없이 ECR push
+#################################
+module "github_oidc" {
+  source = "../../modules/platform/github-oidc"
+
+  github_org  = "TEAM-LIAISON"
+  github_repo = "groble-images"
+  role_name   = "groble-images-ci"
+
+  # 3개 모니터링 레포에만 push/pull 허용
+  ecr_repository_arns = values(module.ecr.generic_repository_arns)
+
+  # TerraformPowerUser 권한셋에 OIDC provider 액션을 추가했으므로 Terraform이 직접 생성.
+  create_oidc_provider = true
+}
+
+output "github_actions_ci_role_arn" {
+  description = "groble-images 워크플로의 role-to-assume 값"
+  value       = module.github_oidc.role_arn
+}
