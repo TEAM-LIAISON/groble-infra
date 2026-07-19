@@ -56,3 +56,14 @@ output "repository_names" {
     development = var.create_dev_repository ? aws_ecr_repository.dev_spring_api[0].name : null
   }
 }
+
+# 범용 리포지토리 (groble-images push 대상)
+output "generic_repository_urls" {
+  description = "Map of generic repository name => URL (push target for groble-images)"
+  value       = { for k, r in aws_ecr_repository.generic : k => r.repository_url }
+}
+
+output "generic_repository_arns" {
+  description = "Map of generic repository name => ARN (for IAM scoping)"
+  value       = { for k, r in aws_ecr_repository.generic : k => r.arn }
+}

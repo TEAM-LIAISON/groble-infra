@@ -79,3 +79,11 @@ variable "allowed_principals" {
   description = "List of AWS principals allowed to access ECR repositories"
   type        = list(string)
 }
+
+# 범용 리포지토리 (groble-images가 빌드하는 모니터링/미들웨어 이미지)
+# key = 리포지토리 이름, value = 보관할 최대 이미지 개수
+variable "generic_repositories" {
+  description = "Additional ECR repositories (monitoring/middleware images built by groble-images). Key = repository name, value = max image count to retain."
+  type        = map(number)
+  default     = {}
+}

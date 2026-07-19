@@ -23,16 +23,16 @@ module "loki" {
   execution_role_arn = data.terraform_remote_state.shared.outputs.ecs_execution_role_arn
   task_role_arn      = data.terraform_remote_state.shared.outputs.ecs_task_role_arn
 
-  loki_image                           = var.loki_image
-  loki_version                         = var.loki_version
-  log_retention_days                   = var.loki_log_retention_days
-  cpu                                  = var.loki_cpu
-  memory                               = var.loki_memory
-  container_memory                     = var.loki_container_memory
-  container_memory_reservation         = var.loki_container_memory_reservation
-  desired_count                        = var.desired_count
-  
-  aws_region                           = var.aws_region
+  loki_image                   = var.loki_image
+  loki_version                 = var.loki_version
+  log_retention_days           = var.loki_log_retention_days
+  cpu                          = var.loki_cpu
+  memory                       = var.loki_memory
+  container_memory             = var.loki_container_memory
+  container_memory_reservation = var.loki_container_memory_reservation
+  desired_count                = var.desired_count
+
+  aws_region = var.aws_region
 }
 
 # OpenTelemetry Collector Service
@@ -46,16 +46,16 @@ module "otelcol" {
 
   otelcol_image   = var.otelcol_image
   otelcol_version = var.otelcol_version
-  
+
   # Resource configuration
-  cpu                                  = var.otelcol_cpu
-  memory                               = var.otelcol_memory
-  container_memory                     = var.otelcol_container_memory
-  container_memory_reservation         = var.otelcol_container_memory_reservation
-  desired_count                        = var.desired_count
+  cpu                          = var.otelcol_cpu
+  memory                       = var.otelcol_memory
+  container_memory             = var.otelcol_container_memory
+  container_memory_reservation = var.otelcol_container_memory_reservation
+  desired_count                = var.desired_count
 
 
-  aws_region                          = var.aws_region
+  aws_region = var.aws_region
 
   # No dependencies needed with localhost
 }
@@ -64,27 +64,27 @@ module "otelcol" {
 module "grafana" {
   source = "../../modules/services/monitoring/grafana"
 
-  environment            = "monitoring"
-  ecs_cluster_id        = data.terraform_remote_state.shared.outputs.ecs_cluster_id
-  target_group_arn      = data.terraform_remote_state.shared.outputs.monitoring_target_group_arn
-  alb_listener          = null
-  execution_role_arn    = data.terraform_remote_state.shared.outputs.ecs_execution_role_arn
-  task_role_arn         = data.terraform_remote_state.shared.outputs.ecs_task_role_arn
+  environment        = "monitoring"
+  ecs_cluster_id     = data.terraform_remote_state.shared.outputs.ecs_cluster_id
+  target_group_arn   = data.terraform_remote_state.shared.outputs.monitoring_target_group_arn
+  alb_listener       = null
+  execution_role_arn = data.terraform_remote_state.shared.outputs.ecs_execution_role_arn
+  task_role_arn      = data.terraform_remote_state.shared.outputs.ecs_task_role_arn
 
-  grafana_image         = var.grafana_image
-  grafana_version       = var.grafana_version
-  grafana_domain        = var.grafana_domain
-  grafana_plugins       = var.grafana_plugins
-  admin_password        = var.grafana_admin_password
-  
+  grafana_image   = var.grafana_image
+  grafana_version = var.grafana_version
+  grafana_domain  = var.grafana_domain
+  grafana_plugins = var.grafana_plugins
+  admin_password  = var.grafana_admin_password
+
   # Grafana 리소스 설정
-  cpu                         = var.grafana_cpu
-  memory                      = var.grafana_memory
-  container_memory           = var.grafana_container_memory
+  cpu                          = var.grafana_cpu
+  memory                       = var.grafana_memory
+  container_memory             = var.grafana_container_memory
   container_memory_reservation = var.grafana_container_memory_reservation
-  desired_count              = var.grafana_desired_count
-  
-  aws_region            = var.aws_region
+  desired_count                = var.grafana_desired_count
+
+  aws_region = var.aws_region
 
   # No dependencies needed with localhost
 }
@@ -98,33 +98,33 @@ module "prometheus" {
   execution_role_arn = data.terraform_remote_state.shared.outputs.ecs_execution_role_arn
   task_role_arn      = data.terraform_remote_state.shared.outputs.ecs_task_role_arn
 
-  prometheus_image                = var.prometheus_image
-  prometheus_version              = var.prometheus_version
-  prometheus_domain               = var.prometheus_domain
-  target_group_arn                = var.prometheus_target_group_arn
-  alb_listener                    = null
+  prometheus_image   = var.prometheus_image
+  prometheus_version = var.prometheus_version
+  prometheus_domain  = var.prometheus_domain
+  target_group_arn   = var.prometheus_target_group_arn
+  alb_listener       = null
 
   # Resource configuration
-  cpu                            = var.prometheus_cpu
-  memory                         = var.prometheus_memory
-  container_memory               = var.prometheus_container_memory
-  container_memory_reservation   = var.prometheus_container_memory_reservation
-  desired_count                  = var.desired_count
+  cpu                          = var.prometheus_cpu
+  memory                       = var.prometheus_memory
+  container_memory             = var.prometheus_container_memory
+  container_memory_reservation = var.prometheus_container_memory_reservation
+  desired_count                = var.desired_count
 
   # Storage configuration
-  metrics_retention_days         = var.prometheus_metrics_retention_days
-  local_retention_time           = var.prometheus_local_retention_time
-  local_retention_size           = var.prometheus_local_retention_size
+  metrics_retention_days = var.prometheus_metrics_retention_days
+  local_retention_time   = var.prometheus_local_retention_time
+  local_retention_size   = var.prometheus_local_retention_size
 
   # Prometheus settings
-  scrape_interval                = var.prometheus_scrape_interval
-  evaluation_interval            = var.prometheus_evaluation_interval
-  log_level                      = var.prometheus_log_level
+  scrape_interval     = var.prometheus_scrape_interval
+  evaluation_interval = var.prometheus_evaluation_interval
+  log_level           = var.prometheus_log_level
 
   # Integration endpoints - using localhost
-  otelcol_endpoint               = "localhost:8888"
+  otelcol_endpoint = "localhost:8888"
 
-  aws_region                     = var.aws_region
+  aws_region = var.aws_region
 
   # No dependencies needed with localhost
 }
@@ -159,7 +159,42 @@ module "rds_exporter" {
   execution_role_arn = data.terraform_remote_state.shared.outputs.ecs_execution_role_arn
   task_role_arn      = data.terraform_remote_state.shared.outputs.ecs_task_role_arn
 
-  rds_endpoint       = var.rds_endpoint
-  database_username  = var.rds_database_username
-  database_password  = var.rds_database_password
+  rds_endpoint      = var.rds_endpoint
+  database_username = var.rds_database_username
+  database_password = var.rds_database_password
+}
+
+#################################
+# ECR - 모니터링 커스텀 이미지 (config baking, groble-images가 push)
+#################################
+module "ecr" {
+  source = "../../modules/platform/ecr"
+
+  project_name = "groble"
+
+  # 이 환경은 범용(모니터링) 레포만 생성. spring-api 레포는 dev/prod가 소유.
+  create_prod_repository = false
+  create_dev_repository  = false
+
+  # baking 태그(<버전>-<config해시>) 덮어쓰기 방지
+  image_tag_mutability  = "IMMUTABLE"
+  enable_image_scanning = true
+  encryption_type       = "AES256"
+
+  generic_repositories = {
+    "groble-prometheus" = 10
+    "groble-otelcol"    = 10
+    "groble-loki"       = 10
+  }
+
+  # ECS 실행/태스크 역할에 pull 허용
+  allowed_principals = [
+    data.terraform_remote_state.shared.outputs.ecs_execution_role_arn,
+    data.terraform_remote_state.shared.outputs.ecs_task_role_arn,
+  ]
+}
+
+output "monitoring_ecr_repository_urls" {
+  description = "모니터링 이미지 push 대상 ECR URL (groble-images CI에서 사용)"
+  value       = module.ecr.generic_repository_urls
 }

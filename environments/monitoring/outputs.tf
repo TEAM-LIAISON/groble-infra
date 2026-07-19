@@ -94,10 +94,10 @@ output "monitoring_stack_summary" {
       s3_bucket    = module.loki.loki_s3_bucket
     }
     otelcol = {
-      service_name     = module.otelcol.otelcol_service_name
-      http_endpoint    = module.otelcol.otelcol_endpoint_http
-      grpc_endpoint    = module.otelcol.otelcol_endpoint_grpc
-      health_endpoint  = module.otelcol.otelcol_health_endpoint
+      service_name    = module.otelcol.otelcol_service_name
+      http_endpoint   = module.otelcol.otelcol_endpoint_http
+      grpc_endpoint   = module.otelcol.otelcol_endpoint_grpc
+      health_endpoint = module.otelcol.otelcol_health_endpoint
     }
     prometheus = {
       service_name = module.prometheus.ecs_service_name

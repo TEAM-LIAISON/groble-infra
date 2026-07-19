@@ -189,3 +189,82 @@ resource "aws_ecr_repository_policy" "dev_spring_api_policy" {
     ]
   })
 }
+
+#################################
+# ECR 리포지토리 - 범용 (groble-images: 모니터링/미들웨어 이미지)
+#################################
+resource "aws_ecr_repository" "generic" {
+  for_each             = var.generic_repositories
+  name                 = each.key
+  image_tag_mutability = var.image_tag_mutability
+
+  image_scanning_configuration {
+    scan_on_push = var.enable_image_scanning
+  }
+
+  encryption_configuration {
+    encryption_type = var.encryption_type
+  }
+
+  tags = {
+    Name = each.key
+    Type = "middleware"
+  }
+}
+
+#################################
+# ECR 라이프사이클 정책 - 범용
+# baking 태그는 <버전>-<config해시> 형태라 prefix가 일정치 않으므로
+# tagStatus=any 로 최근 N개만 보관한다.
+#################################
+resource "aws_ecr_lifecycle_policy" "generic" {
+  for_each   = var.generic_repositories
+  repository = aws_ecr_repository.generic[each.key].name
+
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Keep last ${each.value} images"
+        selection = {
+          tagStatus   = "any"
+          countType   = "imageCountMoreThan"
+          countNumber = each.value
+        }
+        action = {
+          type = "expire"
+        }
+      }
+    ]
+  })
+}
+
+#################################
+# ECR 리포지토리 정책 - 범용 (pull 허용)
+#################################
+resource "aws_ecr_repository_policy" "generic" {
+  for_each   = var.generic_repositories
+  repository = aws_ecr_repository.generic[each.key].name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowPushPull"
+        Effect = "Allow"
+        Principal = {
+          AWS = var.allowed_principals
+        }
+        Action = [
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:PutImage",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload"
+        ]
+      }
+    ]
+  })
+}
