@@ -214,6 +214,13 @@ module "github_oidc" {
 
   # TerraformPowerUser 권한셋에 OIDC provider 액션을 추가했으므로 Terraform이 직접 생성.
   create_oidc_provider = true
+
+  # GitHub이 immutable subject claim(@조직ID/@레포ID 삽입)으로 롤아웃 중이라
+  # mutable/immutable 두 형태를 모두 허용해야 sts:AssumeRoleWithWebIdentity가 성공한다.
+  subject_claims = [
+    "repo:TEAM-LIAISON/groble-images:*",
+    "repo:TEAM-LIAISON@156536067/groble-images@1304692487:*",
+  ]
 }
 
 output "github_actions_ci_role_arn" {
