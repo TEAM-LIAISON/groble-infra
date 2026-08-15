@@ -23,8 +23,7 @@ module "loki" {
   execution_role_arn = data.terraform_remote_state.shared.outputs.ecs_execution_role_arn
   task_role_arn      = data.terraform_remote_state.shared.outputs.ecs_task_role_arn
 
-  loki_image                   = var.loki_image
-  loki_version                 = var.loki_version
+  loki_image                   = var.monitoring_loki_image
   log_retention_days           = var.loki_log_retention_days
   cpu                          = var.loki_cpu
   memory                       = var.loki_memory
@@ -97,11 +96,10 @@ module "prometheus" {
   execution_role_arn = data.terraform_remote_state.shared.outputs.ecs_execution_role_arn
   task_role_arn      = data.terraform_remote_state.shared.outputs.ecs_task_role_arn
 
-  prometheus_image   = var.prometheus_image
-  prometheus_version = var.prometheus_version
-  prometheus_domain  = var.prometheus_domain
-  target_group_arn   = var.prometheus_target_group_arn
-  alb_listener       = null
+  prometheus_image  = var.monitoring_prometheus_image
+  prometheus_domain = var.prometheus_domain
+  target_group_arn  = var.prometheus_target_group_arn
+  alb_listener      = null
 
   # Resource configuration
   cpu                          = var.prometheus_cpu

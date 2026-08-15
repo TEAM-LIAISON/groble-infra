@@ -22,15 +22,13 @@ variable "task_role_arn" {
 # Service discovery removed - using host networking
 
 variable "loki_image" {
-  description = "Loki Docker image"
+  description = "Full ECR image ref (repo:tag) with baked config"
   type        = string
-  default     = "grafana/loki"
-}
 
-variable "loki_version" {
-  description = "Loki version"
-  type        = string
-  default     = "3.0.0"
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9._/-]+:[a-zA-Z0-9._-]+$", var.loki_image))
+    error_message = "loki_image must be a valid Docker image ref (repo:tag)."
+  }
 }
 
 variable "aws_region" {

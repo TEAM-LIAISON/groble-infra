@@ -64,22 +64,31 @@ variable "grafana_desired_count" {
 }
 
 # Loki 관련 변수
-variable "loki_image" {
-  description = "Loki Docker image"
+# config baking: groble-images CI가 push한 full image ref(repo:tag) 하나만 받음.
+variable "monitoring_loki_image" {
+  description = "loki baked-config image (repo:tag) from groble-images CI"
   type        = string
-  default     = "grafana/loki"
-}
 
-variable "loki_version" {
-  description = "Loki version"
-  type        = string
-  default     = "3.0.0"
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9._/-]+:[a-zA-Z0-9._-]+$", var.monitoring_loki_image))
+    error_message = "monitoring_loki_image must be a valid Docker image ref (repo:tag)."
+  }
 }
 
 variable "loki_log_retention_days" {
-  description = "Log retention period in days"
+  description = <<-EOT
+    Loki S3 버킷의 lifecycle 만료 일수.
+
+    이것은 "로그 조회 가능 기간"이 아니다. 조회 기간을 결정하는 건 Loki
+    compactor의 retention_period(현재 180d, groble-images에 baked)이고,
+    이 lifecycle은 Loki가 지우지 못한 고아 객체를 치우는 백스톱이다.
+
+    불변조건: Loki retention_period < 이 값.
+    역전되면 S3가 청크를 먼저 지우는데 Loki 인덱스는 그걸 모르기 때문에,
+    만료 구간을 조회할 때 청크 누락으로 쿼리가 깨진다.
+  EOT
   type        = number
-  default     = 30
+  default     = 210 # = Loki retention 180d + 마진 30일
 }
 
 variable "loki_cpu" {
@@ -143,16 +152,15 @@ variable "otelcol_container_memory_reservation" {
 }
 
 # Prometheus 관련 변수
-variable "prometheus_image" {
-  description = "Prometheus Docker image"
+# config baking: groble-images CI가 push한 full image ref(repo:tag) 하나만 받음.
+variable "monitoring_prometheus_image" {
+  description = "prometheus baked-config image (repo:tag) from groble-images CI"
   type        = string
-  default     = "prom/prometheus"
-}
 
-variable "prometheus_version" {
-  description = "Prometheus version"
-  type        = string
-  default     = "v2.45.0"
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9._/-]+:[a-zA-Z0-9._-]+$", var.monitoring_prometheus_image))
+    error_message = "monitoring_prometheus_image must be a valid Docker image ref (repo:tag)."
+  }
 }
 
 variable "prometheus_domain" {

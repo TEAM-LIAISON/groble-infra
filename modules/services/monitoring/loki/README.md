@@ -5,6 +5,7 @@ Loki is a log aggregation system designed to store and query logs from all your 
 ## Features
 
 - **S3 Storage Backend**: Uses S3 for long-term log storage with versioning
+- **Baked Config**: config는 `groble-images`가 빌드한 이미지(`/etc/loki/config.yaml`)에 구워져 있음. 동적 값(`S3_BUCKET`/`AWS_REGION`)만 런타임 env로 주입하고 `-config.expand-env=true`로 확장
 - **Host Mode Deployment**: Direct localhost communication
 - **OTLP Integration**: Native OTLP endpoint for OpenTelemetry Collector
 - **TSDB Schema**: Uses v13 schema with TSDB shipper
@@ -29,9 +30,12 @@ Spring API (other instances) → OpenTelemetry Collector → Loki (monitoring in
 - `service_discovery_namespace_id`: Service discovery namespace
 - `aws_region`: AWS region for S3 storage
 
+### Required Variables (cont.)
+
+- `loki_image`: baked-config 이미지 full ref (`repo:tag`) — 예: `538827147369.dkr.ecr.ap-northeast-2.amazonaws.com/groble-loki:3.0.0-c278fbd`
+
 ### Optional Variables
 
-- `loki_version`: Loki Docker image version (default: 3.0.0)
 - `log_retention_days`: S3 log retention period (default: 30 days)
 - `cpu/memory`: Resource allocation (default: 0.5 vCPU, 1GB RAM)
 
