@@ -178,8 +178,11 @@ resource "aws_ecs_task_definition" "prometheus" {
         "--storage.tsdb.retention.size=${var.local_retention_size}",
         "--web.console.libraries=/etc/prometheus/console_libraries",
         "--web.console.templates=/etc/prometheus/consoles",
-        "--web.enable-lifecycle",
-        "--web.enable-admin-api",
+        # --web.enable-admin-api / --web.enable-lifecycle 은 의도적으로 켜지 않는다.
+        #   admin-api: /api/v1/admin/tsdb/delete_series 등 데이터 삭제 API를 연다.
+        #   lifecycle: /-/reload, /-/quit 를 연다. config는 이미지에 baked 되어
+        #              런타임 reload 경로가 없고, quit 은 순수한 사고 위험이다.
+        # 인증이 없는 엔드포인트이므로 VPC 내부라도 열어둘 이유가 없다.
         "--web.external-url=https://${var.prometheus_domain}",
         "--web.route-prefix=/",
         "--log.level=${var.log_level}",
