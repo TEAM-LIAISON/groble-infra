@@ -171,9 +171,12 @@ resource "aws_ecs_task_definition" "loki" {
       essential = true
 
       healthCheck = {
+        # Loki 3.6.x 부터 업스트림 이미지가 distroless 라 셸이 없다. CMD-SHELL 은
+        # 실행 자체가 불가능해 항상 실패하고, 컨테이너가 약 2분 주기로 강제 재시작된다.
+        # groble-images 가 정적 busybox 를 구워 넣으므로 exec form 으로 직접 호출한다.
         command = [
-          "CMD-SHELL",
-          "wget --no-verbose --tries=1 --spider http://localhost:3100/ready || exit 1"
+          "CMD",
+          "/bin/busybox", "wget", "--spider", "-q", "http://localhost:3100/ready"
         ]
         interval    = 30
         timeout     = 5
