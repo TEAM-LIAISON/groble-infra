@@ -76,9 +76,19 @@ variable "monitoring_loki_image" {
 }
 
 variable "loki_log_retention_days" {
-  description = "Log retention period in days"
+  description = <<-EOT
+    Loki S3 버킷의 lifecycle 만료 일수.
+
+    이것은 "로그 조회 가능 기간"이 아니다. 조회 기간을 결정하는 건 Loki
+    compactor의 retention_period(현재 180d, groble-images에 baked)이고,
+    이 lifecycle은 Loki가 지우지 못한 고아 객체를 치우는 백스톱이다.
+
+    불변조건: Loki retention_period < 이 값.
+    역전되면 S3가 청크를 먼저 지우는데 Loki 인덱스는 그걸 모르기 때문에,
+    만료 구간을 조회할 때 청크 누락으로 쿼리가 깨진다.
+  EOT
   type        = number
-  default     = 30
+  default     = 210 # = Loki retention 180d + 마진 30일
 }
 
 variable "loki_cpu" {
