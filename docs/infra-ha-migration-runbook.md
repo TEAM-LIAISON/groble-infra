@@ -194,7 +194,9 @@ terraform {
 
 ### 2-1. Prometheus `ec2_sd_config` 전환
 
-1. Prometheus Task Role에 `ec2:DescribeInstances` 인라인 정책 추가 (**현재 없음**)
+1. ~~Prometheus Task Role에 `ec2:DescribeInstances` 인라인 정책 추가~~ — **불필요. 이미 있다.**
+   `modules/services/monitoring/prometheus/main.tf`의 인라인 정책 `${environment}-prometheus-access`가 `ec2:DescribeInstances` /
+   `DescribeAvailabilityZones` / `DescribeRegions`를 이미 부여한다 (AWS에서도 확인). 계획서 초안이 "현재 없음"으로 잘못 적고 있었다
 2. **기존 3개 `aws_instance`에 `Cluster=groble-cluster`, `environment`, `Type` 태그가 붙어 있는지 확인**하고 없으면 추가 — `ec2_sd`는 인스턴스 태그를 본다. (Phase 7의 ASG는 태그 전파 설정으로 같은 키를 붙인다)
 3. `groble-images` 저장소의 Prometheus config를 `static_configs` → `ec2_sd_config`로 변경
    - 태그 필터: `Cluster = groble-cluster`
@@ -496,6 +498,7 @@ DNS 레코드를 구 노드 IP로 되돌린다 (재배포 없음). 구 노드의
    - 각자 AWS CLI + Session Manager Plugin 설치
    - IAM 권한 부여 (`ssm:StartSession` 등)
    - 자주 쓰는 포트 포워딩 스크립트 배포 (`scripts/connect-rds-prod.sh`, `connect-rds-dev.sh`)
+     — `scripts/`는 현재 리포지토리에 없다(계층 구조 전환 후 죽어 있던 `deploy-step.sh`와 함께 삭제). 이 단계에서 새로 만든다
 2. **전환 기간 운영** (1~2주) — WireGuard와 SSM을 병행하며 팀이 SSM에 적응
 3. **구 모니터링/NAT/VPN 노드 종료**
 4. **SG 정리**
@@ -574,7 +577,6 @@ SG 규칙 복원. 단 구 VPN 노드를 종료한 뒤라면 재구축이 필요�
   - "ECS Task Role: EC2 describe" → 실제 정책과 불일치 (S3/KMS/SSM + 신규 `ec2:DescribeInstances`)
   - "Prometheus: S3 장기 저장(90일)" → **실제로 미사용**. 현재는 로컬 15일이 전부
   - EC2 인스턴스 표, 배포 전략, 네트워크 구성, Secrets 관리 전면 갱신
-- [ ] `scripts/deploy-step.sh`가 여전히 유효한지 검토
 - [ ] 계획서 §4의 남은 To-Do 상태 갱신
 - [ ] Phase 7에서 실측한 **노드 복구 시간**을 계획서 §2.1에 반영
 

@@ -70,9 +70,6 @@ groble-infra/
 ├── docs/                      # 📚 문서
 │   └── README-deployment.md  # 배포 가이드
 │
-├── scripts/                   # 🔨 유틸리티 스크립트
-│   └── deploy-step.sh        # 단계별 배포 스크립트
-│
 └── backups/                   # 💾 백업 파일들
     ├── *.tf.backup          # 기존 Terraform 파일들
     └── *.old                # 이전 설정 파일들
@@ -372,7 +369,6 @@ curl https://api.groble.im/actuator/health
 
 프로젝트 관련 문의사항이 있으시면 다음을 참고하세요:
 - **문서**: `docs/` 폴더의 상세 가이드
-- **스크립트**: `scripts/` 폴더의 자동화 도구
 - **백업**: `backups/` 폴더의 이전 설정 파일
 
 ## 📈 향후 계획

@@ -28,6 +28,9 @@ ASG + Capacity Provider managed draining · ECS-optimized AMI(AL2023) · 전 구
 NAT Gateway · ElastiCache/RDS로 상태 외부화 · CodeDeploy Blue/Green → ECS rolling ·
 SSM Session Manager(bastion·WireGuard 폐기) · Terraform state를 S3로
 
+**진행 상황**: **Phase 0 완료** (state를 S3로 이전 — 아래 [Terraform Operations](#terraform-operations) 참조).
+Phase 1(알람 백스톱)부터는 미착수이며, 이 문서의 나머지 서술은 여전히 As-Is다.
+
 ---
 
 ## Key Commands
@@ -42,22 +45,22 @@ terraform destroy
 terraform show
 ```
 
-⚠️ **state는 현재 로컬 파일이다** (`environments/*/terraform.tfstate`). S3 backend는 `shared/providers.tf`에 주석 처리되어 있고, 환경 간 참조도 `backend = "local"` + 상대 경로를 쓴다.
-**잠금·이력·백업이 없으므로 apply 전 state 백업을 권장한다.** S3 전환은 마이그레이션 Phase 0에 계획되어 있다.
+**state는 S3에 있다** (`groble-terraform-state`, ap-northeast-2). 마이그레이션 Phase 0에서 로컬 파일에서 이전했다.
+
+- 환경별 `backend.tf`가 backend를 정의한다. **S3 네이티브 잠금**(`use_lockfile`)을 쓰므로 DynamoDB 잠금 테이블은 없다
+- 환경 간 참조(`data "terraform_remote_state"`)도 S3를 본다 — `prod` / `dev` / `monitoring`의 `main.tf`
+- 객체는 SSE-KMS(`alias/groble/terraform-state`)로 암호화되고 versioning으로 이력이 남는다
+- 버킷 정책이 접근 주체를 Terraform 실행 SSO 역할로 한정한다. **ECS Task Role은 `AmazonS3FullAccess`를 갖고 있지만 이 버킷은 거부된다**
+
+⚠️ **Terraform 1.10+ 가 필요하다** (`use_lockfile` 요건). 리포지토리는 `.terraform-version`으로 **1.15.8**을 고정한다.
+⚠️ **Phase 10 전까지 state에는 DB·Grafana 비밀번호가 평문으로 들어 있다.** 버킷을 시크릿 저장소로 취급할 것.
+
+state 버킷·KMS 키·CloudTrail은 **Terraform이 관리하지 않는다** — "state를 담을 버킷의 state를 어디에 둘 것인가"라는 순환을 피하려고 AWS CLI로 만들었다. 정책 원본은 [`bootstrap/`](bootstrap/README.md)에 있다.
 
 ### AWS Profile
 모든 작업에 `groble-terraform` AWS 프로필 필요:
 ```bash
 aws configure --profile groble-terraform
-```
-
-### Deployment Script
-staged deployment 헬퍼 스크립트:
-```bash
-chmod +x scripts/deploy-step.sh
-./scripts/deploy-step.sh 1 plan    # Step 1 Plan (VPC)
-./scripts/deploy-step.sh 1 apply   # Step 1 Apply
-# Steps: 1=VPC, 2=Security Groups, 3=Load Balancer, 4=EC2 Instances
 ```
 
 ## Architecture & Structure
@@ -90,7 +93,6 @@ modules/
     development/   # api-service, mysql-service, redis-service
     monitoring/    # grafana, prometheus, loki, otelcol, node-exporter, cadvisor, rds-exporter
 shared/            # 공통 변수 정의 및 프로바이더 설정
-scripts/           # deploy-step.sh (staged deployment)
 bootstrap/         # Terraform이 관리하지 않는 부트스트랩 리소스의 정책 원본 (state 버킷·KMS·CloudTrail)
 docs/              # 인프라 개선 계획·이관 절차·향후 개선·config baking 문서
 ```
@@ -147,7 +149,8 @@ RDS는 `multi_az = false`이고 db_subnet_group이 2a/2c를 모두 포함해 **A
 > **노드당 API 태스크는 최대 2개**다. 밀도를 논할 때 메모리가 아니라 이 제약이 상한이다.
 
 ### Database
-- **Prod**: RDS MySQL 8.0 (db.t3.medium, 암호화, 7일 백업, 100GB→1000GB auto-scaling, **단일 AZ / 2c**)
+- **Prod**: RDS MySQL 8.0.45 (**db.t3.micro**, gp2, 암호화, 7일 백업, **20GB→100GB** auto-scaling, **단일 AZ / 2c**)
+  > db.t3.micro는 메모리 1GiB다. 용량을 논할 때 EC2의 t3.medium과 혼동하지 말 것 — 이전 문서가 `db.t3.medium` / `100GB→1000GB`로 잘못 적고 있었다.
 - **Dev**: MySQL 8.0 컨테이너 (host mode, 256MB, **데이터가 노드 로컬 디스크** `/opt/mysql-dev-data`)
 
 ### Redis 7 (ECS, host mode)
@@ -240,11 +243,12 @@ SSM Session Manager는 아직 도입되지 않았다.
 |---|---|
 | **ECS Instance Role** | `AmazonEC2ContainerServiceforEC2Role`, `AmazonEC2ContainerRegistryReadOnly`, 인라인 `sts:AssumeRole` |
 | **ECS Task Execution Role** | `AmazonECSTaskExecutionRolePolicy`, `AmazonEC2ContainerRegistryPowerUser` |
-| **ECS Task Role** | `AmazonS3FullAccess`, `AWSKeyManagementServicePowerUser`, 인라인 KMS 키 사용, 인라인 `ssm:GetParameters`(`parameter/groble/*`) |
+| **ECS Task Role** | `AmazonS3FullAccess`, `AWSKeyManagementServicePowerUser`, `AmazonSSMReadOnlyAccess`, 인라인 KMS 키 사용, 인라인 `ssm:GetParameters`(`parameter/groble/*`), 인라인 `monitoring-loki-s3-access`, 인라인 `monitoring-prometheus-access` |
 | **CodeDeploy Service Role** | ECS Blue/Green, ELB 수정 |
 
 ⚠️ 주의할 점 두 가지:
-- **Task Role에 `ec2:Describe*` 권한이 없다.** (Prometheus의 `ec2_sd_config` 도입 시 추가 필요)
+- **Task Role에 `ec2:DescribeInstances`가 이미 있다.** 인라인 `monitoring-prometheus-access`에 `ec2:DescribeInstances` / `DescribeAvailabilityZones` / `DescribeRegions`가 포함되어 있다
+  (`modules/services/monitoring/prometheus/main.tf`). **Prometheus `ec2_sd_config` 도입 시 IAM 추가 작업은 필요 없다** — 이전 문서가 "권한이 없다"고 잘못 적고 있었다.
 - **`ssm:GetParameters`는 Task Role에 있고 Execution Role에는 없다.**
   ECS 태스크 정의의 `secrets`(`valueFrom`) 블록은 **Execution Role** 권한을 쓰므로,
   SSM 기반 시크릿 주입을 도입하려면 Execution Role에 별도로 추가해야 한다.
@@ -286,7 +290,8 @@ Redis 호스트·OTLP 엔드포인트·Prometheus 스크레이프 타깃이 이 
 
 ## Development Workflow
 
-1. **배포 전**: AWS 프로필, 키페어, SSL 인증서 확인, **state 백업**
+1. **배포 전**: AWS 프로필, 키페어, SSL 인증서 확인
+   (state는 S3 versioning으로 이력이 남으므로 수동 백업은 더 이상 필요하지 않다)
 2. **변경 순서**: 항상 shared → monitoring → dev → prod 순서
 3. **shared 변경**: 모든 환경에 영향, 신중하게 계획
 4. **모듈 변경**: 여러 환경에 영향, 충분히 테스트
@@ -296,7 +301,8 @@ Redis 호스트·OTLP 엔드포인트·Prometheus 스크레이프 타깃이 이 
 
 ## Prerequisites
 
-- Terraform >= 1.0
+- **Terraform >= 1.10** (`use_lockfile` 요건). `.terraform-version`이 1.15.8을 고정하므로 tfenv 사용을 권장한다
+  > homebrew-core의 `terraform` 포뮬러는 BUSL 전환 시점인 1.5.7에서 갱신이 멈춰 있다. `brew upgrade`로는 올라가지 않는다
 - AWS CLI (`groble-terraform` 프로필 설정)
 - 키페어 `groble_prod_ec2_key_pair` (ap-northeast-2)
 - ACM SSL 인증서
@@ -312,3 +318,8 @@ Redis 호스트·OTLP 엔드포인트·Prometheus 스크레이프 타깃이 이 
 - **태스크가 AWS API 호출에 실패**: 노드 재부팅으로 credential 프록시 iptables가 사라졌을 가능성.
   `iptables -t nat -L` 로 `169.254.170.2` DNAT 규칙 존재 확인
 - **태스크가 배치되지 않음(RESOURCE:ENI)**: 노드당 awsvpc 태스크 2개가 상한. 노드를 늘리거나 desired를 줄일 것
+- **`Error acquiring the state lock`**: 다른 곳에서 Terraform이 실행 중이다. 프로세스가 비정상 종료해 잠금이 남았다면
+  에러에 표시된 Lock ID로 `terraform force-unlock <ID>` — **실행 중인 작업이 없음을 확인한 뒤에만** 쓸 것
+- **backend 인증 실패**: `backend.tf`에 `profile`이 있는지 확인. **backend는 provider 설정을 상속하지 않는다**
+- **state 객체가 SSE-S3(AES256)로 저장됨**: `backend.tf`에서 `kms_key_id`가 빠졌다. 생략하면 backend가 AES256 헤더를
+  보내 버킷 기본 암호화(SSE-KMS)를 덮어쓴다
