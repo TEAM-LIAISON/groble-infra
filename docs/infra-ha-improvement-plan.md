@@ -298,7 +298,7 @@ ASG 전환으로 노드 IP가 변하므로, 관측 경로의 주소 의존성을
 **`ec2_sd_config` 전환은 ASG 도입보다 반드시 먼저 이루어져야 한다.** 순서가 뒤바뀌면 새로 뜬 노드가 스크레이프 목록에 없어 **아무 신호 없이 관측 사각지대**에 들어간다. 타깃이 죽으면 `up=0`이 뜨지만, 애초에 목록에 없는 노드는 조용하다.
 
 - 태그 필터(`Cluster=groble-cluster`) + relabel로 EC2 태그(`environment`, `Type`)를 라벨로 승격
-- Prometheus Task Role에 **`ec2:DescribeInstances` 추가** (현재 없음)
+- ~~Prometheus Task Role에 `ec2:DescribeInstances` 추가~~ — **이미 부여되어 있다.** 인라인 정책 `${environment}-prometheus-access`(`modules/services/monitoring/prometheus/main.tf`)에 포함. IAM 작업 불필요
 - `up == 0` 알람과 **"기대 타깃 수 미달" 알람**을 함께 건다. 후자가 없으면 디스커버리 자체의 고장을 못 잡는다.
 - `ec2_sd` 설정은 정적이므로 config baking과 잘 맞는다. 반대로 `static_configs`를 유지하면 노드가 바뀔 때마다 이미지를 다시 구워야 해 baking의 이점이 사라진다.
 
@@ -529,13 +529,14 @@ rolling에서는 구/신 버전이 **동시에 실트래픽**을 받으므로 �
 | 3 | **서킷 브레이커·알람 임계치 실제 값** | 구현 시 확정 |
 | 4 | **Dev API 실사용 메모리 실측** | 한도는 900으로 확정(§2.1)했으나 Prod 실측값에서 유추한 값이다. Dev 전환 후 실측하여 조정 |
 | 5 | **Redis 상실 시 앱 거동 검증(게임데이)** | ElastiCache 전환 후. `user:cache:` 외 항목의 유실 영향 실측 |
-| 6 | **Prometheus 실제 S3 미사용 확인 후 CLAUDE.md 정정** | 확인 완료, 문서 반영 필요 |
-| 7 | **CLAUDE.md의 IAM 서술 정정** | "ECS Task Role: EC2 describe"는 코드와 불일치(실제는 S3/KMS/SSM) |
+| 6 | ~~Prometheus 실제 S3 미사용 확인 후 CLAUDE.md 정정~~ | ✅ 완료 |
+| 7 | ~~CLAUDE.md의 IAM 서술 정정~~ | ✅ 완료. **다만 방향이 반대였다** — Task Role에 `ec2:Describe*`가 "없다"는 서술이 틀렸고, 인라인 `prometheus-access`로 이미 부여되어 있다. 누락돼 있던 `AmazonSSMReadOnlyAccess`·`monitoring-*` 인라인 정책도 함께 반영했다 |
 | 8 | 온보딩/히스토리 문서화 | 별도 트랙 — §2.7(state)·§2.4(Grafana as-code)로 일부 해소 |
 | 9 | **트래픽 기준선 수집** — 계획서 전체에 트래픽 수치가 없고 desired 2의 근거가 메모리 실측뿐이다 | 런북 Phase 1의 1주 알람 기준선 관측 때 함께 기록: ALB `RequestCountPerTarget`·`TargetResponseTime` p99·피크 시간대·피크/평균 비율·태스크 CPU/메모리. 용량 결정의 근거이자 동적 스케일링(향후 개선 Low-3) 트리거의 데이터원 |
 | 10 | **ASG 노드 복구 시간 실측** | 런북 Phase 7 노드 강제 종료 테스트에서 측정 → §2.1의 "3~5분 추정" 갱신 |
 | 11 | **WireGuard 51820 소스 축소** (§2.5 선행 즉시 조치) | 마이그레이션 착수 전 |
 | 12 | **JVM DNS 캐시 TTL 확인** (§3-8) | OTLP DNS 간접화 전 |
+| 13 | **RDS 사양 재확인** — Prod RDS는 `db.t3.micro`(메모리 1GiB) / `20GB→100GB`다. 문서가 `db.t3.medium` / `100GB→1000GB`로 잘못 적고 있었다 | CLAUDE.md는 정정 완료. **용량 판단이 이 값에 의존하므로 Phase 1 트래픽 기준선 수집 때 RDS 지표도 함께 볼 것** |
 
 **v1에서 해소된 항목**
 

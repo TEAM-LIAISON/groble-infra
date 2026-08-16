@@ -194,7 +194,9 @@ terraform {
 
 ### 2-1. Prometheus `ec2_sd_config` 전환
 
-1. Prometheus Task Role에 `ec2:DescribeInstances` 인라인 정책 추가 (**현재 없음**)
+1. ~~Prometheus Task Role에 `ec2:DescribeInstances` 인라인 정책 추가~~ — **불필요. 이미 있다.**
+   `modules/services/monitoring/prometheus/main.tf`의 인라인 정책 `${environment}-prometheus-access`가 `ec2:DescribeInstances` /
+   `DescribeAvailabilityZones` / `DescribeRegions`를 이미 부여한다 (AWS에서도 확인). 계획서 초안이 "현재 없음"으로 잘못 적고 있었다
 2. **기존 3개 `aws_instance`에 `Cluster=groble-cluster`, `environment`, `Type` 태그가 붙어 있는지 확인**하고 없으면 추가 — `ec2_sd`는 인스턴스 태그를 본다. (Phase 7의 ASG는 태그 전파 설정으로 같은 키를 붙인다)
 3. `groble-images` 저장소의 Prometheus config를 `static_configs` → `ec2_sd_config`로 변경
    - 태그 필터: `Cluster = groble-cluster`
