@@ -1,6 +1,6 @@
 # Terraform 및 AWS 프로바이더 설정
 terraform {
-  required_version = ">= 1.0"
+  required_version = ">= 1.10"
   
   required_providers {
     aws = {
