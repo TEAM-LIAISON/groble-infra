@@ -1,0 +1,51 @@
+# Phase 2 — 관측 선행 전환 (ASG보다 반드시 먼저)
+
+> [← Phase 1](./phase-01-alarm-backstop.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 3 →](./phase-03-nat-gateway.md)
+
+| | |
+|---|---|
+| **상태** | 미착수 |
+| **목적** | ASG 도입 후 새 노드가 **관측 사각지대에 들어가는 것을 막는다.** 순서가 뒤바뀌면 노드가 조용히 사라지고, 하필 그 시점이 마이그레이션 중이라 가장 위험하다 |
+| **사용자 영향** | 없음 |
+| **되돌리기** | 이전 이미지 태그로 롤백 |
+
+---
+
+## 2-1. Prometheus `ec2_sd_config` 전환
+
+1. ~~Prometheus Task Role에 `ec2:DescribeInstances` 인라인 정책 추가~~ — **불필요. 이미 있다.**
+   `modules/services/monitoring/prometheus/main.tf`의 인라인 정책 `${environment}-prometheus-access`가 `ec2:DescribeInstances` /
+   `DescribeAvailabilityZones` / `DescribeRegions`를 이미 부여한다 (AWS에서도 확인). 계획서 초안이 "현재 없음"으로 잘못 적고 있었다
+2. **기존 3개 `aws_instance`에 `Cluster=groble-cluster`, `environment`, `Type` 태그가 붙어 있는지 확인**하고 없으면 추가 — `ec2_sd`는 인스턴스 태그를 본다. (Phase 7의 ASG는 태그 전파 설정으로 같은 키를 붙인다)
+3. `groble-images` 저장소의 Prometheus config를 `static_configs` → `ec2_sd_config`로 변경
+   - 태그 필터: `Cluster = groble-cluster`
+   - relabel: EC2 태그 `environment`, `Type`을 라벨로 승격
+   - 포트별 잡 분리: node-exporter(9100), cAdvisor(8081)
+4. CI에서 `promtool check config` 게이트 추가
+5. **"기대 타깃 수 미달" 알람의 기대값을 상수로 박지 않는다** — config baking 시 환경별 노드 수 변수에서 주입하거나, 최소한 "ASG desired 변경 시 함께 바꿀 것" 목록에 등재 (계획서 §2.4)
+6. 새 이미지 태그로 Prometheus 서비스 배포
+
+## 2-2. Grafana 프로비저닝 as-code
+
+1. 현재 Grafana UI에서 **대시보드·데이터소스·알림 규칙을 JSON으로 export**
+2. `groble-images`에 provisioning 구조로 정리 (`/etc/grafana/provisioning/{datasources,dashboards,alerting}`)
+3. provisioned 대시보드는 **읽기 전용**으로 설정 (UI 편집분과 코드가 갈라지지 않게)
+4. 새 이미지로 Grafana 서비스 배포
+
+---
+
+## 검증
+
+- [ ] Prometheus `/targets`에서 **기존 노드 3대가 모두 UP**으로 잡히는지 (전환 전과 동일한 타깃 수)
+- [ ] Grafana 대시보드가 프로비저닝으로 복원되었는지, 기존 패널이 정상 렌더되는지
+- [ ] `up == 0` 알람과 **"기대 타깃 수 미달" 알람** 동작 확인
+
+## 롤백
+
+이전 이미지 태그로 서비스 되돌리기. IAM 정책은 남겨둬도 무해하다.
+
+> ⚠️ **이 Phase를 건너뛰고 Phase 7로 가지 않는다.** 새 ASG 노드가 스크레이프되지 않는 상태로 마이그레이션을 진행하면, 문제가 생겨도 지표가 없다.
+
+---
+
+[← Phase 1 — 알람 백스톱 확보](./phase-01-alarm-backstop.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 3 — NAT Gateway 전환 →](./phase-03-nat-gateway.md)
