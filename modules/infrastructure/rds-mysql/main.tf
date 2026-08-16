@@ -79,10 +79,14 @@ resource "aws_db_parameter_group" "mysql_params" {
   family = "mysql8.0"
   name   = "${var.project_name}-${var.environment}-mysql-params"
   
+  # apply_method는 RDS가 실제로 유지하는 값(pending-reboot)에 맞춘다.
+  # 이 값은 엔진 기본값과 동일한 수식이라 RDS 쪽에서 no-op 수정으로 처리되며,
+  # "immediate"를 선언하면 apply가 성공해도 AWS가 pending-reboot를 유지해
+  # plan이 영구히 1건의 변경을 보고한다(perpetual diff).
   parameter {
     name         = "innodb_buffer_pool_size"
     value        = "{DBInstanceClassMemory*3/4}"
-    apply_method = "immediate"
+    apply_method = "pending-reboot"
   }
   
   parameter {
