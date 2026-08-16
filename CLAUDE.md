@@ -1,0 +1,313 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+> **이 문서는 "현재 배포되어 있는 상태"를 기술한다.** 진행 예정인 대규모 개선의 To-Be 구조는
+> `docs/`의 계획 문서에 있으며, 아직 반영되지 않았다. 아래 [진행 중인 인프라 개선](#진행-중인-인프라-개선)을 먼저 읽을 것.
+
+## Project Overview
+
+This is **groble-infra**, a Terraform-based AWS infrastructure project for the Groble application. It uses a 3-layer modular architecture deployed across shared, monitoring, development, and production environments on AWS (ap-northeast-2).
+
+---
+
+## 진행 중인 인프라 개선
+
+**단일 EC2(pet) 구조 → ASG 기반 다중 인스턴스(cattle) 구조로 전환하는 대규모 개선이 설계 완료 상태다.**
+인프라를 수정하기 전에 아래 문서를 확인하고, 변경이 계획과 충돌하지 않는지 검토할 것.
+
+| 문서 | 내용 |
+|---|---|
+| [`docs/infra-ha-improvement-plan.md`](docs/infra-ha-improvement-plan.md) | 무엇을 왜 바꾸는가 (설계·결정 근거) |
+| [`docs/infra-ha-migration-runbook.md`](docs/infra-ha-migration-runbook.md) | 어떤 순서로 이관하는가 (Phase 0~11, 검증·롤백) |
+| [`docs/infra-future-improvements.md`](docs/infra-future-improvements.md) | 이번 범위 밖 항목 (우선순위·트리거) |
+| [`docs/monitoring-config-baking.md`](docs/monitoring-config-baking.md) | 모니터링 config baking 구조 |
+
+**주요 방향** (상세는 계획 문서 참조):
+ASG + Capacity Provider managed draining · ECS-optimized AMI(AL2023) · 전 구성요소 2c AZ 정렬 ·
+NAT Gateway · ElastiCache/RDS로 상태 외부화 · CodeDeploy Blue/Green → ECS rolling ·
+SSM Session Manager(bastion·WireGuard 폐기) · Terraform state를 S3로
+
+---
+
+## Key Commands
+
+### Terraform Operations
+각 environment 디렉토리에서 실행:
+```bash
+terraform init
+terraform plan
+terraform apply
+terraform destroy
+terraform show
+```
+
+⚠️ **state는 현재 로컬 파일이다** (`environments/*/terraform.tfstate`). S3 backend는 `shared/providers.tf`에 주석 처리되어 있고, 환경 간 참조도 `backend = "local"` + 상대 경로를 쓴다.
+**잠금·이력·백업이 없으므로 apply 전 state 백업을 권장한다.** S3 전환은 마이그레이션 Phase 0에 계획되어 있다.
+
+### AWS Profile
+모든 작업에 `groble-terraform` AWS 프로필 필요:
+```bash
+aws configure --profile groble-terraform
+```
+
+### Deployment Script
+staged deployment 헬퍼 스크립트:
+```bash
+chmod +x scripts/deploy-step.sh
+./scripts/deploy-step.sh 1 plan    # Step 1 Plan (VPC)
+./scripts/deploy-step.sh 1 apply   # Step 1 Apply
+# Steps: 1=VPC, 2=Security Groups, 3=Load Balancer, 4=EC2 Instances
+```
+
+## Architecture & Structure
+
+### 3-Layer Architecture
+1. **Infrastructure Layer** (shared): VPC, Security Groups, ALB, IAM Roles, Route53, RDS MySQL, WAF
+2. **Platform Layer** (shared): ECS Cluster, ECR Registry, CodeDeploy
+3. **Service Layer** (dev/prod/monitoring): Spring Boot API, MySQL, Redis, Monitoring Stack
+
+### Deployment Order (Critical)
+**반드시 이 순서대로 배포:**
+1. `environments/shared` — VPC, SG, ALB, IAM, ECS Cluster, EC2 인스턴스 3대, CodeDeploy, WAF
+2. `environments/monitoring` — Grafana, Prometheus, Loki, OpenTelemetry, Node Exporter, cAdvisor, RDS Exporter
+3. `environments/dev` — Dev ECR, MySQL(컨테이너), Redis, Spring Boot API
+4. `environments/prod` — Prod ECR, RDS MySQL(관리형), Redis, Spring Boot API
+
+### Directory Structure
+```
+environments/
+  shared/          # 공유 인프라 (VPC, SG, ALB, IAM, ECS, CodeDeploy, WAF)
+  monitoring/      # 모니터링 스택 (Grafana, Prometheus, Loki, OTEL)
+  dev/             # 개발 환경 서비스 (MySQL컨테이너, Redis, API)
+  prod/            # 프로덕션 환경 서비스 (RDS MySQL, Redis, API)
+modules/
+  infrastructure/  # VPC, security-groups, iam-roles, load-balancer, rds-mysql, route53
+  platform/        # ecs-cluster, ecr, codedeploy
+  security/        # waf (AWS WAF v2)
+  services/
+    production/    # api-service, redis-service
+    development/   # api-service, mysql-service, redis-service
+    monitoring/    # grafana, prometheus, loki, otelcol, node-exporter, cadvisor, rds-exporter
+shared/            # 공통 변수 정의 및 프로바이더 설정
+scripts/           # deploy-step.sh (staged deployment)
+docs/              # 인프라 개선 계획·이관 절차·향후 개선·config baking 문서
+```
+
+### Key Configuration Files (per environment)
+- `main.tf` — 모듈 구성 및 리소스 호출
+- `variables.tf` — 변수 정의
+- `terraform.tfvars` — 변수 값
+- `versions.tf` — Terraform/프로바이더 버전 제약
+- `outputs.tf` — 다른 환경에서 참조할 출력값
+
+## Network Configuration
+
+- **VPC CIDR**: 10.0.0.0/16
+- **Public Subnets**: 10.0.1.0/24 (2a), 10.0.2.0/24 (2c) — ALB, Monitoring EC2
+- **Private Subnets**: 10.0.11.0/24 (2a), 10.0.12.0/24 (2c) — Prod/Dev EC2, RDS
+- **Availability Zones**: ap-northeast-2a, ap-northeast-2c
+- **NAT**: Monitoring 인스턴스(public subnet)가 private subnet의 NAT 역할 수행
+- **Source/Dest Check**: Monitoring 인스턴스에서 비활성화 (NAT용)
+
+⚠️ **AZ 배치가 어긋나 있다**: RDS는 **2c**에 있는데 Prod EC2는 **2a**에 있어, 모든 Prod DB 쿼리가 cross-AZ로 나간다.
+RDS는 `multi_az = false`이고 db_subnet_group이 2a/2c를 모두 포함해 **AZ가 코드에 고정되어 있지 않다** — 재생성 시 바뀔 수 있다.
+
+## EC2 Instances (ECS Cluster)
+
+단일 ECS 클러스터 `groble-cluster`에 3대의 EC2 인스턴스 (모두 Ubuntu AMI + user_data로 ECS 에이전트 수동 설치):
+
+| Instance | Type | Subnet | Volume | 용도 |
+|----------|------|--------|--------|------|
+| Production | t3.medium | Private (2a) | 30GB gp3 | Prod API, Redis |
+| Development | t3.medium | Private (2c) | 30GB gp3 | Dev API, MySQL, Redis |
+| Monitoring | t3.small | Public (2a) | 30GB gp3 | 모니터링 스택 + **NAT + bastion + WireGuard VPN** |
+
+**Monitoring 인스턴스는 4가지 역할을 겸직한다** — 죽으면 관측·아웃바운드·개발자 접근이 동시에 끊긴다.
+
+### 노드 부트스트랩 주의사항 (`modules/platform/ecs-cluster/user_data/`)
+
+- ECS 에이전트가 `amazon/amazon-ecs-agent:latest`로 **버전 고정 없이** 실행된다.
+- **credential 프록시용 iptables/sysctl이 재부팅에 영속되지 않는다** (`iptables-persistent` 없음).
+  재부팅 시 태스크 IAM 롤이 조용히 깨진다 — 과거 Loki S3 적재 실패의 원인이었다.
+- `ECS_RESERVED_MEMORY=64`로 실제 오버헤드(~400-500MB)보다 크게 낮게 잡혀 있다.
+- `aws_instance`에 `lifecycle { ignore_changes = [ami] }`(monitoring은 `user_data`도)가 걸려 있어,
+  **user_data를 수정해도 실행 중인 노드에 반영되지 않는다.**
+
+## Services
+
+### Spring Boot API (ECS, awsvpc mode)
+- Port 8080, Health check: `/actuator/health` (30s interval) — **liveness/readiness 구분 없음**
+- **Prod**: CPU 512, `memoryReservation` 500 / `memory` 1500, **desired_count = 1**, Spring Profiles: `prod,common,secret-prod,proxy`
+- **Dev**: CPU 512, `memoryReservation` 500 / `memory` 1500, **desired_count = 1**, Spring Profiles: `dev,common,secret-dev,proxy`
+- Blue/Green 배포 (CodeDeploy)
+
+> `awsvpc` 모드는 태스크당 ENI 1개를 소비한다. t3 계열은 ENI가 3개(primary 1 + secondary 2)이므로
+> **노드당 API 태스크는 최대 2개**다. 밀도를 논할 때 메모리가 아니라 이 제약이 상한이다.
+
+### Database
+- **Prod**: RDS MySQL 8.0 (db.t3.medium, 암호화, 7일 백업, 100GB→1000GB auto-scaling, **단일 AZ / 2c**)
+- **Dev**: MySQL 8.0 컨테이너 (host mode, 256MB, **데이터가 노드 로컬 디스크** `/opt/mysql-dev-data`)
+
+### Redis 7 (ECS, host mode)
+- Port 6379, Memory 128MB, Prod/Dev 모두 컨테이너 기반
+- 앱은 **노드의 사설 IP로 직접 접속**한다 (`environments/*/main.tf`에서 `data.aws_instance`로 조회)
+
+⚠️ **Redis 내용물의 대부분은 캐시가 아니라 결제 경로의 트랜잭션 상태다** (groble-backend 확인):
+
+| 키 | 용도 | Redis가 유일한 권위 소스인가 |
+|---|---|---|
+| `checkout:idempotency:*` | 결제 멱등성 키 | **예** |
+| `stock:reserved:*` | 재고 예약 카운터 | **예** |
+| `checkout:session:*` | 체크아웃 세션 | 예 |
+| `active:sessions:*` | 활성 세션 추적 | 예 |
+| `email:verification:*`, `password_reset:rate:*` | 인증코드·레이트리밋 | 예 |
+| `user:cache:*` | JWT 사용자 캐시 | 아니오 (DB에서 회복) |
+
+**Redis 유실은 "캐시 미스"가 아니라 중복 결제·재고 초과 판매로 이어질 수 있다.** 관련 변경 시 주의할 것.
+
+### Monitoring Stack (모두 host mode networking)
+
+| Service | Image | Port | CPU/Memory |
+|---------|-------|------|------------|
+| Grafana | `grafana/grafana:10.2.0` (Docker Hub) | 3000 | 250/256MB |
+| Prometheus | **`groble-prometheus:v2.45.0-*` (ECR, config baked)** | 9090 | 512/1024MB |
+| Loki | **`groble-loki:3.0.0-*` (ECR, config baked)** | 3100 | 256/512MB |
+| OpenTelemetry | **`groble-otelcol:0.132.0-*` (ECR, config baked)** | 4317(gRPC), 4318(HTTP) | 256/256MB |
+| Node Exporter | prom/node-exporter:latest | 9100 | DAEMON, task memory 128MB |
+| cAdvisor | gcr.io/cadvisor/cadvisor:latest | 8081 | DAEMON, task memory 256MB |
+| RDS Exporter | prometheuscommunity/mysqld_exporter:latest | 9104 | -/128MB |
+
+**Prometheus·Loki·otelcol은 `groble-images` CI가 설정을 구워 ECR에 push한 이미지를 쓴다.**
+설정 변경은 이 리포지토리가 아니라 `groble-images`에서 하고, tfvars의 이미지 태그를 올린다.
+**Grafana는 아직 config baking 대상이 아니다** — 대시보드·데이터소스가 노드 로컬 SQLite(`/opt/grafana/data`)에만 있어 **노드 교체 시 전부 유실된다.**
+
+**모니터링 데이터 흐름:**
+```
+Applications → OTLP (4317/4318) → OpenTelemetry Collector → Prometheus (metrics) + Loki (logs)
+Node Exporter (9100) + cAdvisor (8081) → Prometheus scrape
+RDS Exporter (9104) → Prometheus scrape
+All → Grafana (3000) Dashboard
+```
+
+앱의 OTLP 엔드포인트는 **모니터링 인스턴스의 사설 IP로 하드코딩**되어 있다
+(`environments/*/main.tf`의 `otel_exporter_endpoint`).
+
+**스토리지 보존:**
+- **Prometheus: 로컬 15일 (10GB)뿐이다.** S3 버킷(`prometheus_storage`)과 IAM 권한이 존재하지만
+  **실제로는 사용되지 않는다** — 바닐라 Prometheus는 S3에 직접 쓸 수 없고, Thanos/Mimir 같은 구성요소가 없다.
+  노드 교체 시 로컬 데이터도 함께 사라진다.
+- Loki: S3 저장 (30일 자동 삭제) — 실제로 동작한다.
+
+### Load Balancing
+- **ALB**: Internet-facing, idle timeout 300s
+- **Listeners**: HTTPS(443) primary, HTTP(80)→HTTPS redirect, HTTPS(9443) CodeDeploy test
+- **Target Groups**: Prod Blue/Green, Dev Blue/Green, Monitoring (총 5개)
+- **Domains**: `api.groble.im` (prod), `api.dev.groble.im` (dev), `monitor.groble.im` (monitoring)
+- ⚠️ 타깃그룹에 **`deregistration_delay`가 설정되어 있지 않다** (기본 300초).
+  ECS `ECS_CONTAINER_STOP_TIMEOUT=30s`와 정렬되지 않아 in-flight 요청이 잘릴 수 있다.
+
+### Blue/Green Deployment (CodeDeploy)
+- Deploy Config: `ECSAllAtOnce`
+- Test Listener (9443)로 Green 검증 후 트래픽 전환
+- Blue 종료 대기: 2분
+- 자동 롤백: DEPLOYMENT_FAILURE, DEPLOYMENT_STOP_ON_ALARM
+- ECS 서비스에 `lifecycle { ignore_changes = [task_definition, load_balancer] }`가 걸려 있다
+  (CodeDeploy가 이 둘을 관리하므로 Terraform이 손을 뗀 상태)
+
+## Security
+
+### WAF (AWS WAF v2, ALB 연결)
+- **Managed Rules** (Count mode): CommonRuleSet, KnownBadInputs, SQLi, IP Reputation
+- **Custom Rules**: IP Rate limit 2000/5min, Global 50000/5min, Login 50/5min, Request size 1MB
+- **Geo-blocking**: KR, JP, SG, AU, NZ, HK, TW, TH, VN, MY, PH, ID, IN 허용
+
+### Security Groups (6개)
+1. **LB SG**: 80, 443, 9443 from 0.0.0.0/0
+2. **Prod Target SG**: 80, 8080, 22, 3306, 6379, 9100, 8081
+3. **Dev Target SG**: 80, 8080, 22, 3306, 6379, 9100, 8081
+4. **Monitoring SG**: **51820/UDP (WireGuard, `0.0.0.0/0` 개방)**, 22, 3000, 4317/4318, 3100, 9090, NAT(all TCP/UDP)
+5. **API Task SG**: 8080 from ALB only (awsvpc 격리)
+6. **RDS MySQL SG**: 3306 from Prod/Dev/API Task/Monitoring
+
+**개발자 접근 경로**: WireGuard(51820) → VPN 서브넷 `10.6.0.0/24` → 모니터링 노드 SSH(22) → private 노드·RDS.
+SSM Session Manager는 아직 도입되지 않았다.
+
+### IAM Roles (`modules/infrastructure/iam-roles/main.tf`)
+
+| 역할 | 실제 부착된 정책 |
+|---|---|
+| **ECS Instance Role** | `AmazonEC2ContainerServiceforEC2Role`, `AmazonEC2ContainerRegistryReadOnly`, 인라인 `sts:AssumeRole` |
+| **ECS Task Execution Role** | `AmazonECSTaskExecutionRolePolicy`, `AmazonEC2ContainerRegistryPowerUser` |
+| **ECS Task Role** | `AmazonS3FullAccess`, `AWSKeyManagementServicePowerUser`, 인라인 KMS 키 사용, 인라인 `ssm:GetParameters`(`parameter/groble/*`) |
+| **CodeDeploy Service Role** | ECS Blue/Green, ELB 수정 |
+
+⚠️ 주의할 점 두 가지:
+- **Task Role에 `ec2:Describe*` 권한이 없다.** (Prometheus의 `ec2_sd_config` 도입 시 추가 필요)
+- **`ssm:GetParameters`는 Task Role에 있고 Execution Role에는 없다.**
+  ECS 태스크 정의의 `secrets`(`valueFrom`) 블록은 **Execution Role** 권한을 쓰므로,
+  SSM 기반 시크릿 주입을 도입하려면 Execution Role에 별도로 추가해야 한다.
+
+### Secrets Management
+- **KMS**: S3 버킷, RDS 스토리지, 파라미터 암호화
+- ⚠️ **비밀값이 태스크 정의에 평문 환경변수로 주입된다.** SSM Parameter Store가 구축되어 있고
+  Task Role에 접근 권한도 있지만, 실제로는 쓰이지 않는다:
+  ```hcl
+  { name = "DB_PASSWORD", value = var.mysql_root_password }   # 평문
+  ```
+  이 값은 **Terraform state · 태스크 정의 JSON · ECS 콘솔**에 그대로 남는다.
+  Grafana `GF_SECURITY_ADMIN_PASSWORD`도 동일하다.
+
+## Important Variables
+
+### Shared Environment
+- `project_name` = "groble"
+- `vpc_cidr` = "10.0.0.0/16"
+- `aws_region` = "ap-northeast-2"
+- `key_pair_name` = "groble_prod_ec2_key_pair"
+- `ssl_certificate_arn` — ACM 인증서 (HTTPS)
+
+### 하드코딩된 사설 IP (`modules/platform/ecs-cluster/variables.tf`)
+```
+prod_instance_private_ip       = "10.0.11.62"
+dev_instance_private_ip        = "10.0.12.215"
+monitoring_instance_private_ip = "10.0.1.193"
+```
+Redis 호스트·OTLP 엔드포인트·Prometheus 스크레이프 타깃이 이 IP들에 의존한다.
+
+### Environment-Specific
+- **Dev**: `environment = "dev"`, `mysql_database = "groble_develop_database"`
+- **Prod**: `environment = "prod"`, `mysql_database = "groble_prod_database"`
+
+### ECR Lifecycle
+- **Prod**: 최근 10개 이미지 유지, 태그 prefix: v, release, prod
+- **Dev**: 최근 5개 이미지 유지, 태그 prefix: v, dev, feature, main
+
+## Development Workflow
+
+1. **배포 전**: AWS 프로필, 키페어, SSL 인증서 확인, **state 백업**
+2. **변경 순서**: 항상 shared → monitoring → dev → prod 순서
+3. **shared 변경**: 모든 환경에 영향, 신중하게 계획
+4. **모듈 변경**: 여러 환경에 영향, 충분히 테스트
+5. **CloudWatch 로그 비활성화**: Loki로 대체하여 비용 절감
+6. **모니터링 설정 변경**: 이 리포지토리가 아니라 `groble-images`에서 (Prometheus/Loki/otelcol)
+7. **인프라 구조 변경 전**: `docs/infra-ha-improvement-plan.md`와 충돌하지 않는지 확인
+
+## Prerequisites
+
+- Terraform >= 1.0
+- AWS CLI (`groble-terraform` 프로필 설정)
+- 키페어 `groble_prod_ec2_key_pair` (ap-northeast-2)
+- ACM SSL 인증서
+
+## Common Issues
+
+- **Dependency errors**: shared 환경이 먼저 배포되었는지 확인
+- **Key pair errors**: ap-northeast-2 리전에 키페어 존재 확인
+- **SSL certificate errors**: ACM 인증서 상태 확인
+- **AWS auth errors**: AWS 프로필 설정 확인
+- **NAT 문제**: Monitoring 인스턴스의 Source/Dest Check 비활성화 확인
+- **서비스 미등록**: EC2 User Data의 ECS 클러스터 등록 스크립트 확인
+- **태스크가 AWS API 호출에 실패**: 노드 재부팅으로 credential 프록시 iptables가 사라졌을 가능성.
+  `iptables -t nat -L` 로 `169.254.170.2` DNAT 규칙 존재 확인
+- **태스크가 배치되지 않음(RESOURCE:ENI)**: 노드당 awsvpc 태스크 2개가 상한. 노드를 늘리거나 desired를 줄일 것
