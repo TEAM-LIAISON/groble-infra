@@ -19,7 +19,8 @@ This is **groble-infra**, a Terraform-based AWS infrastructure project for the G
 | 문서 | 내용 |
 |---|---|
 | [`docs/infra-ha-improvement-plan.md`](docs/infra-ha-improvement-plan.md) | 무엇을 왜 바꾸는가 (설계·결정 근거) |
-| [`docs/infra-ha-migration-runbook.md`](docs/infra-ha-migration-runbook.md) | 어떤 순서로 이관하는가 (Phase 0~11, 검증·롤백) |
+| [`docs/infra-ha-migration-runbook.md`](docs/infra-ha-migration-runbook.md) | 어떤 순서로 이관하는가 — **목차·공통 원칙·부록** |
+| [`docs/runbook/`](docs/runbook/) | Phase 0~11 각각의 상세 절차·검증·롤백 (Phase당 1개 파일) |
 | [`docs/infra-future-improvements.md`](docs/infra-future-improvements.md) | 이번 범위 밖 항목 (우선순위·트리거) |
 | [`docs/monitoring-config-baking.md`](docs/monitoring-config-baking.md) | 모니터링 config baking 구조 |
 

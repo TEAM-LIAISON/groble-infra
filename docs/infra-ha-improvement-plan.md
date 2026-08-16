@@ -11,7 +11,7 @@
 | 문서 | 내용 |
 |---|---|
 | **본 문서** | 무엇을 왜 바꾸는가 (설계와 결정 근거) |
-| [`infra-ha-migration-runbook.md`](./infra-ha-migration-runbook.md) | 어떤 순서로 안전하게 이관하는가 (단계별 절차·검증·롤백) |
+| [`infra-ha-migration-runbook.md`](./infra-ha-migration-runbook.md) | 어떤 순서로 안전하게 이관하는가 (목차·공통 원칙, Phase별 상세는 [`runbook/`](./runbook/)) |
 | [`infra-future-improvements.md`](./infra-future-improvements.md) | 이번 범위 밖이지만 이후에 다뤄야 할 항목 |
 
 ## 개정 이력
@@ -402,7 +402,7 @@ ECS-optimized AL2023에는 SSM Agent가 기본 탑재되어 있어, 실제 작�
 
 **롤백은 리스너 규칙을 되돌리는 것**이며, 구 서비스가 그대로 살아 있다. 이번 마이그레이션에서 가장 깔끔한 되돌리기 지점이다. 슬롯 부족은 현재 `desired_count = 1`인 상태에서 전환해 회피한다(슬롯 2개만 사용).
 
-상세 절차는 [`infra-ha-migration-runbook.md`](./infra-ha-migration-runbook.md)를 따른다.
+상세 절차는 [`runbook/phase-04-deployment-controller.md`](./runbook/phase-04-deployment-controller.md)를 따른다.
 
 **트레이드오프(수용함)**: 프로덕션 전 검증(테스트 리스너 9443) 상실, 롤백이 분 단위, **버전 혼재** 발생.
 → §3 릴리스 안정성 요건으로 보완한다.
