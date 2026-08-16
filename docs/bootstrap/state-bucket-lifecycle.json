@@ -1,0 +1,14 @@
+{
+  "Rules": [
+    {
+      "ID": "expire-old-noncurrent-state-versions",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "" },
+      "NoncurrentVersionExpiration": {
+        "NoncurrentDays": 90,
+        "NewerNoncurrentVersions": 10
+      },
+      "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 7 }
+    }
+  ]
+}
