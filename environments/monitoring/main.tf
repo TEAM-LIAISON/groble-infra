@@ -5,9 +5,13 @@ provider "aws" {
 
 # 기존 shared 리소스 참조
 data "terraform_remote_state" "shared" {
-  backend = "local"
+  backend = "s3"
+
   config = {
-    path = "../shared/terraform.tfstate"
+    bucket  = "groble-terraform-state"
+    key     = "environments/shared/terraform.tfstate"
+    region  = "ap-northeast-2"
+    profile = "groble-terraform"
   }
 }
 

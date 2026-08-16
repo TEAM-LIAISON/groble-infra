@@ -110,34 +110,48 @@ state 버킷 설정 — **시크릿 저장소로 취급한다** (Phase 10 전까
 
 **월 비용**: KMS 키 $1 + CloudTrail 데이터 이벤트 $0.10/10만 건 + S3 무시 가능 → **약 $1~2**
 
-### 0-d. backend 전환
+### 0-d / 0-e. backend 전환 — ✅ 완료
 
-1. 각 환경의 backend 블록 작성 — `shared` / `prod` / `dev` / `monitoring` 4곳
+1. 각 환경에 **`backend.tf`를 별도 파일로** 작성 — `shared` / `prod` / `dev` / `monitoring` 4곳
+   (`versions.tf`에 끼워 넣지 않는다. 롤백이 "파일 삭제"로 끝나게 하기 위함)
 
 ```hcl
 terraform {
   backend "s3" {
-    bucket       = "groble-terraform-state"
-    key          = "environments/<env>/terraform.tfstate"
-    region       = "ap-northeast-2"
+    bucket  = "groble-terraform-state"
+    key     = "environments/<env>/terraform.tfstate"
+    region  = "ap-northeast-2"
+    profile = "groble-terraform"
+
     encrypt      = true
+    kms_key_id   = "arn:aws:kms:ap-northeast-2:538827147369:key/c555c131-6f6a-4422-80f3-e6ec79ff1e3a"
     use_lockfile = true
   }
 }
 ```
 
-2. 환경별로 `terraform init -migrate-state` 실행
+> 계획서 초안에 없던 두 항목을 넣었다.
+> - **`profile`** — backend는 provider 설정을 상속하지 않는다. 없으면 기본 자격증명 체인을 타서 인증에 실패한다.
+> - **`kms_key_id`** — 생략하면 backend가 `SSE-S3(AES256)` 헤더를 보내 **버킷 기본 암호화(SSE-KMS)를 덮어쓴다.** 애써 만든 KMS 키를 쓰지 않게 되고 감사 추적도 남지 않는다.
+
+2. 환경별로 `terraform init -migrate-state -force-copy` 실행
 3. `data "terraform_remote_state"`의 `backend = "local"`을 S3로 변경 — **3곳** (`prod`, `dev`, `monitoring`의 `main.tf`)
 
+> ⚠️ **2와 3은 반드시 연달아 한다.** `-migrate-state`는 로컬 state 파일을 지우지 않고 남긴다. 3을 미루면 세 환경이 S3의 최신 shared state가 아니라 **디스크에 남은 옛 파일을 조용히 계속 읽는다** — 에러가 나지 않아 더 위험하다.
+
+4. 이전 확인 후 로컬 state 파일을 리포지토리 밖으로 옮긴다 (`.terraform/terraform.tfstate`는 backend 설정 포인터이므로 남겨둔다)
+
 ### 검증
-- [ ] 각 환경에서 `terraform plan` → **no changes**
-- [ ] 다른 터미널에서 동시에 `terraform plan` 실행 시 **잠금이 걸리는지** 확인
-- [ ] S3 버킷에 state 객체 4개와 버전이 생성되었는지
-- [x] 익명(비인증) 접근이 거부되는지 — 확인 완료
+- [x] 각 환경에서 `terraform plan` → **no changes** (4/4)
+- [x] 동시에 `terraform plan` 실행 시 **잠금이 걸리는지** — 두 번째가 `Error acquiring the state lock` / S3 `PutObject` `PreconditionFailed`로 거부됨 (조건부 쓰기 기반 네이티브 잠금)
+- [x] S3 버킷에 state 객체 4개와 버전이 생성되었는지 — 4개 모두 `ServerSideEncryption: aws:kms`, `.tflock` 객체의 생성·삭제 이력도 확인
+- [x] 익명(비인증) 접근이 거부되는지
 - [ ] ⚠️ **Terraform 실행 주체가 아닌 자격증명으로 거부되는지** — **미검증**. 계정에 SSO 역할이 하나뿐이고 PowerUser는 IAM 주체를 만들 수 없어 테스트할 두 번째 주체가 없다. 관리자 권한 세트를 프로비저닝하게 되면 그때 확인한다
+- [ ] **state 객체의 CloudTrail 데이터 이벤트가 실제로 기록되는지** — 트레일은 로그를 전달 중이고 관리 이벤트는 확인했으나, 객체 데이터 이벤트는 전달 지연으로 이전 직후에는 확인되지 않았다. Phase 1 착수 시 재확인한다
 
 ### 롤백
-backend 블록을 제거하고 백업해 둔 로컬 state를 복원한 뒤 `terraform init -migrate-state`.
+`backend.tf`를 삭제하고 백업해 둔 로컬 state를 복원한 뒤 `terraform init -migrate-state`.
+백업 위치: `~/groble-tfstate-backup-20260816/` (이전 직전 사본은 `pre-migration-local/`).
 
 ---
 
