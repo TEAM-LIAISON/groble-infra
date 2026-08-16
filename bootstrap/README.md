@@ -35,5 +35,5 @@ aws cloudtrail put-event-selectors --profile groble-terraform \
 `state-bucket-policy.json`과 `kms-key-policy.json`의 `aws:PrincipalArn` 목록을 좁힐 때는
 **락아웃에 주의한다.** 이 계정에는 SSO 역할이 `AWSReservedSSO_TerraformPowerUser_*` 하나뿐이라,
 역할 이름을 정확한 ARN으로 박으면 SSO 권한 세트 재프로비저닝 시 접미사가 바뀌어 접근이 끊긴다.
-와일드카드와 탈출구를 유지하는 이유는 [`../infra-ha-migration-runbook.md`](../infra-ha-migration-runbook.md)
+와일드카드와 탈출구를 유지하는 이유는 [`docs/infra-ha-migration-runbook.md`](../docs/infra-ha-migration-runbook.md)
 Phase 0-c에 적어 두었다.

@@ -82,6 +82,8 @@
 
 **이 리소스들은 Terraform 밖에서 AWS CLI로 만든다.** "state를 담을 버킷의 state를 어디에 둘 것인가"라는 순환을 피하기 위함이다. state에 들어가지 않으므로 `terraform destroy`로 지워지지 않는다 — 의도된 성질이다.
 
+적용한 정책 원본과 재적용 명령은 [`bootstrap/`](../bootstrap/README.md)에 있다.
+
 | 리소스 | 값 |
 |---|---|
 | KMS 키 | `c555c131-6f6a-4422-80f3-e6ec79ff1e3a`, 별칭 `alias/groble/terraform-state`, 365일 자동 순환 |

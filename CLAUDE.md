@@ -91,6 +91,7 @@ modules/
     monitoring/    # grafana, prometheus, loki, otelcol, node-exporter, cadvisor, rds-exporter
 shared/            # 공통 변수 정의 및 프로바이더 설정
 scripts/           # deploy-step.sh (staged deployment)
+bootstrap/         # Terraform이 관리하지 않는 부트스트랩 리소스의 정책 원본 (state 버킷·KMS·CloudTrail)
 docs/              # 인프라 개선 계획·이관 절차·향후 개선·config baking 문서
 ```
 
