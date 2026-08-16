@@ -359,7 +359,7 @@ v1 §2.5는 "기존 WireGuard 재활용"이라고 적었으나, WireGuard 종단
 - 키페어 `groble_prod_ec2_key_pair` 의존 제거 (launch template에서 제외)
 - 인스턴스 프로파일에 `AmazonSSMManagedInstanceCore` 추가
 - **SSM 세션 로그를 S3/CloudWatch로** → 현재 없는 접근 감사 기록 확보
-- 자주 쓰는 포트 포워딩을 `scripts/`에 래핑 (예: `connect-rds-dev.sh`)
+- 자주 쓰는 포트 포워딩을 `scripts/`에 래핑 (예: `connect-rds-dev.sh`) — `scripts/`는 현재 없으며 이때 새로 만든다
 
 ECS-optimized AL2023에는 SSM Agent가 기본 탑재되어 있어, 실제 작업은 IAM 정책 부착뿐이다. cattle 구조와도 잘 맞는다 — 노드가 교체돼도 접근 방법이 그대로다.
 

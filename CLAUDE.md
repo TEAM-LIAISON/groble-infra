@@ -63,15 +63,6 @@ state 버킷·KMS 키·CloudTrail은 **Terraform이 관리하지 않는다** —
 aws configure --profile groble-terraform
 ```
 
-### Deployment Script
-staged deployment 헬퍼 스크립트:
-```bash
-chmod +x scripts/deploy-step.sh
-./scripts/deploy-step.sh 1 plan    # Step 1 Plan (VPC)
-./scripts/deploy-step.sh 1 apply   # Step 1 Apply
-# Steps: 1=VPC, 2=Security Groups, 3=Load Balancer, 4=EC2 Instances
-```
-
 ## Architecture & Structure
 
 ### 3-Layer Architecture
@@ -102,7 +93,6 @@ modules/
     development/   # api-service, mysql-service, redis-service
     monitoring/    # grafana, prometheus, loki, otelcol, node-exporter, cadvisor, rds-exporter
 shared/            # 공통 변수 정의 및 프로바이더 설정
-scripts/           # deploy-step.sh (staged deployment)
 bootstrap/         # Terraform이 관리하지 않는 부트스트랩 리소스의 정책 원본 (state 버킷·KMS·CloudTrail)
 docs/              # 인프라 개선 계획·이관 절차·향후 개선·config baking 문서
 ```
