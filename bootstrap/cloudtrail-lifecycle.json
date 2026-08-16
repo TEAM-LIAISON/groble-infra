@@ -1,0 +1,11 @@
+{
+  "Rules": [
+    {
+      "ID": "expire-audit-logs",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "" },
+      "Expiration": { "Days": 365 },
+      "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 7 }
+    }
+  ]
+}

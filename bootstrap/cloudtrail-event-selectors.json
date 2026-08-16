@@ -1,0 +1,16 @@
+[
+  {
+    "Name": "management-events",
+    "FieldSelectors": [
+      { "Field": "eventCategory", "Equals": ["Management"] }
+    ]
+  },
+  {
+    "Name": "terraform-state-object-access",
+    "FieldSelectors": [
+      { "Field": "eventCategory", "Equals": ["Data"] },
+      { "Field": "resources.type", "Equals": ["AWS::S3::Object"] },
+      { "Field": "resources.ARN", "StartsWith": ["arn:aws:s3:::groble-terraform-state/"] }
+    ]
+  }
+]
