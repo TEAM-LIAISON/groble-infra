@@ -25,8 +25,8 @@
 | **2** | Prometheus `ec2_sd` 전환 + Grafana as-code | 없음 | 이전 이미지 태그로 롤백 |
 | **3** | NAT Gateway + S3 Gateway Endpoint, 라우트 전환 | 짧은 egress 블립 | 라우트 되돌리기 |
 | **4** | 배포 컨트롤러 CodeDeploy → ECS rolling | 없음 (리스너 스왑) | **리스너 규칙 되돌리기** |
-| **5** | 모니터링 노드 재구축 (private 2c, AL2023) | 없음 (구 노드 병존) | 구 노드로 OTLP 되돌리기 |
-| **6** | Prod Redis → ElastiCache | **진행 중 결제 세션 소실** ⚠️ | 되돌려도 재소실 |
+| **5** | 모니터링 노드 재구축 (private 2c, AL2023) + OTLP DNS 간접화 | 없음 (구 노드 병존) | DNS 레코드 되돌리기 (재배포 없음) |
+| **6** | Prod Redis → ElastiCache (**stop-first**, rolling 아님) | **진행 중 결제 세션 소실 + 1~2분 순단** ⚠️ | 되돌려도 재소실 |
 | **7** | Prod ASG 전환 (구 노드 드레인) | 없음 | 구 노드 재활성화 |
 | **8** | Dev 전환 (RDS + ElastiCache + ASG) | Dev만 | 단계별 |
 | **9** | 접근 경로 정리 (WireGuard/bastion/22 폐기) | 없음 | SG 규칙 복원 |
@@ -43,7 +43,8 @@
 - [ ] `aws sts get-caller-identity --profile groble-terraform` 정상 (SSO 토큰 유효)
 - [ ] 현재 state 파일 4개를 **작업 외부(로컬 백업 디렉터리)에 복사해 둔다**
 - [ ] `terraform plan`이 모든 환경에서 **no changes**로 깨끗한지 확인 — drift가 있으면 먼저 해소
-- [ ] 계획서 §4의 To-Do 1번(expand/contract 팀 합의)이 완료되었는지 — **Phase 4의 차단 조건**
+- [ ] 계획서 §3 "rolling 전환의 차단 조건 — 앱 측 작업" **4건**(expand/contract 합의 · readiness/liveness 분리 · graceful shutdown · 드레이닝 값 정렬)이 groble-backend에서 완료되었는지 — **Phase 4의 차단 조건**. Phase 0~3은 이와 무관하게 먼저 진행할 수 있다
+- [ ] **WireGuard 51820 소스를 `0.0.0.0/0` → 팀 IP로 축소** (계획서 §2.5 선행 즉시 조치 — Phase 9까지 6~8주를 열어둘 이유가 없다)
 - [ ] 저트래픽 시간대 확인 (Phase 3·6에 필요)
 - [ ] 롤백 판단자와 연락 체계 합의
 
@@ -65,7 +66,11 @@
 
 ### 절차
 
-1. state 저장용 S3 버킷 생성 (versioning + 암호화 활성화)
+1. state 저장용 S3 버킷 생성 — **시크릿 저장소로 취급한다** (Phase 10 전까지 평문 비밀번호가 담긴 state가 여기 올라간다, 계획서 §2.7)
+   - versioning ON, SSE-KMS 암호화 (키 정책도 Terraform 실행 주체로 한정)
+   - Block Public Access 4항목 전부 ON
+   - 버킷 정책: `aws:PrincipalArn`으로 Terraform 실행 role/SSO 권한 세트만 허용, 그 외 `Deny`
+   - CloudTrail S3 데이터 이벤트로 read 기록
 2. 각 환경의 backend 블록 작성 — `shared` / `prod` / `dev` / `monitoring` 4곳
 
 ```hcl
@@ -87,6 +92,7 @@ terraform {
 - [ ] 각 환경에서 `terraform plan` → **no changes**
 - [ ] 다른 터미널에서 동시에 `terraform plan` 실행 시 **잠금이 걸리는지** 확인
 - [ ] S3 버킷에 state 객체 4개와 버전이 생성되었는지
+- [ ] Terraform 실행 주체가 아닌 자격증명(예: 읽기 전용 role)으로 `aws s3 cp`가 **거부되는지**
 
 ### 롤백
 backend 블록을 제거하고 백업해 둔 로컬 state를 복원한 뒤 `terraform init -migrate-state`.
@@ -107,10 +113,16 @@ backend 블록을 제거하고 백업해 둔 로컬 state를 복원한 뒤 `terr
    - ALB `TargetResponseTime` p99
    - RDS `CPUUtilization`, `DatabaseConnections`, `FreeStorageSpace`
 3. 임계치는 **현재 기준선을 1주일 관측한 뒤** 확정 (초기에는 넉넉하게)
+4. **같은 1주 동안 트래픽 기준선을 함께 기록한다** (계획서 §4 To-Do 9) — 알람 임계치와 별개로, 용량 결정의 근거 데이터가 지금 없다:
+   - ALB `RequestCountPerTarget`(합계·피크), `TargetResponseTime` p50/p99
+   - 피크 시간대와 **피크/평균 비율**
+   - Prod API 태스크 CPU/메모리 사용률 (cAdvisor)
+   - 결과를 계획서 §2.1 옆에 표로 남긴다. desired 2가 충분한지, 동적 스케일링(향후 개선 Low-3) 트리거에 얼마나 가까운지가 이 표로 판단된다
 
 ### 검증
 - [ ] 알람을 수동으로 `ALARM` 상태로 전환해 **외부 채널까지 실제로 도달**하는지 확인
 - [ ] 알람이 `INSUFFICIENT_DATA`로 방치되지 않는지
+- [ ] 트래픽 기준선 표가 작성되었는지
 
 ### 롤백
 리소스 삭제. 다른 단계에 영향 없음.
@@ -125,12 +137,14 @@ backend 블록을 제거하고 백업해 둔 로컬 state를 복원한 뒤 `terr
 ### 2-1. Prometheus `ec2_sd_config` 전환
 
 1. Prometheus Task Role에 `ec2:DescribeInstances` 인라인 정책 추가 (**현재 없음**)
-2. `groble-images` 저장소의 Prometheus config를 `static_configs` → `ec2_sd_config`로 변경
+2. **기존 3개 `aws_instance`에 `Cluster=groble-cluster`, `environment`, `Type` 태그가 붙어 있는지 확인**하고 없으면 추가 — `ec2_sd`는 인스턴스 태그를 본다. (Phase 7의 ASG는 태그 전파 설정으로 같은 키를 붙인다)
+3. `groble-images` 저장소의 Prometheus config를 `static_configs` → `ec2_sd_config`로 변경
    - 태그 필터: `Cluster = groble-cluster`
    - relabel: EC2 태그 `environment`, `Type`을 라벨로 승격
    - 포트별 잡 분리: node-exporter(9100), cAdvisor(8081)
-3. CI에서 `promtool check config` 게이트 추가
-4. 새 이미지 태그로 Prometheus 서비스 배포
+4. CI에서 `promtool check config` 게이트 추가
+5. **"기대 타깃 수 미달" 알람의 기대값을 상수로 박지 않는다** — config baking 시 환경별 노드 수 변수에서 주입하거나, 최소한 "ASG desired 변경 시 함께 바꿀 것" 목록에 등재 (계획서 §2.4)
+6. 새 이미지 태그로 Prometheus 서비스 배포
 
 ### 2-2. Grafana 프로비저닝 as-code
 
@@ -235,17 +249,23 @@ backend 블록을 제거하고 백업해 둔 로컬 state를 복원한 뒤 `terr
    - Loki 로그는 S3에 있으므로 보존된다
    - Prometheus 로컬 15일치는 **유실을 수용**한다
 4. ALB 모니터링 타깃그룹을 신 노드로 재연결 → `monitor.groble.im` 접속 확인
-5. **앱의 OTLP 엔드포인트를 신 노드 IP로 변경** → rolling 재배포 (Phase 4의 rolling을 실제로 활용)
+5. **OTLP 엔드포인트를 DNS로 간접화한 뒤 전환** (계획서 §2.4)
+   - 5-a. (신 노드 생성 **전에** 해도 된다) Route 53 private hosted zone `internal.groble.im` 생성 + VPC 연결, `otel.internal.groble.im` A 레코드를 **구 노드 IP**로 등록, TTL 60초
+   - 5-b. 앱의 `OTEL_EXPORTER_OTLP_ENDPOINT`를 IP → `http://otel.internal.groble.im:4318`로 변경 → rolling 재배포 (Phase 4의 rolling을 실제로 활용). 이 시점엔 여전히 구 노드로 간다 — **동작 변화 없이 간접화만 도입**
+   - 5-c. 사전 확인: JVM DNS 캐시 TTL이 유한한지 (계획서 §3-8, To-Do 12). 무기한이면 5-d가 재배포 없이는 반영되지 않는다
+   - 5-d. 레코드 값을 **신 노드 IP로 변경** → 60초 내 트래픽이 신 노드로 이동. **앱 재배포 없음**
+   - 이후 모니터링 노드를 다시 교체할 때는 5-d만 반복하면 된다
 6. 구 모니터링 노드에서 모니터링 스택만 중지 — **NAT/bastion/WireGuard는 아직 살려둔다**
 
 ### 검증
 - [ ] Grafana 대시보드가 신 노드에서 정상 (프로비저닝 복원 확인)
 - [ ] Prometheus 타깃이 `ec2_sd`로 전부 잡히는지
-- [ ] 앱 트레이스·로그가 신 otelcol로 들어오는지 (Loki에 신규 로그 유입 확인)
+- [ ] 5-b 후 앱 로그·트레이스가 **여전히 구 노드**로 들어오는지 (간접화 자체의 검증)
+- [ ] 5-d 후 60초 내 앱 트레이스·로그가 **신 otelcol**로 들어오는지 (Loki에 신규 로그 유입 확인) — 재배포 없이 옮겨졌는지가 핵심
 - [ ] SSM으로 신 노드 접속 가능
 
 ### 롤백
-OTLP 엔드포인트를 구 노드 IP로 되돌리고 재배포. 구 노드의 스택을 재기동.
+DNS 레코드를 구 노드 IP로 되돌린다 (재배포 없음). 구 노드의 스택을 재기동.
 
 ---
 
@@ -260,11 +280,28 @@ OTLP 엔드포인트를 구 노드 IP로 되돌리고 재배포. 구 노드의 �
 ### 절차
 
 1. **ElastiCache 생성** — `cache.t4g.micro`, **2c**, 단일 노드
+   - Terraform 리소스는 **`aws_elasticache_replication_group`** (`num_cache_clusters = 1`, `automatic_failover_enabled = false`) — `aws_elasticache_cluster`가 아님. replica 추가가 온라인 변경이 되게 하기 위함 (계획서 §2.3)
+   - 앱은 `primary_endpoint_address`를 바라본다
    - **유지보수 창을 트래픽 최저 시간대로 명시 지정** (기본값은 무작위)
    - **자동 스냅샷 활성화**
    - SG: API 태스크 SG로부터 6379 허용
 2. 저트래픽 시간대 진입, **결제 지표 기준선 기록**
-3. 앱의 `REDIS_HOST`를 ElastiCache 엔드포인트로 변경 → rolling 재배포
+3. **stop-first 전환** — rolling이 아니다 ⚠️
+   - 이유: surge rolling(`100/150`)으로 배포하면 구 태스크(컨테이너 Redis)와 신 태스크(ElastiCache)가 몇 분간 **동시에 실트래픽**을 받아 멱등성 키·재고 카운터가 두 저장소로 갈라진다(split-brain). 중복 결제 방어가 실제로 뚫리는 창이다 (계획서 §2.3).
+   - 절차:
+     ```bash
+     # (a) 일시적으로 stop-first로 전환
+     aws ecs update-service --cluster groble-cluster --service groble-prod-service \
+       --deployment-configuration minimumHealthyPercent=0,maximumPercent=100
+     # (b) REDIS_HOST를 ElastiCache 엔드포인트로 바꾼 태스크 정의로 배포
+     aws ecs update-service --cluster groble-cluster --service groble-prod-service \
+       --task-definition <new-revision>
+     # (c) 신 태스크 healthy 확인 후 원래 값으로 복구
+     aws ecs update-service --cluster groble-cluster --service groble-prod-service \
+       --deployment-configuration minimumHealthyPercent=100,maximumPercent=150
+     ```
+   - 예상 순단: 구 태스크 종료 → 신 태스크 healthy까지 **1~2분** (JVM 기동 + 헬스체크). 저트래픽 창에서 수용한다.
+   - Terraform 서비스 리소스에 `deployment_minimum_healthy_percent`가 선언되어 있으면 (c) 후 `terraform plan`이 no changes인지 확인한다.
 4. **30분 안정화 관찰** — 결제 성공률, 5xx, 재고 관련 오류
 5. 구 Redis ECS 서비스 제거
 
@@ -275,7 +312,7 @@ OTLP 엔드포인트를 구 노드 IP로 되돌리고 재배포. 구 노드의 �
 - [ ] 재고 예약/해제 정상 동작
 
 ### 롤백
-`REDIS_HOST`를 구 컨테이너 IP로 되돌리고 재배포. **다시 한 번 상태가 소실된다.**
+`REDIS_HOST`를 구 컨테이너 IP로 되돌리고 **동일하게 stop-first로** 재배포. **다시 한 번 상태가 소실된다.**
 
 ### 남는 리스크
 단일 노드이므로 **유지보수·장애 시 결제 상태 유실 창이 남는다.** replica 전환은 [`infra-future-improvements.md`](./infra-future-improvements.md)의 **Urgent #1**이다.
@@ -298,15 +335,24 @@ OTLP 엔드포인트를 구 노드 IP로 되돌리고 재배포. 구 노드의 �
    - 루트 볼륨 30GB gp3, 암호화
 2. **ASG 생성** — `desired = 2`, **2c 서브넷 고정**, mixed instances policy (`t3.medium` / `t3a.medium`)
    - instance refresh preferences: `min_healthy_percentage = 100`, `max_healthy_percentage = 200` (launch-before-terminate)
+   - **태그 전파** — `ec2_sd`가 새 노드를 보려면 인스턴스에 태그가 붙어야 한다 (계획서 §2.4):
+     ```hcl
+     tag { key = "Cluster"     value = "groble-cluster" propagate_at_launch = true }
+     tag { key = "environment" value = "production"     propagate_at_launch = true }
+     tag { key = "Type"        value = "api"            propagate_at_launch = true }
+     ```
+     Launch Template `tag_specifications`와 **중복 정의하지 않는다** — 한 곳으로 통일
 3. **Capacity Provider 생성 및 클러스터 연결**
    ```hcl
    managed_draining = "ENABLED"
    managed_scaling { status = "DISABLED" }   # 고정 크기 ASG
    ```
+   - ⚠️ Phase 4에서 만든 신 서비스에 `capacity_provider_strategy`를 붙이는 변경은 **provider 버전에 따라 서비스 재생성을 강제할 수 있다** (계획서 §2.1). **plan에서 `aws_ecs_service`가 replace로 잡히면 apply하지 않는다.** launch type 서비스도 컨테이너 인스턴스 DRAINING으로 정상 드레인되므로, 이 경우 CP 전략 부착은 미루고 managed draining만으로 진행한다 (10번 리허설에서 실제 드레인 동작으로 확인)
 4. **신 노드 검증** (구 노드와 병존 상태)
    - [ ] ECS 클러스터에 컨테이너 인스턴스로 등록되었는지
    - [ ] `environment=production` 속성이 붙었는지
-   - [ ] Prometheus `/targets`에 **자동으로 나타나는지** (Phase 2의 `ec2_sd` 검증)
+   - [ ] EC2 콘솔/CLI에서 인스턴스에 `Cluster`·`environment`·`Type` 태그가 붙었는지 (`aws ec2 describe-instances --filters Name=tag:Cluster,Values=groble-cluster`)
+   - [ ] Prometheus `/targets`에 **자동으로 나타나는지** (Phase 2의 `ec2_sd` 검증) — 위 태그가 없으면 여기서 조용히 빠진다
    - [ ] `aws ssm start-session`으로 접속되는지
    - [ ] credential 프록시 정상 — 태스크에서 AWS API 호출 성공 확인
 5. **`memory_reservation`을 1000으로 변경** 후 태스크 재배포
@@ -324,7 +370,8 @@ OTLP 엔드포인트를 구 노드 IP로 되돌리고 재배포. 구 노드의 �
 - [ ] **instance refresh 중 5xx가 0인지** — 이 프로젝트의 목표가 달성되었는지 확인하는 핵심 검증
 - [ ] 드레이닝 시 in-flight 요청이 끊기지 않는지
 - [ ] 노드 1대를 강제 종료했을 때 ASG가 자동 복구하는지, 태스크가 재배치되는지
-- [ ] 복구 소요 시간 측정 (계획서 §2.1의 "배포 불가 창" 실측값 확보)
+- [ ] **복구 소요 시간 측정** — 종료 시각 → EC2 unhealthy 감지 → 신 인스턴스 기동 → ECS 등록 → 태스크 RUNNING 각 구간을 기록. 계획서 §2.1의 "실측 전 추정 3~5분+"를 이 값으로 갱신 (To-Do 10). 감지 구간이 길면 ASG 헬스체크 유예/EC2 상태 검사 설정을 조정할 근거가 된다
+- [ ] launch type 서비스의 태스크가 DRAINING으로 정상 이동하는지 (3번에서 CP 전략 부착을 미룬 경우 이것이 무중단 교체의 근거)
 
 ### 롤백
 구 노드를 `ACTIVE`로 되돌리고 ASG `desired = 0`. 구 인스턴스를 제거하기 전(8번)까지는 완전히 되돌릴 수 있다.
@@ -344,7 +391,7 @@ OTLP 엔드포인트를 구 노드 IP로 되돌리고 재배포. 구 노드의 �
    ```bash
    mysqldump ... > dev.sql && mysql -h <rds-endpoint> < dev.sql
    ```
-3. **Dev ElastiCache 생성** (`cache.t4g.micro`, 2c)
+3. **Dev ElastiCache 생성** (`cache.t4g.micro`, 2c) — Prod와 동일하게 `aws_elasticache_replication_group` 리소스로 (모듈을 공유하면 자연히 그렇게 된다)
 4. Dev 앱의 `DB_HOST` / `REDIS_HOST` 변경 → 재배포
 5. 구 Dev MySQL·Redis 컨테이너 서비스 제거
 6. **Dev ASG 전환** — Phase 7과 동일한 절차 (Launch Template, ASG, capacity provider)

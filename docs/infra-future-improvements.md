@@ -65,6 +65,7 @@ multi_az_enabled           = false   # 단일 AZ 결정과 충돌 없음
 ```
 - replica를 같은 AZ(2c)에 두면 cross-AZ 비용도 없고 단일 AZ 결정도 뒤집지 않는다.
 - 노드 장애·유지보수 시 수십 초 내 자동 failover, 데이터 유지.
+- **실행 비용은 이미 낮춰 두었다**: 계획서 v3 §2.3에 따라 단일 노드도 `aws_elasticache_replication_group` 리소스로 생성하므로, replica 추가는 `num_cache_clusters = 2` + `automatic_failover_enabled = true`의 **온라인 변경**이다. 엔드포인트가 유지되어 앱 재배포도 상태 유실도 없다. (`aws_elasticache_cluster`로 만들었다면 리소스 재생성 = 결제 상태 2차 유실 이벤트였다.)
 
 **비용**: +$15/월 (~$15 → ~$30). Reserved Node 적용 시 ~$20.
 

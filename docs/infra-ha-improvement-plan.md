@@ -19,7 +19,8 @@
 | 개정 | 변경 |
 |---|---|
 | v1 (초안) | ASG 전환, NAT GW, ElastiCache, Mac Mini 외부화, rolling 전환 |
-| **v2 (현재)** | 12개 기술 결정 확정. 주요 변경: 노드당 태스크 상한의 근거를 메모리→**ENI**로 정정 · **Capacity Provider managed draining 추가**(v1 누락, 목표 달성의 핵심 메커니즘) · **AZ를 2c로 정렬**(RDS와 어긋나 있었음) · **Mac Mini 계획 폐기**(Dev를 AWS 관리형으로) · Redis 근거 정정(캐시 아님, 결제 상태) · **SSM Session Manager 도입**(bastion·WireGuard 폐기) · 서비스 디스커버리·state backend·Grafana as-code 추가 |
+| v2 | 12개 기술 결정 확정. 주요 변경: 노드당 태스크 상한의 근거를 메모리→**ENI**로 정정 · **Capacity Provider managed draining 추가**(v1 누락, 목표 달성의 핵심 메커니즘) · **AZ를 2c로 정렬**(RDS와 어긋나 있었음) · **Mac Mini 계획 폐기**(Dev를 AWS 관리형으로) · Redis 근거 정정(캐시 아님, 결제 상태) · **SSM Session Manager 도입**(bastion·WireGuard 폐기) · 서비스 디스커버리·state backend·Grafana as-code 추가 |
+| **v3 (현재)** | 리뷰 반영. **Redis 엔드포인트 전환은 stop-first**(rolling 시 split-brain, §2.3) · ElastiCache를 **replication_group 리소스로 생성**(replica 추가가 온라인 변경이 되도록) · OTLP 엔드포인트를 **private DNS로 간접화**(§2.4) · rolling 전환 차단 조건에 **앱 측 작업 명시**(§3, §4) · ASG 복구 시간 추정치 보수화 · `ec2_sd` 태그 전파 조건 · capacity provider 연결 시 Terraform 함정 · WireGuard 즉시 축소 · state 버킷 접근 통제 · **비용 총괄(§2.8) 신설** · 트래픽 기준선 수집 To-Do |
 
 ---
 
@@ -112,7 +113,7 @@ v1은 노드당 2태스크의 근거를 메모리로 설명했으나, 실제 상
 | **노드 1대 상실** | 2 / 2 | **0** |
 | 노드 1대 상실 + 배포 시도 | 3 필요 / 2 가능 | **배포 불가** ⚠️ |
 
-> **알려진 제약(수용)**: 노드 1대를 잃은 상태에서는 배포할 수 없다. ASG가 새 노드를 띄울 때까지(약 1~2분) 대기한다. ECS-optimized AMI 채택으로 이 창을 v1 대비 1/3로 줄였다. 필요해지면 `desired`를 3으로 올려 N+1을 확보한다 — ASG이므로 값 하나만 바꾸면 된다.
+> **알려진 제약(수용)**: 노드 1대를 잃은 상태에서는 배포할 수 없다. ASG가 새 노드를 띄울 때까지 대기한다. **이 창은 실측 전 추정으로 3~5분 이상**이다 — EC2 헬스체크 실패 감지(기본 유예 포함) → 종료 → 기동 → ECS 에이전트 등록 → 태스크 배치까지의 합이며, "인스턴스 부팅 시간"만으로 산정하면 과소평가된다. ECS-optimized AMI 채택으로 부팅 구간은 v1 대비 크게 줄었지만 감지·등록 구간은 그대로다. 런북 Phase 7에서 실측한 뒤 이 값을 갱신한다. 필요해지면 `desired`를 3으로 올려 N+1을 확보한다 — ASG이므로 값 하나만 바꾸면 된다.
 
 **메모리 설정**
 
@@ -172,6 +173,12 @@ t3.small(2GiB)은 API 태스크를 **노드당 1개**만 담을 수 있다. 따�
 
 현재 코드에는 capacity provider가 전혀 없다(`capacity_provider_strategy: []`). 신규 도입 항목이다.
 
+> ⚠️ **순서 의존성 — 서비스에 CP를 나중에 붙이는 변경은 Terraform 함정이 될 수 있다.**
+> 배포 컨트롤러 전환(§2.6, 런북 Phase 4)에서 만드는 신 ECS 서비스는 CP가 아직 없으므로 launch type으로 생성된다. 이후 Phase 7에서 이 서비스에 `capacity_provider_strategy`를 추가하는 변경은 **AWS provider 버전에 따라 서비스 재생성(destroy → create)을 강제할 수 있다.** §2.6의 `deployment_controller`와 같은 종류의 함정이다.
+> - Phase 7에서 이 변경을 apply하기 전 **plan에 서비스 replace가 없는지 육안 확인**한다.
+> - CP 전략을 붙이지 않은(launch type) 서비스의 태스크도 컨테이너 인스턴스가 DRAINING이 되면 정상적으로 옮겨진다. 따라서 CP 전략 부착이 재생성을 요구하면 **부착을 미루고 managed draining만으로 운용**해도 무중단 교체 목표는 달성된다. 이 경우 CP 전략 부착은 다음 서비스 재생성 기회로 이관한다.
+> - 리허설(Phase 7-10)에서 실제 드레인 동작을 확인하는 항목이 이 판단의 근거가 된다.
+
 #### 용량 확보 실패에 대한 대비
 
 고정 크기 ASG가 단일 AZ·단일 타입에 묶이면, 그 조합의 여유 용량이 없을 때(`InsufficientInstanceCapacity`) **ASG가 인스턴스를 아예 띄우지 못한다.** AZ 전체 장애보다 자주 발생하고, 하필 노드를 교체하려는 순간에 나타난다.
@@ -198,11 +205,32 @@ t3.small(2GiB)은 API 태스크를 **노드당 1개**만 담을 수 있다. 따�
 
 | 대상 | To-Be | 비고 |
 |---|---|---|
-| Prod Redis | **ElastiCache 단일 노드** (`cache.t4g.micro`) | ⚠️ 한시적 조치 — 아래 참조 |
+| Prod Redis | **ElastiCache 단일 노드** (`cache.t4g.micro`) — 리소스는 **`aws_elasticache_replication_group`(노드 1개)** | ⚠️ 한시적 조치 — 아래 참조 |
 | Dev MySQL | **RDS `db.t4g.micro`** (단일 AZ) | 로컬 디스크 컨테이너 폐기 |
-| Dev Redis | **별도 ElastiCache `cache.t4g.micro`** | Prod 노드와 공유하지 않음 |
+| Dev Redis | **별도 ElastiCache `cache.t4g.micro`** — 동일하게 `replication_group` | Prod 노드와 공유하지 않음 |
 
 **Redis 외부화는 선택이 아니다.** host-mode 싱글턴 컨테이너는 cattle 노드에서 주소도 데이터도 유지할 수 없다.
+
+#### Terraform 리소스 타입은 처음부터 `replication_group`으로 만든다
+
+단일 노드라도 `aws_elasticache_cluster`가 아니라 **`aws_elasticache_replication_group`(`num_cache_clusters = 1`, `automatic_failover_enabled = false`)** 로 생성한다.
+
+- `aws_elasticache_cluster`로 만들면 이후 replica를 붙일 때 **리소스 재생성 = 엔드포인트 변경 = 결제 상태 2차 유실 이벤트**가 된다.
+- `replication_group`으로 만들면 replica 추가·`automatic_failover_enabled` 전환이 **온라인 변경**이며 primary 엔드포인트가 유지된다. 향후 개선 문서 **Urgent #1**의 실행 비용이 이 한 줄로 결정된다.
+- 앱은 `primary_endpoint_address`를 바라본다(`cluster` 리소스의 `cache_nodes[0].address`가 아님).
+
+#### ⚠️ Redis 엔드포인트 전환은 rolling으로 하지 않는다 (stop-first)
+
+`REDIS_HOST` 변경을 §2.6의 Prod rolling(`100% / 150%`, surge)으로 배포하면, 신 태스크가 healthy가 될 때까지 **구 태스크(컨테이너 Redis)와 신 태스크(ElastiCache)가 서로 다른 Redis를 보며 동시에 실트래픽을 받는다.** 그 몇 분 동안:
+
+- 멱등성 키(`checkout:idempotency:*`)가 두 저장소로 갈라진다 → 재시도 요청이 다른 버전 태스크에 떨어지면 **중복 결제 방어가 실제로 뚫린다.** 문서가 수용한 "상태 유실"보다 나쁜 **"중복 처리"** 리스크다.
+- 재고 예약 카운터(`stock:reserved:*`)가 두 곳에서 따로 증가한다 → 초과 판매 방어 무력화.
+
+**원칙**: Redis 엔드포인트 변경은 **버전 공존을 허용하지 않는 변경**이다. 이 배포 1회에 한해 **stop-first**로 전환한다 — `deployment_minimum_healthy_percent`를 일시적으로 `0`으로 낮춰 구 태스크를 모두 내린 뒤 신 태스크를 띄우고, 완료 후 `100`으로 되돌린다. 저트래픽 창에서 1~2분의 순단을 추가로 감수하고 "두 개의 진실"이 공존하는 구간을 없앤다. 상태 유실은 어차피 이 전환의 전제이므로 추가 손실은 순단뿐이다.
+
+같은 논리가 Dev Redis 전환(런북 Phase 8)에도 적용되지만, Dev는 `50% / 100%` 축소 우선 방식이라 이미 1:1 공존 구간이 짧고 결제 정합성 요구가 없으므로 별도 조치는 하지 않는다.
+
+> **일반화**: 어떤 외부 상태 저장소든 "권위 소스가 둘로 갈라지는" 엔드포인트 전환은 rolling 대상이 아니다. §3-1의 expand/contract 규율은 *스키마*의 공존을 다루고, 이 원칙은 *저장소 인스턴스*의 공존을 다룬다.
 
 #### ⚠️ Prod Redis 단일 노드는 "캐시라서 안전한" 것이 아니다
 
@@ -244,9 +272,28 @@ ASG 전환으로 노드 IP가 변하므로, 관측 경로의 주소 의존성을
 
 | 경로 | 방향 | To-Be |
 |---|---|---|
-| 앱 → otelcol (OTLP 4317/4318) | push | 모니터링 노드를 **pet으로 유지**하므로 고정 사설 IP 그대로 사용 |
+| 앱 → otelcol (OTLP 4317/4318) | push | 모니터링 노드는 **pet으로 유지**하되, 앱은 IP가 아니라 **private DNS 이름**을 바라본다 (아래) |
 | otelcol ↔ Prometheus ↔ Loki ↔ Grafana | 동일 노드 | host mode → `localhost` (변경 없음) |
 | Prometheus → node-exporter(9100) / cAdvisor(8081) | **pull** | **`ec2_sd_config`로 전환** ⚠️ |
+
+#### OTLP 엔드포인트는 private DNS로 간접화한다
+
+모니터링 노드를 pet으로 두는 결정과 별개로, **앱 설정에 노드의 raw IP를 넣지 않는다.** Route 53 private hosted zone(월 ~$0.5)에 A 레코드를 두고 앱은 그 이름을 바라본다.
+
+| 항목 | 값 |
+|---|---|
+| private hosted zone | 예: `internal.groble.im` (VPC 연결) |
+| 레코드 | `otel.internal.groble.im` → 모니터링 노드 사설 IP, **TTL 60초** |
+| 앱 설정 | `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel.internal.groble.im:4318` |
+
+효과:
+- 모니터링 노드 재구축(런북 Phase 5)이 **레코드 값 변경으로 끝난다** — 앱 재배포가 필요 없다.
+- 향후 관측 평면 HA(내부 NLB, 향후 개선 Medium-5)로 갈 때도 레코드를 NLB alias로 바꾸면 되므로 **앱 무변경**이다.
+- ElastiCache 전환 전까지의 컨테이너 Redis, 향후 RDS 엔드포인트 등도 같은 패턴으로 간접화할 수 있다(선택).
+
+> Route 53 레코드는 Terraform으로 관리한다(모니터링 노드 리소스의 `private_ip`를 참조). DNS 캐시는 TTL 이내에 갱신되지만, JVM의 DNS 캐시(`networkaddress.cache.ttl`)가 무기한이면 재배포 전까지 구 IP를 붙잡는다 — 앱 측에서 이 값이 유한한지 확인한다(§3-8).
+
+#### `ec2_sd_config` 전환 — ASG보다 먼저
 
 **`ec2_sd_config` 전환은 ASG 도입보다 반드시 먼저 이루어져야 한다.** 순서가 뒤바뀌면 새로 뜬 노드가 스크레이프 목록에 없어 **아무 신호 없이 관측 사각지대**에 들어간다. 타깃이 죽으면 `up=0`이 뜨지만, 애초에 목록에 없는 노드는 조용하다.
 
@@ -254,6 +301,16 @@ ASG 전환으로 노드 IP가 변하므로, 관측 경로의 주소 의존성을
 - Prometheus Task Role에 **`ec2:DescribeInstances` 추가** (현재 없음)
 - `up == 0` 알람과 **"기대 타깃 수 미달" 알람**을 함께 건다. 후자가 없으면 디스커버리 자체의 고장을 못 잡는다.
 - `ec2_sd` 설정은 정적이므로 config baking과 잘 맞는다. 반대로 `static_configs`를 유지하면 노드가 바뀔 때마다 이미지를 다시 구워야 해 baking의 이점이 사라진다.
+
+**성립 조건 — 태그가 인스턴스까지 전파되어야 한다.** `ec2_sd`는 인스턴스 태그를 본다. ASG/Launch Template에서 태그가 인스턴스로 전파되지 않으면 새 노드는 정확히 위에서 경고한 "조용한 사각지대"에 들어간다.
+
+| 위치 | 필요한 설정 |
+|---|---|
+| ASG | `tag { key = "Cluster" value = "groble-cluster" propagate_at_launch = true }` — `environment`, `Type`도 동일 |
+| Launch Template | 또는 `tag_specifications { resource_type = "instance" tags = {...} }` — 둘 중 하나로 통일하고 중복 정의하지 않는다 |
+| 모니터링 노드 (pet) | `aws_instance`의 `tags`에 동일 키를 붙인다 (모니터링 노드 자체의 node-exporter/cAdvisor도 같은 잡으로 스크레이프) |
+
+**"기대 타깃 수 미달" 알람의 기대값은 ASG desired와 묶는다.** 상수로 박아두면 노드 수를 바꿀 때 알람이 조용히 무의미해진다. 예: `count(up{job="node-exporter", environment="production"}) < <prod_desired>` — 값을 config baking 시 ASG 변수에서 주입하거나, 최소한 desired 변경 시 함께 바꿔야 하는 곳으로 문서화한다.
 
 > awsvpc 태스크는 전용 ENI와 네트워크 네임스페이스를 가지므로, **태스크 안의 `localhost`는 호스트가 아니다.** "각 노드에 collector DAEMON을 두고 앱은 localhost로 보낸다"는 패턴은 이 구조에서 성립하지 않는다.
 
@@ -305,6 +362,8 @@ v1 §2.5는 "기존 WireGuard 재활용"이라고 적었으나, WireGuard 종단
 - 자주 쓰는 포트 포워딩을 `scripts/`에 래핑 (예: `connect-rds-dev.sh`)
 
 ECS-optimized AL2023에는 SSM Agent가 기본 탑재되어 있어, 실제 작업은 IAM 정책 부착뿐이다. cattle 구조와도 잘 맞는다 — 노드가 교체돼도 접근 방법이 그대로다.
+
+**선행 즉시 조치 — WireGuard 51820 소스 축소.** WireGuard 폐기는 마이그레이션 후반(런북 Phase 9, 착수 후 6~8주)이다. 그때까지 `0.0.0.0/0`으로 열린 UDP 포트를 유지할 이유가 없다. **마이그레이션 착수 전에** SG 규칙의 소스를 팀 구성원 IP 대역(또는 사무실/고정 IP)으로 좁힌다. 5분짜리 변경이고 롤백은 규칙 하나 되돌리는 것이다. 유동 IP인 팀원이 있으면 `trusted_ips` 변수에 추가하는 절차만 안내한다 — 어차피 Phase 9에서 변수 자체가 사라진다.
 
 ---
 
@@ -364,6 +423,46 @@ ECS-optimized AL2023에는 SSM Agent가 기본 탑재되어 있어, 실제 작�
 
 **Secrets 전환 시 규율**: 파라미터 값을 Terraform으로 생성하면 state에 평문이 다시 들어간다. **값은 AWS CLI로 별도 생성하고 Terraform은 `data` 참조만** 한다. 태스크 정의를 건드리는 변경이므로 배포 컨트롤러 전환(§2.6)이 안정화된 뒤 별도 단계로 수행한다.
 
+**state 버킷은 시크릿 저장소로 취급한다.** Secrets 전환(런북 Phase 10)은 마지막 단계지만 state 이전(Phase 0)은 첫 단계다. 그 사이 수 주 동안 **DB 비밀번호·Grafana admin 비밀번호가 평문으로 담긴 state가 S3에 존재한다.** 암호화만으로는 부족하며 접근 통제가 함께 있어야 한다:
+
+- Block Public Access 4항목 전부 ON
+- 버킷 정책으로 접근 주체를 Terraform 실행 role/SSO 권한 세트로 한정 (`aws:PrincipalArn` 조건), 그 외 `Deny`
+- 버킷 versioning ON (실수로 덮어쓴 state 복구용) + 오래된 버전은 lifecycle로 정리하되 **최근 N개는 반드시 보존**
+- 서버 측 암호화는 SSE-KMS로, 키 정책도 같은 주체로 한정 (SSE-S3보다 감사 추적이 남는다)
+- CloudTrail S3 데이터 이벤트로 state 객체 read를 기록 (누가 언제 state를 내려받았는지)
+
+Phase 10이 끝나 state에서 평문이 사라진 뒤에도 이 통제는 유지한다 — state에는 리소스 ID·엔드포인트·SG 구성 등 정찰 가치가 있는 정보가 계속 남는다.
+
+---
+
+### 2.8 비용 총괄 (As-Is → To-Be)
+
+이번 전환의 월 비용 증가분을 한 곳에 모은다. 항목별 비용은 향후 개선 문서에도 흩어져 있지만, "replica $15를 아낀다" 같은 결정은 **전체 증가분 옆에 놓고 봐야** 올바르게 판단된다.
+
+ap-northeast-2 온디맨드 기준 대략값(2026-08). 실제 청구는 Cost Explorer로 확인한다.
+
+| 항목 | As-Is | To-Be | 증감/월 | 비고 |
+|---|---|---|---|---|
+| Prod API 컴퓨트 | 1× t3.medium (~$38) | 2× t3.medium/t3a (~$76) | **+$38** | 다중화의 본체 |
+| Dev API 컴퓨트 | 1× t3.medium (~$38) | 2× t3.small/t3a (~$38) | 0 | 타입 하향으로 상쇄 |
+| Monitoring 노드 | 1× t3.small (~$19) | 1× t3.small (~$19) | 0 | 위치·AMI만 변경 |
+| NAT | 인스턴스 겸직 ($0 추가) | NAT Gateway (~$43 + 데이터 $0.059/GB) | **+$43~50** | S3 Gateway Endpoint로 ECR 레이어 트래픽 제거 |
+| Prod Redis | 컨테이너 ($0) | ElastiCache `cache.t4g.micro` ×1 (~$15) | **+$15** | replica 추가 시 +$15 |
+| Dev Redis | 컨테이너 ($0) | ElastiCache `cache.t4g.micro` ×1 (~$15) | **+$15** | |
+| Dev MySQL | 컨테이너 ($0) | RDS `db.t4g.micro` (~$18) + 스토리지 (~$2) | **+$20** | 자동 백업 포함 |
+| EBS (루트 볼륨) | 3× 기존 | 5× 30GB gp3 (~$14) | +$5 | 노드 수 증가분 |
+| Route 53 private zone | — | ~$0.5 | +$0.5 | OTLP DNS 간접화 |
+| S3 (state, Loki) | Loki만 | +state (무시 가능) | ~0 | |
+| CloudWatch 알람 | — | ~10개 (~$1) | +$1 | 백스톱 |
+| SNS | — | 무시 가능 | ~0 | |
+| **합계** | | | **약 +$140~150/월** | |
+
+**cross-AZ 비용 절감**: 현재 Prod EC2(2a)↔RDS(2c) 트래픽이 전량 cross-AZ($0.01/GB 양방향)다. 2c 정렬로 이 비용은 사라지나, 규모가 작아 위 표에서는 무시했다. Cost Explorer에서 `DataTransfer-Regional-Bytes`를 전환 전후로 비교해 실측한다.
+
+**구매 방식으로 흡수 가능한 부분**: 컴퓨트·ElastiCache·RDS 합계 약 $180/월 중 Savings Plan / Reserved 1년 no-upfront로 약 30%(~$55/월) 절감 가능 (향후 개선 Cost-1). **구성 안정화 후** 커밋한다.
+
+**이 표가 말하는 것**: 향후 개선 문서에서 비용을 이유로 미룬 두 항목 — ElastiCache replica(+$15)와 N+1 노드(+$38, SP 적용 시 ~+$6) — 는 전체 증가분의 10~25% 수준이며, 둘 다 이 프로젝트의 핵심 목표(무중단)와 직결된다. 예산 논의 시 이 비율로 판단한다. NAT Gateway 한 항목이 replica 세 개 값이라는 점도 참고 — Interface Endpoint 검토(향후 개선 Medium-4)와 함께 본다.
+
 ---
 
 ## 3. 롤링 배포 릴리스 안정성 요건
@@ -404,20 +503,39 @@ rolling에서는 구/신 버전이 **동시에 실트래픽**을 받으므로 �
 
 7. **세션 상태**: 세션은 외부 저장소에. **인메모리 세션 상태가 없는지** 확인.
 
+8. **DNS 캐시**: §2.4의 OTLP DNS 간접화가 동작하려면 JVM의 DNS 캐시가 유한해야 한다. `networkaddress.cache.ttl`이 무기한(SecurityManager 하 기본값)이면 레코드를 바꿔도 재배포 전까지 구 IP를 붙잡는다. 60초 이하로 설정되어 있는지, 사용하는 HTTP 클라이언트(OTLP exporter)가 자체 커넥션 풀에서 IP를 고정하지 않는지 확인.
+
+### rolling 전환의 차단 조건 — 앱 측 작업 (groble-backend)
+
+위 항목 중 일부는 rolling 전환 **후에** 튜닝하는 것이 아니라, rolling이 안전하려면 **전에** 존재해야 하는 것들이다. 인프라 리포지토리 문서라 앱 의존성이 흐릿해지기 쉬우므로 여기 명시한다. **아래 4개가 모두 완료되기 전에는 런북 Phase 4(배포 컨트롤러 전환)에 진입하지 않는다.**
+
+| # | 앱 작업 | 확인 방법 | 추적 |
+|---|---|---|---|
+| A | **expand/contract 마이그레이션 규율 팀 합의** (§3-1) | 합의 문서 존재. 마이그레이션이 앱 부팅과 분리되어 있는지 코드 확인 | groble-backend 이슈 # |
+| B | **readiness / liveness 분리** (§3-2) — Spring `management.endpoint.health.probes.enabled=true`, `/actuator/health/readiness`가 DB·Redis 연결 상태를 반영 | 앱 기동 직후 readiness가 `OUT_OF_SERVICE`였다가 의존성 연결 후 `UP`으로 바뀌는지 | groble-backend 이슈 # |
+| C | **graceful shutdown** (§3-3) — `server.shutdown=graceful`, `spring.lifecycle.timeout-per-shutdown-phase` 확정 | SIGTERM 후 in-flight 요청이 완료되고 신규 수신은 거부되는지 로컬 재현 | groble-backend 이슈 # |
+| D | **드레이닝 숫자 정렬** (§3-3) — dereg delay / Spring graceful / `stopTimeout` 값 확정 | ECS는 타깃 등록 해제 → dereg delay 대기 → SIGTERM 순서로 진행하므로, `dereg delay ≥ 가장 긴 정상 요청 시간`, `Spring graceful < stopTimeout` 두 관계를 만족하는지 (예: 30s / 20s / 60s) | 인프라 + 백엔드 공동 |
+
+이 표는 §4 To-Do 1번의 상세다. 추적 열은 실제 이슈 번호로 채운다.
+
 ---
 
 ## 4. 미확정 항목 / To-Do
 
 | # | 항목 | 상태 |
 |---|---|---|
-| 1 | **마이그레이션 규율(expand/contract) 팀 합의** | 진행 예정 — **rolling 전환의 차단 조건** |
-| 2 | **드레이닝 파라미터 구체 값** (dereg delay / stopTimeout / Spring graceful) | 구현 시 확정 (§3-3) |
+| 1 | **rolling 전환의 앱 측 차단 조건 4건** — expand/contract 합의 · readiness/liveness 분리 · graceful shutdown · 드레이닝 값 정렬 (§3 표) | 진행 예정 — **런북 Phase 4의 차단 조건**. groble-backend 이슈와 연결 |
+| 2 | ~~드레이닝 파라미터 구체 값~~ → 1번 D항목으로 통합 | — |
 | 3 | **서킷 브레이커·알람 임계치 실제 값** | 구현 시 확정 |
 | 4 | **Dev API 실사용 메모리 실측** | 한도는 900으로 확정(§2.1)했으나 Prod 실측값에서 유추한 값이다. Dev 전환 후 실측하여 조정 |
 | 5 | **Redis 상실 시 앱 거동 검증(게임데이)** | ElastiCache 전환 후. `user:cache:` 외 항목의 유실 영향 실측 |
 | 6 | **Prometheus 실제 S3 미사용 확인 후 CLAUDE.md 정정** | 확인 완료, 문서 반영 필요 |
 | 7 | **CLAUDE.md의 IAM 서술 정정** | "ECS Task Role: EC2 describe"는 코드와 불일치(실제는 S3/KMS/SSM) |
 | 8 | 온보딩/히스토리 문서화 | 별도 트랙 — §2.7(state)·§2.4(Grafana as-code)로 일부 해소 |
+| 9 | **트래픽 기준선 수집** — 계획서 전체에 트래픽 수치가 없고 desired 2의 근거가 메모리 실측뿐이다 | 런북 Phase 1의 1주 알람 기준선 관측 때 함께 기록: ALB `RequestCountPerTarget`·`TargetResponseTime` p99·피크 시간대·피크/평균 비율·태스크 CPU/메모리. 용량 결정의 근거이자 동적 스케일링(향후 개선 Low-3) 트리거의 데이터원 |
+| 10 | **ASG 노드 복구 시간 실측** | 런북 Phase 7 노드 강제 종료 테스트에서 측정 → §2.1의 "3~5분 추정" 갱신 |
+| 11 | **WireGuard 51820 소스 축소** (§2.5 선행 즉시 조치) | 마이그레이션 착수 전 |
+| 12 | **JVM DNS 캐시 TTL 확인** (§3-8) | OTLP DNS 간접화 전 |
 
 **v1에서 해소된 항목**
 
@@ -519,8 +637,8 @@ graph TB
     D1 --> ECD
     D2 --> ECD
 
-    P1 -. "OTLP 4318" .-> PMON
-    P2 -. "OTLP 4318" .-> PMON
+    P1 -. "OTLP 4318<br/>(otel.internal DNS)" .-> PMON
+    P2 -. "OTLP 4318<br/>(otel.internal DNS)" .-> PMON
     PMON -. "ec2_sd 스크레이프" .-> P1
     PMON -. "ec2_sd 스크레이프" .-> P2
 
@@ -542,6 +660,7 @@ graph TB
 > 🟢 다중 인스턴스(ASG) + 관리형 NAT/캐시/DB → 한 대씩 무중단 교체 가능, NAT SPOF 제거.
 > 🟡 모니터링 노드는 **의도적으로 pet으로 남긴다**(§0 비목표). 교체는 계획된 유지보수로 처리하고, 관측 단절에 대비해 CloudWatch 알람 백스톱을 둔다.
 > 전 구성요소가 **2c 단일 AZ**에 정렬되어 cross-AZ 비용·지연이 제거된다. 노드에 public IP가 없고, 접근은 SSM으로만 이루어진다.
+> 앱 → 모니터링 노드는 IP가 아니라 **private DNS**(`otel.internal.*`)로 연결되어, 모니터링 노드 교체가 앱 재배포 없이 끝난다.
 
 ---
 
@@ -557,7 +676,8 @@ graph TB
 - ✅ **mixed instances policy** (t3 / t3a) — 용량 확보 실패 대비
 - ✅ **노드당 태스크 상한은 ENI로 2개** — 총 4슬롯, desired 2, 롤링 피크 3
 - ✅ `memory_reservation` 500 → **1000**, `ECS_RESERVED_MEMORY` 64 → **512**
-- ⚠️ **알려진 제약**: 노드 1대 상실 중에는 배포 불가 (ASG 복구까지 1~2분)
+- ⚠️ **알려진 제약**: 노드 1대 상실 중에는 배포 불가 (ASG 복구까지 **실측 전 추정 3~5분+**, Phase 7에서 실측)
+- ⚠️ 서비스에 CP 전략을 후속 부착하는 변경은 **재생성을 강제할 수 있음** — plan 육안 확인, 필요 시 managed draining만으로 운용
 
 ### 네트워크
 - ✅ 단일 AZ 유지, **전 구성요소를 2c로 정렬** (RDS와 어긋나 있던 것 교정)
@@ -566,26 +686,30 @@ graph TB
 - ✅ 모든 노드에서 **public IP 제거**
 
 ### 상태 저장소
-- ✅ Prod Redis → **ElastiCache 단일 노드** (한시적 — replica 전환이 Urgent #1)
+- ✅ Prod Redis → **ElastiCache 단일 노드** (한시적 — replica 전환이 Urgent #1), 리소스는 **`replication_group`** 으로 생성해 replica 추가가 온라인 변경이 되게 함
+- ✅ **Redis 엔드포인트 전환은 stop-first** — rolling 시 멱등성 키·재고 카운터 split-brain
 - ✅ Dev MySQL → **RDS `db.t4g.micro`**, Dev Redis → **별도 ElastiCache**
 - ✅ **Mac Mini 계획 폐기** — Dev가 Prod를 대변해야 §3-5의 검증이 성립
 
 ### 관측
 - ✅ **통합 모니터링 스택 유지** (Prod/Dev 분리 철회), 환경은 라벨로 구분
-- ✅ Prometheus **`ec2_sd_config`** 전환 — **ASG 도입보다 선행**
+- ✅ Prometheus **`ec2_sd_config`** 전환 — **ASG 도입보다 선행**, ASG/LT **태그 전파** 필수, 기대 타깃 수 알람은 desired와 연동
 - ✅ **Grafana 프로비저닝 as-code** (config baking 확장)
 - ✅ **CloudWatch 알람 백스톱 필수화** (v1의 "미확정"에서 승격)
-- ✅ 모니터링 노드는 pet 유지, OTLP 엔드포인트 고정 IP 유지
+- ✅ 모니터링 노드는 pet 유지, OTLP 엔드포인트는 **private DNS**(`otel.internal.*`)로 간접화 — 노드 교체 시 앱 무변경
 
 ### 운영
 - ✅ **SSM Session Manager** — bastion·WireGuard·22번·키페어 전부 폐기, 세션 감사 로그 확보
+- ✅ **WireGuard 51820 소스를 착수 전 즉시 축소** (`0.0.0.0/0` → 팀 IP)
 
 ### 배포
 - ✅ **ECS rolling** — Prod: desired 2, `100% / 150%`(surge) / Dev: desired 2, `50% / 100%`(축소 우선), 서킷 브레이커 롤백
+- ✅ **Phase 4 진입 차단 조건 = 앱 측 4건** (expand/contract · readiness/liveness · graceful shutdown · 드레이닝 값) — §3 표, groble-backend 이슈와 연결
 - ✅ Dev 메모리: `reservation 800 / limit 900` (t3.small 예산 ~1000MiB 기준)
 - ✅ 컷오버는 **Green TG 재활용 + 리스너 스왑** (서비스 재생성으로 인한 다운타임 회피)
 - ✅ **배포 주체는 CI** — Terraform은 `ignore_changes = [task_definition]` 유지
 
 ### 기반
-- ✅ **S3 backend + 네이티브 잠금** — 마이그레이션 0단계
+- ✅ **S3 backend + 네이티브 잠금** — 마이그레이션 0단계. state 버킷은 **시크릿 저장소로 취급**(Block Public Access · 주체 한정 정책 · SSE-KMS · CloudTrail 데이터 이벤트)
 - ✅ Secrets → **SSM Parameter Store** (배포 전환 안정화 후 별도 단계)
+- ✅ **비용 총괄 §2.8** — 전환으로 약 +$140~150/월, 미룬 항목(replica·N+1)은 그중 10~25%
