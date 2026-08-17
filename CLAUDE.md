@@ -30,8 +30,9 @@ NAT Gateway · ElastiCache/RDS로 상태 외부화 · CodeDeploy Blue/Green → 
 SSM Session Manager(bastion·WireGuard 폐기) · Terraform state를 S3로
 
 **진행 상황**: **Phase 0 완료** (state를 S3로 이전 — 아래 [Terraform Operations](#terraform-operations) 참조).
-**Phase 1은 구축 완료, 기준선 수집 중** — CloudWatch 알람 16개가 SNS→AWS Chatbot을 거쳐 Slack 2채널
-(`#groble-alert` / `#groble-alert-dev`)로 전달된다. 임계치는 1주 관측 후 확정한다.
+**Phase 1 완료** — CloudWatch 알람 19개가 SNS→AWS Chatbot을 거쳐 Slack 2채널
+(`#groble-alert` 긴급 / `#groble-alert-dev`)로 전달된다. 임계치는 실측 기준선으로 확정했다
+(계획서 §2.1 "트래픽·자원 기준선").
 Phase 2부터는 미착수이며, 이 문서의 나머지 서술은 여전히 As-Is다.
 
 ---

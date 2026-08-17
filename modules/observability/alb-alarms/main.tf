@@ -10,8 +10,13 @@
 #    스왑 직후부터 유휴 TG를 감시하게 되어 무의미해진다.
 #    Phase 4에서 단일 TG로 정리되면 이 구조는 자연히 단순해진다.
 #
-# 임계치는 기준선 데이터가 없어 "명백한 이상만 잡는" 수준으로 넉넉하게 잡았다.
-# 1주일 기준선 수집 후 조인다. docs/runbook/phase-01-alarm-backstop.md 4번 참조.
+# 3. **지속적 저하와 단발 급증을 다른 알람으로 잡는다.**
+#    실측된 심각한 지연은 전부 단일 5분 구간이었다. "N분 연속" 조건만 두면
+#    임계치를 낮춰도 그것들이 잡히지 않는다 (latency_p99_spike 주석 참조).
+#
+# 임계치는 2026-08-10~16 CloudWatch 실측을 근거로 정했다.
+# 근거 수치는 각 변수의 description에, 전체 기준선은
+# docs/infra-ha-improvement-plan.md §2.1 "트래픽·자원 기준선"에 있다.
 
 locals {
   common_tags = {
@@ -116,7 +121,7 @@ resource "aws_cloudwatch_metric_alarm" "latency_p99" {
   for_each = local.traffic_services
 
   alarm_name        = "${var.project_name}-${each.key}-latency-p99"
-  alarm_description = "${each.key} p99 응답시간이 15분간 임계치를 초과했다. DB 지연·GC·리소스 포화를 확인할 것."
+  alarm_description = "${each.key} p99 응답시간이 15분간 임계치를 초과했다 — 지속적 성능 저하. DB 지연·GC·리소스 포화를 확인할 것."
 
   comparison_operator = "GreaterThanThreshold"
   threshold           = var.latency_p99_threshold_seconds
@@ -258,4 +263,58 @@ resource "aws_cloudwatch_metric_alarm" "unhealthy_host" {
   ok_actions    = each.value.ok_actions
 
   tags = merge(local.common_tags, { Name = "${var.project_name}-${each.key}-unhealthy-host" })
+}
+
+# 단발 급증 알람.
+#
+# 위 지속 알람과 역할을 나눈다. 실측된 심각한 지연은 전부 단발이었다 —
+# 2026-08-13 13:45에 p99 42.3초, 19:50에 6.5초를 기록했으나 모두 단일 5분 구간이어서
+# "15분 연속" 조건으로는 임계치를 낮춰도 잡히지 않는다.
+# 42초 p99는 일부 사용자가 42초를 기다렸다는 뜻이므로 별도 알람이 필요하다.
+#
+# ⚠️ Phase 4(rolling)·Phase 7(instance refresh) 중에는 이 알람이 울릴 수 있다.
+#    전환 작업 중이라면 그 자체가 정보이지만, 오탐으로 느껴지면 작업 창에서만 임계치를 올릴 것.
+resource "aws_cloudwatch_metric_alarm" "latency_p99_spike" {
+  for_each = local.traffic_services
+
+  alarm_name        = "${var.project_name}-${each.key}-latency-p99-spike"
+  alarm_description = "${each.key} p99 응답시간이 단발로 급증했다. 느린 쿼리·GC 정지·외부 API 지연을 확인할 것. 5xx가 없다면 실패가 아니라 지연이다."
+
+  comparison_operator = "GreaterThanThreshold"
+  threshold           = var.latency_p99_spike_threshold_seconds
+  evaluation_periods  = 1
+
+  treat_missing_data = "notBreaching"
+
+  metric_query {
+    id          = "max_p99"
+    expression  = "MAX(METRICS())"
+    label       = "${each.key} p99 (활성 TG)"
+    return_data = true
+  }
+
+  dynamic "metric_query" {
+    for_each = each.value.target_groups
+    content {
+      id          = "m${metric_query.key}"
+      return_data = false
+
+      metric {
+        namespace   = "AWS/ApplicationELB"
+        metric_name = "TargetResponseTime"
+        stat        = "p99"
+        period      = 300
+
+        dimensions = {
+          LoadBalancer = var.alb_arn_suffix
+          TargetGroup  = metric_query.value
+        }
+      }
+    }
+  }
+
+  alarm_actions = each.value.alarm_actions
+  ok_actions    = each.value.ok_actions
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-${each.key}-latency-p99-spike" })
 }
