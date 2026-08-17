@@ -8,10 +8,14 @@
 # 공유 리소스:
 # - Infrastructure Layer: VPC, 네트워크, 보안 그룹, Load Balancer, IAM 역할, Route53
 # - Platform Layer: ECS Cluster, CodeDeploy
+# - Observability: 알람 통지 경로(SNS/Slack) 및 ALB 알람
 
 #################################
 # Infrastructure Layer 모듈 호출
 #################################
+
+# 현재 계정 ID (SNS 토픽 정책의 SourceAccount 조건에 사용)
+data "aws_caller_identity" "current" {}
 
 # VPC 및 네트워크 인프라
 module "vpc" {
@@ -215,4 +219,98 @@ module "codedeploy" {
   enable_auto_rollback = var.enable_auto_rollback
   auto_rollback_events = var.auto_rollback_events
 
+}
+
+# ---------------------------------------------------------------------------
+# Phase 1 — 알람 백스톱
+#
+# 자체 호스팅 관측 스택(모니터링 노드) 바깥의 알림 경로.
+# 그 노드가 죽어도 알림은 도달해야 하므로 AWS 관리형 구성요소만 사용한다.
+#
+# 채널을 긴급도로 나눈다 — 볼륨 때문이 아니라, "새벽에 깨야 하는 것"과
+# "내일 봐도 되는 것"이 같은 채널에 있으면 구분이 안 되기 때문이다.
+#
+# 상세: docs/runbook/phase-01-alarm-backstop.md
+# ---------------------------------------------------------------------------
+
+# 즉시 대응이 필요한 알림 (#groble-alert)
+module "alerting_prod" {
+  source = "../../modules/observability/alerting"
+
+  # Chatbot API는 us-east-2에만 엔드포인트가 있다 (모듈 versions.tf 참조)
+  providers = {
+    aws         = aws
+    aws.chatbot = aws.chatbot
+  }
+
+  project_name   = var.project_name
+  name_suffix    = "prod"
+  aws_account_id = data.aws_caller_identity.current.account_id
+
+  slack_workspace_id = var.slack_workspace_id
+  slack_channel_id   = var.slack_channel_id_prod
+}
+
+# 업무 시간에 확인하면 되는 알림 (#groble-alert-dev)
+module "alerting_dev" {
+  source = "../../modules/observability/alerting"
+
+  providers = {
+    aws         = aws
+    aws.chatbot = aws.chatbot
+  }
+
+  project_name   = var.project_name
+  name_suffix    = "dev"
+  aws_account_id = data.aws_caller_identity.current.account_id
+
+  slack_workspace_id = var.slack_workspace_id
+  slack_channel_id   = var.slack_channel_id_dev
+}
+
+module "alb_alarms" {
+  source = "../../modules/observability/alb-alarms"
+
+  project_name   = var.project_name
+  alb_arn_suffix = module.load_balancer.load_balancer_arn_suffix
+
+  services = {
+    # Blue/Green은 배포마다 활성 TG가 뒤바뀌므로 양쪽을 함께 넘긴다.
+    prod = {
+      target_groups = [
+        module.load_balancer.prod_blue_target_group_arn_suffix,
+        module.load_balancer.prod_green_target_group_arn_suffix,
+      ]
+      alarm_actions = [module.alerting_prod.sns_topic_arn]
+      ok_actions    = [module.alerting_prod.sns_topic_arn]
+    }
+
+    # dev는 ok_actions를 걸지 않는다 — 사건당 메시지가 2배가 되는 것을
+    # 감수할 만큼 급하지 않다. 복구 여부는 필요할 때 콘솔/CLI로 본다.
+    dev = {
+      target_groups = [
+        module.load_balancer.dev_blue_target_group_arn_suffix,
+        module.load_balancer.dev_green_target_group_arn_suffix,
+      ]
+      alarm_actions = [module.alerting_dev.sns_topic_arn]
+    }
+
+    # ⚠️ 모니터링 노드는 dev가 아니라 prod 채널로 보낸다.
+    #    이 노드가 private 서브넷의 NAT을 겸직하고 있어, 죽으면 prod의
+    #    아웃바운드와 ECR pull이 함께 끊긴다. 지금은 prod-critical이다.
+    #    Phase 3(NAT Gateway)·Phase 5(노드 재구축) 이후 dev 채널로 내린다.
+    #
+    #    사용자 트래픽을 받지 않으므로 5xx·지연 알람은 만들지 않는다.
+    monitoring = {
+      target_groups  = [module.load_balancer.monitoring_target_group_arn_suffix]
+      alarm_actions  = [module.alerting_prod.sns_topic_arn]
+      ok_actions     = [module.alerting_prod.sns_topic_arn]
+      traffic_alarms = false
+    }
+  }
+
+  # ALB 전체 5xx는 TargetGroup 차원이 없어 prod/dev 분리가 불가능하다.
+  # 가장 심각도가 높은 채널로 보낸다 (모듈 변수 주석 참조).
+  elb_level_alarm_actions = [module.alerting_prod.sns_topic_arn]
+  elb_level_ok_actions    = [module.alerting_prod.sns_topic_arn]
 }

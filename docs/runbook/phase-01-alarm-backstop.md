@@ -4,39 +4,181 @@
 
 | | |
 |---|---|
-| **상태** | 미착수 |
-| **목적** | 이후 단계에서 문제가 생겼을 때 **자체 호스팅 관측이 죽어도 알림이 도달**해야 한다. Phase 4의 서킷 브레이커도 이 알람에 의존한다 |
+| **상태** | 🔄 **구축 완료 / 기준선 수집 중** (2026-08-17 적용) |
+| **목적** | 이후 단계에서 문제가 생겼을 때 **자체 호스팅 관측이 죽어도 알림이 도달**해야 한다. Phase 4의 배포 자동 롤백도 이 알람에 의존한다 |
 | **사용자 영향** | 없음 |
 | **되돌리기** | 리소스 삭제 |
 
-> Phase 0에서 미확인으로 남은 **state 객체의 CloudTrail 데이터 이벤트 기록 여부**를 이 Phase 착수 시 함께 재확인한다.
+---
+
+## 구축 결과
+
+### 알림 경로
+
+```
+CloudWatch 알람 → SNS(ap-northeast-2) → AWS Chatbot(us-east-2) → Slack
+```
+
+**채널을 긴급도로 나눴다.** 볼륨 때문이 아니라, "새벽에 깨야 하는 것"과 "내일 봐도 되는 것"이
+같은 채널에 있으면 구분되지 않기 때문이다.
+
+| 채널 | SNS 토픽 | 대상 | OK 통지 |
+|---|---|---|---|
+| `#groble-alert` | `groble-alerts-prod` | Prod, 모니터링 노드, ALB 전체 5xx, RDS | O |
+| `#groble-alert-dev` | `groble-alerts-dev` | Dev | **X** |
+
+Dev에 `ok_actions`를 걸지 않은 것은 사건당 메시지가 2배가 되는 것을 감수할 만큼 급하지 않기 때문이다.
+복구 여부는 필요할 때 콘솔·CLI로 확인한다.
+
+> **모니터링 노드 알람이 dev가 아니라 prod 채널로 가는 이유**:
+> 이 노드가 private 서브넷의 NAT을 겸직하고 있어, 죽으면 prod의 아웃바운드와 ECR pull이 함께 끊긴다.
+> [Phase 3](./phase-03-nat-gateway.md)(NAT Gateway)·[Phase 5](./phase-05-monitoring-node-rebuild.md)(노드 재구축)로
+> 이 결합이 해소되면 dev 채널로 내린다.
+
+### 알람 17개
+
+| 알람 | 임계치 | 채널 |
+|---|---|---|
+| `groble-alb-elb-5xx` | 5분 10건 | prod |
+| `groble-{prod,dev}-target-5xx` | 5분 25건 | 각 |
+| `groble-{prod,dev}-latency-p99` | p99 5초 · 15분 연속 | 각 |
+| `groble-{prod,dev,monitoring}-no-healthy-host` | 정상 타깃 합 < 1 · 5분 | prod/dev/prod |
+| `groble-{prod,dev,monitoring}-unhealthy-host` | 비정상 타깃 합 > 0 · 5분 | prod/dev/prod |
+| `groble-prod-rds-cpu` | 80% · 15분 | prod |
+| `groble-prod-rds-cpu-credits` | 크레딧 < 30 | prod |
+| `groble-prod-rds-connections` | > 60 | prod |
+| `groble-prod-rds-storage` | < 4GiB | prod |
+| `groble-prod-rds-memory` | **< 15MiB** (평소보다 악화 시) | prod |
+| `groble-prod-rds-swap` | > 600MiB | prod |
+
+**대부분의 임계치는 잠정값이다.** 기준선 데이터가 없어 "명백한 이상만 잡는" 수준으로 넉넉하게 잡았다.
+오탐으로 알람을 무시하게 되는 것이 미탐보다 나쁘다고 판단했다.
+
+예외는 **RDS 메모리·스왑 두 개**다. 아래 실측 과정에서 값을 확정했으므로 1주 후 재조정 대상이 아니다.
+
+**비용**: 지표 기준 25개 → 무료 10개 제외 시 **월 약 $1.50**
+
+### 코드 위치
+
+```
+modules/observability/
+  alerting/      # SNS 토픽 + Chatbot 설정 (채널마다 1회 호출)
+  alb-alarms/    # ALB·타깃그룹 알람
+  rds-alarms/    # RDS 알람
+```
+
+`environments/shared`에서 alerting 2벌 + alb-alarms, `environments/prod`에서 rds-alarms를 호출한다.
+Slack 채널 ID는 `terraform.tfvars`에 있고 **이 파일은 gitignore 대상**이다 — 다른 사람이 apply하려면 별도 전달이 필요하며,
+값이 비면 Chatbot 리소스가 `count = 0`으로 빠지면서 Slack 연동이 조용히 삭제된다.
 
 ---
 
-## 절차
+## 구축 중 확인한 것 (재현·재검토 시 참고)
 
-1. SNS 토픽 생성 + 외부 채널 구독 (Slack webhook / 이메일)
-2. CloudWatch 알람 생성 — 최소 세트:
-   - ALB `HTTPCode_ELB_5XX_Count`, `HTTPCode_Target_5XX_Count`
-   - TargetGroup `UnHealthyHostCount` (Prod Blue/Green TG)
-   - ALB `TargetResponseTime` p99
-   - RDS `CPUUtilization`, `DatabaseConnections`, `FreeStorageSpace`
-3. 임계치는 **현재 기준선을 1주일 관측한 뒤** 확정 (초기에는 넉넉하게)
-4. **같은 1주 동안 트래픽 기준선을 함께 기록한다** (계획서 §4 To-Do 9) — 알람 임계치와 별개로, 용량 결정의 근거 데이터가 지금 없다:
-   - ALB `RequestCountPerTarget`(합계·피크), `TargetResponseTime` p50/p99
-   - 피크 시간대와 **피크/평균 비율**
-   - Prod API 태스크 CPU/메모리 사용률 (cAdvisor)
-   - 결과를 계획서 §2.1 옆에 표로 남긴다. desired 2가 충분한지, 동적 스케일링(향후 개선 Low-3) 트리거에 얼마나 가까운지가 이 표로 판단된다
+**AWS Chatbot은 ap-northeast-2에 없다.** API 엔드포인트가 us-east-2에만 존재해
+(`chatbot.ap-northeast-2.amazonaws.com`은 연결 실패) 프로바이더 별칭이 필요하다.
+반면 **CloudWatch 알람은 같은 리전의 SNS 토픽에만 발행할 수 있고, 다른 리전이면 에러 없이 조용히 실패한다.**
+따라서 `알람·SNS = ap-northeast-2` / `Chatbot = us-east-2`가 **유일하게 성립하는 조합**이다.
+
+**`HTTPCode_ELB_5XX_Count`에는 TargetGroup 차원이 없다** (LoadBalancer / AvailabilityZone 뿐).
+이 알람만은 prod·dev 분리가 불가능해 합산값을 prod 채널로 보낸다.
+`HTTPCode_Target_5XX_Count`와 `TargetResponseTime`은 TargetGroup 차원이 있어 서비스별로 분리했다.
+
+**Blue/Green 타깃그룹은 배포마다 활성 쪽이 뒤바뀐다.** 특정 TG에 알람을 고정하면 스왑 직후부터
+유휴 TG를 감시하게 되어 무의미해진다. 서비스에 속한 TG들을 metric math로 집계해 판정한다
+(헬스·5xx는 `SUM`, p99는 백분위수라 더할 수 없으므로 `MAX`).
+[Phase 4](./phase-04-deployment-controller.md)에서 단일 TG로 정리되면 이 구조는 단순해진다.
+
+**Chatbot IAM 역할 삭제 시 권한 부족으로 막힌다.** provider가 삭제 전 `iam:ListInstanceProfilesForRole`을
+호출하는데 SSO 역할에 그 권한이 없다(`iam:DeleteRole`은 있다). AWS CLI로 직접 삭제 후 `terraform state rm`으로 해소했다.
+[Phase 9](./phase-09-access-path.md)에서 권한을 손볼 때 함께 추가하는 것을 검토한다.
+
+**제자리 수정(in-place update)은 알림을 보내지 않는다.** CloudWatch는 **상태 전환**에만 통지하므로,
+이미 `OK`인 알람의 설정만 바꾸면 메시지가 오지 않는다. 채널 분리 apply 후 신규 생성된 알람만 통지된 이유다.
+
+### ⚠️ RDS 알람이 처음에 조용히 고장나 있었다
+
+**`aws_db_instance.id`는 `DBInstanceIdentifier`가 아니라 `DbiResourceId`를 반환한다** (AWS provider 5.x).
+
+```
+잘못된 차원 : db-WM4VKRGNLYVHSHUBNSEJJM3AZ4   ← aws_db_instance.id
+올바른 차원 : groble-prod-mysql               ← aws_db_instance.identifier
+```
+
+`rds-mysql` 모듈의 `rds_instance_id` output이 전자를 내보내고 있었고, 이름만 보고 CloudWatch 차원 값으로 썼다.
+결과적으로 **존재하지 않는 지표를 감시하는 알람 5개**가 만들어졌다.
+
+**이 실패는 어디에서도 에러를 내지 않는다.** `terraform apply`는 성공하고, 알람도 콘솔에 정상으로 보이며,
+plan도 깨끗하다. 유일한 증상은 알람이 `INSUFFICIENT_DATA`에서 내려오지 않는 것뿐이다.
+**"알람을 만들었다"와 "알람이 감시하고 있다"는 다른 상태다.**
+
+→ `rds_instance_identifier` output을 추가해 해소했다. 기존 `rds_instance_id`는 다른 참조가 있을 수 있어
+값을 바꾸지 않고 description에 경고를 남겼다.
+
+> 이 사례가 아래 검증 항목 **"`INSUFFICIENT_DATA`로 방치되지 않는지"**가 형식적 절차가 아닌 이유다.
+> 알람을 만든 뒤 **반드시 상태가 `OK`로 수렴하는 것까지 확인할 것.**
+> 새 알람을 추가하는 모든 Phase에 적용된다.
+
+---
+
+### 알람이 첫날에 실제 문제를 찾았다
+
+Prod RDS가 **만성적인 메모리 부족 상태**임이 실측으로 드러났다.
+
+```
+FreeableMemory  21~62 MiB (평균 42) / 총 1 GiB
+SwapUsage       400~482 MiB, 7일간 안정된 고원
+CPUUtilization  4.7~5.0%     CPUCreditBalance  288 (최대치)
+```
+
+**병목은 메모리 하나다.** 원인은 `innodb_buffer_pool_size`가 엔진 기본 공식
+`{DBInstanceClassMemory*3/4}` ≈ 768 MiB로, 1 GiB 인스턴스에는 과하다는 것이다.
+
+임계치를 100 → 15 MiB로 내린 것은 **문제를 덮은 것이 아니라**, 만성 상태를 정상선으로 인정하고
+"평소보다 악화됨"을 감지하도록 알람의 역할을 바꾼 것이다. 만성 부족 자체는
+`groble-prod-rds-swap` 알람과 아래 문서 항목이 추적한다.
+
+→ 해소 방안과 실측 근거는 [`infra-future-improvements.md`의 High-4](../infra-future-improvements.md#high-4)에 있다.
+**[Phase 6](./phase-06-elasticache.md) 진입 전에 결정한다** — Redis를 ElastiCache로 빼면 결제 경로가 DB에 더 의존한다.
+
+---
+
+## 남은 작업
+
+### 트래픽 기준선 수집 (1주)
+
+임계치 확정과 별개로, **용량 결정의 근거 데이터가 지금 없다** (계획서 §4 To-Do 9).
+아래를 1주간 기록해 계획서 §2.1 옆에 표로 남긴다.
+
+- ALB `RequestCountPerTarget`(합계·피크), `TargetResponseTime` p50/p99
+- 피크 시간대와 **피크/평균 비율**
+- Prod API 태스크 CPU/메모리 사용률 (cAdvisor)
+
+이 표로 [Phase 7](./phase-07-prod-asg.md)의 `desired = 2`가 충분한지, 동적 스케일링 트리거에 얼마나 가까운지를 판단한다.
+
+### 수집 후
+
+- [ ] 임계치 재조정 (RDS 메모리·스왑을 제외한 나머지는 전부 잠정)
+  - RDS `FreeableMemory`·`SwapUsage`는 실측 기반으로 이미 확정했다
+- [ ] `INSUFFICIENT_DATA` 전환에도 통지를 걸지 판단 — 지금은 초기 소음을 피하려 생략했다
+
+---
 
 ## 검증
 
-- [ ] 알람을 수동으로 `ALARM` 상태로 전환해 **외부 채널까지 실제로 도달**하는지 확인
-- [ ] 알람이 `INSUFFICIENT_DATA`로 방치되지 않는지
-- [ ] 트래픽 기준선 표가 작성되었는지
+- [x] 알람을 수동으로 `ALARM` 상태로 전환해 **외부 채널까지 실제로 도달**하는지 확인
+  - `#groble-alert`: 알람 생성 시 `OK` 전환으로 도달 확인
+  - `#groble-alert-dev`: `set-alarm-state`로 강제 `ALARM` 전환해 도달 확인
+- [x] 알람이 `INSUFFICIENT_DATA`로 방치되지 않는지 — 전체 `OK` 수렴 확인
+- [x] SNS 토픽 2개 각각에 Chatbot 구독이 생성되었는지
+- [x] 알람별 `alarm_actions`가 의도한 채널을 가리키는지 (실제 값 대조)
+- [x] **알람 17개 전부 `OK`로 수렴** — RDS 차원 버그와 메모리 임계치 오설정을 이 검증으로 잡았다
+- [ ] **트래픽 기준선 표 작성** ← 1주 후
 
 ## 롤백
 
-리소스 삭제. 다른 단계에 영향 없음.
+리소스 삭제. 다른 단계에 영향 없다.
+단, Chatbot IAM 역할은 위 권한 문제로 Terraform이 지우지 못하므로 CLI 삭제가 필요할 수 있다.
 
 ---
 

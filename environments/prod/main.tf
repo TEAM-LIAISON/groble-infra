@@ -260,6 +260,27 @@ module "api_service" {
 
 # Note: MySQL service removed - using RDS MySQL instead
 
+# ---------------------------------------------------------------------------
+# Phase 1 — RDS 알람
+# 통지 경로(SNS)는 shared에서 만든 prod 채널 토픽을 공유한다.
+# 상세: docs/runbook/phase-01-alarm-backstop.md
+# ---------------------------------------------------------------------------
+
+module "rds_alarms" {
+  source = "../../modules/observability/rds-alarms"
+
+  project_name = var.project_name
+  environment  = "prod"
+
+  # ⚠️ rds_instance_id가 아니다. aws_db_instance.id는 DBInstanceIdentifier가 아니라
+  #    DbiResourceId를 반환하므로, 그 값을 쓰면 존재하지 않는 지표를 감시하게 된다
+  #    (에러 없이 조용히 실패한다). 모듈 outputs.tf의 경고 참조.
+  db_instance_identifier = module.rds_mysql.rds_instance_identifier
+
+  alarm_actions = [data.terraform_remote_state.shared.outputs.alerts_sns_topic_arn_prod]
+  ok_actions    = [data.terraform_remote_state.shared.outputs.alerts_sns_topic_arn_prod]
+}
+
 #################################
 # 출력값 정의
 #################################
@@ -311,4 +332,10 @@ output "rds_address" {
 output "rds_instance_id" {
   description = "RDS MySQL instance ID"
   value       = module.rds_mysql.rds_instance_id
+}
+
+# Phase 1 알람
+output "rds_alarm_names" {
+  description = "Prod RDS 알람 이름 목록"
+  value       = module.rds_alarms.alarm_names
 }

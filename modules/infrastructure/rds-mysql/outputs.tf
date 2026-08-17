@@ -14,8 +14,21 @@ output "rds_port" {
 }
 
 output "rds_instance_id" {
-  description = "The RDS instance ID"
+  description = <<-EOT
+    RDS 리소스 ID (`db-XXXXXXXX` 형식).
+
+    ⚠️ **CloudWatch 차원 값이 아니다.** AWS provider 5.x의 `aws_db_instance.id`는
+    DBInstanceIdentifier가 아니라 DbiResourceId를 반환한다.
+    CloudWatch 알람에는 아래 `rds_instance_identifier`를 쓸 것 —
+    이 값을 쓰면 존재하지 않는 지표를 감시하게 되어 알람이 영원히
+    INSUFFICIENT_DATA에 머문다 (에러 없이 조용히 실패한다).
+  EOT
   value       = aws_db_instance.mysql.id
+}
+
+output "rds_instance_identifier" {
+  description = "RDS 인스턴스 식별자 (`groble-prod-mysql` 형식). CloudWatch `DBInstanceIdentifier` 차원 값"
+  value       = aws_db_instance.mysql.identifier
 }
 
 output "rds_arn" {

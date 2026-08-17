@@ -191,3 +191,27 @@ variable "max_request_size" {
   type        = number
   default     = 1048576
 }
+
+# --- Phase 1: 알람 백스톱 --------------------------------------------------
+
+variable "slack_workspace_id" {
+  description = <<-EOT
+    AWS 콘솔에서 Slack 워크스페이스를 승인한 뒤 얻는 ID (T로 시작).
+    이 승인은 Terraform으로 할 수 없다 — 콘솔에서 1회 수행한다.
+    비어 있으면 SNS 토픽만 만들고 Chatbot은 생성하지 않는다.
+  EOT
+  type        = string
+  default     = ""
+}
+
+variable "slack_channel_id_prod" {
+  description = "즉시 대응이 필요한 알림을 받을 Slack 채널 ID (C로 시작). 채널 이름이 아니다"
+  type        = string
+  default     = ""
+}
+
+variable "slack_channel_id_dev" {
+  description = "업무 시간에 확인하는 알림을 받을 Slack 채널 ID"
+  type        = string
+  default     = ""
+}
