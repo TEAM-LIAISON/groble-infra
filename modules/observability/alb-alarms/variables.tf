@@ -60,13 +60,38 @@ variable "elb_5xx_threshold" {
 }
 
 variable "target_5xx_threshold" {
-  description = "5분간 애플리케이션 5xx 건수 임계치 (서비스별)"
+  description = <<-EOT
+    5분간 애플리케이션 5xx 건수 임계치 (서비스별).
+
+    실측(2026-08-10~16, prod): 5분 구간당 최대 **2건**, 7일 합계 5건.
+    10은 평상시 최대의 5배로, 노이즈는 무시하고 실제 이상만 잡는다.
+  EOT
   type        = number
-  default     = 25
+  default     = 10
 }
 
 variable "latency_p99_threshold_seconds" {
-  description = "p99 응답시간 임계치(초). 15분 연속 초과 시 발동"
+  description = <<-EOT
+    **지속적 성능 저하**를 잡는 p99 임계치(초). 15분 연속 초과 시 발동.
+
+    실측(prod): 평상시 p99는 0.24~0.42초, p50은 0.05초. 2초는 평상시의 5배 이상이다.
+    단발 스파이크는 이 알람이 아니라 `latency_p99_spike_threshold_seconds`가 담당한다.
+  EOT
+  type        = number
+  default     = 2
+}
+
+variable "latency_p99_spike_threshold_seconds" {
+  description = <<-EOT
+    **단발 급증**을 잡는 p99 임계치(초). 5분 구간 1회만 초과해도 발동.
+
+    지속 알람과 분리한 이유: 실측된 심각한 지연은 전부 단발이었다.
+    2026-08-13에 p99가 13:45에 **42.3초**, 19:50에 **6.5초**를 기록했으나
+    모두 단일 5분 구간이어서 "15분 연속" 조건으로는 임계치를 2초로 낮춰도 잡히지 않는다.
+    42초 p99는 일부 사용자가 42초를 기다렸다는 뜻이므로 놓칠 수 없다.
+
+    5초로 두면 위 두 사건이 잡히고, 7일간 그 외 오탐은 없다(2~3초대는 무시).
+  EOT
   type        = number
   default     = 5
 }

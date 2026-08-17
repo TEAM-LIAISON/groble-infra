@@ -4,6 +4,7 @@ output "alarm_names" {
     [aws_cloudwatch_metric_alarm.elb_5xx.alarm_name],
     [for a in aws_cloudwatch_metric_alarm.target_5xx : a.alarm_name],
     [for a in aws_cloudwatch_metric_alarm.latency_p99 : a.alarm_name],
+    [for a in aws_cloudwatch_metric_alarm.latency_p99_spike : a.alarm_name],
     [for a in aws_cloudwatch_metric_alarm.no_healthy_host : a.alarm_name],
     [for a in aws_cloudwatch_metric_alarm.unhealthy_host : a.alarm_name],
   )
