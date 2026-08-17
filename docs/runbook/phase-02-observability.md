@@ -11,6 +11,53 @@
 
 ---
 
+## 2-0. API 태스크 워킹셋 측정 (선행 — Phase 1에서 이관) ⭐
+
+**Phase 7·8의 용량 결정이 이 측정에 걸려 있다.** Prometheus를 손보는 이 Phase에서 함께 한다.
+
+### 왜 필요한가
+
+Phase 1의 기준선 수집에서 prod API 태스크 메모리가 **하드 리밋(1,500 MiB)의 91~100%**로 관측됐다.
+그런데 14일간 `LiveTaskCount`가 1 미만으로 떨어진 적이 없다 — **OOM 킬 0회**.
+리밋에 53%의 시간 동안 닿아 있으면서 죽지 않았다는 것은 대부분이 **회수 가능한 페이지 캐시**임을 시사한다.
+
+문제는 `AWS/ECS` 지표(`MemoryUtilization`)가 **cgroup 사용량 = anonymous + 페이지 캐시**를 합쳐서 보여준다는 것이다.
+배치(placement)에 쓸 `memoryReservation`은 **캐시를 제외한 실제 워킹셋**이어야 하는데, CloudWatch로는 이 둘을 분리할 수 없다.
+
+### 측정 방법
+
+cAdvisor가 이미 수집하고 있으므로 Prometheus 쿼리만 하면 된다.
+
+```promql
+# 워킹셋 (회수 불가에 가까운 실사용) — 이 값이 memoryReservation의 근거다
+container_memory_working_set_bytes{name=~".*prod.*api.*"}
+
+# RSS (anonymous만)
+container_memory_rss{name=~".*prod.*api.*"}
+
+# 캐시 (회수 가능)
+container_memory_cache{name=~".*prod.*api.*"}
+```
+
+최소 며칠치의 **최대값**을 본다. 평균이 아니라 최대여야 한다 — 배치는 최악을 견뎌야 한다.
+
+### 이 값으로 결정되는 것
+
+| 대상 | 현재 계획 | 상태 |
+|---|---|---|
+| [Phase 7](./phase-07-prod-asg.md) 5번 `memory_reservation = 1000` | 계획서에 적힌 값 | ⚠️ **근거 없는 값이다.** 측정 결과로 대체할 것 |
+| [Phase 8](./phase-08-dev-migration.md) 6번 dev `memory = 900` | t3.small 예산에 맞춘 값 | ⚠️ 같은 측정에 의존 |
+| t3.medium 노드당 태스크 2개 수용 여부 | 여유 크지 않음(추정 ~3.3 GiB/4 GiB) | 워킹셋이 작으면 여유가 늘어난다 |
+
+> ⚠️ **이 측정을 2-1보다 먼저 하는 이유**: `static_configs` → `ec2_sd_config`로 바꾸면 타깃 라벨
+> 집합이 바뀌어 **기존 시계열이 종료되고 새 시계열이 시작된다.** 전환 후에 측정하려면 며칠을
+> 다시 수집해야 한다. 지금 Prometheus에는 이미 15일치가 쌓여 있으므로 전환 전에 뽑는 것이 이득이다.
+
+배경과 실측 근거는 [계획서 §2.1 "트래픽·자원 기준선"](../infra-ha-improvement-plan.md)과
+[Phase 1](./phase-01-alarm-backstop.md)에 있다.
+
+---
+
 ## 2-1. Prometheus `ec2_sd_config` 전환
 
 1. ~~Prometheus Task Role에 `ec2:DescribeInstances` 인라인 정책 추가~~ — **불필요. 이미 있다.**
@@ -39,6 +86,7 @@
 - [ ] Prometheus `/targets`에서 **기존 노드 3대가 모두 UP**으로 잡히는지 (전환 전과 동일한 타깃 수)
 - [ ] Grafana 대시보드가 프로비저닝으로 복원되었는지, 기존 패널이 정상 렌더되는지
 - [ ] `up == 0` 알람과 **"기대 타깃 수 미달" 알람** 동작 확인
+- [ ] **API 태스크 워킹셋 최대값을 기록**했는지 (2-0) — Phase 7·8의 `memoryReservation` 근거
 
 ## 롤백
 
