@@ -90,3 +90,27 @@ output "waf_web_acl_id" {
 }
 
 
+# --- Phase 1: 알람 백스톱 --------------------------------------------------
+
+output "alerts_sns_topic_arn_prod" {
+  description = "즉시 대응 채널의 SNS 토픽 ARN (prod 환경의 알람이 참조한다)"
+  value       = module.alerting_prod.sns_topic_arn
+}
+
+output "alerts_sns_topic_arn_dev" {
+  description = "업무 시간 확인 채널의 SNS 토픽 ARN (dev 환경의 알람이 참조한다)"
+  value       = module.alerting_dev.sns_topic_arn
+}
+
+output "alerts_slack_enabled" {
+  description = "Slack Chatbot 연동이 활성화되었는지 (채널별)"
+  value = {
+    prod = module.alerting_prod.chatbot_enabled
+    dev  = module.alerting_dev.chatbot_enabled
+  }
+}
+
+output "alb_alarm_names" {
+  description = "ALB 관련 알람 이름 목록"
+  value       = module.alb_alarms.alarm_names
+}
