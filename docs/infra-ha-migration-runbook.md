@@ -24,7 +24,7 @@
 |---|---|---|---|---|
 | **[0](./runbook/phase-00-terraform-state-s3.md)** | Terraform state → S3 backend + 잠금 | ✅ 완료 | 없음 | 로컬 state 복원 |
 | **[1](./runbook/phase-01-alarm-backstop.md)** | CloudWatch 알람 백스톱 + SNS 외부 알림 | ✅ 완료 | 없음 | 리소스 삭제 |
-| **[2](./runbook/phase-02-observability.md)** | Prometheus `ec2_sd` 전환 + Grafana as-code | 미착수 | 없음 | 이전 이미지 태그로 롤백 |
+| **[2](./runbook/phase-02-observability.md)** | Prometheus `ec2_sd` 전환 + Grafana as-code | **진행 중** | 없음 | 이전 이미지 태그로 롤백 |
 | **[3](./runbook/phase-03-nat-gateway.md)** | NAT Gateway + S3 Gateway Endpoint, 라우트 전환 | 미착수 | 짧은 egress 블립 | 라우트 되돌리기 |
 | **[4](./runbook/phase-04-deployment-controller.md)** | 배포 컨트롤러 CodeDeploy → ECS rolling | 미착수 | 없음 (리스너 스왑) | **리스너 규칙 되돌리기** |
 | **[5](./runbook/phase-05-monitoring-node-rebuild.md)** | 모니터링 노드 재구축 (private 2c, AL2023) + OTLP DNS 간접화 | 미착수 | 없음 (구 노드 병존) | DNS 레코드 되돌리기 (재배포 없음) |
@@ -88,7 +88,7 @@
 |---|---|---|
 | [4](./runbook/phase-04-deployment-controller.md) | 구 CodeDeploy 서비스 제거 | rolling 배포 1회 이상 성공, 서킷 브레이커 동작 |
 | [6](./runbook/phase-06-elasticache.md) | ElastiCache로 전환한 순간 | 저트래픽 시간대인지, 결제 지표 기준선 기록 |
-| [7](./runbook/phase-07-prod-asg.md) | 구 Prod 인스턴스 종료 | 신 노드에서 태스크 정상 기동, Prometheus 타깃 등록, SSM 접속 |
+| [7](./runbook/phase-07-prod-asg.md) | 구 Prod 인스턴스 종료 | 신 노드에서 태스크 정상 기동, Prometheus 타깃 등록, SSM 접속. **+ JVM 힙 상한 수정 완료** — 신 노드엔 스왑이 없어 미수정 시 prod API가 OOM으로 죽는다 ([Phase 2-0](./runbook/phase-02-observability.md)) |
 | [8](./runbook/phase-08-dev-migration.md) | 구 Dev MySQL 컨테이너 제거 | RDS로 데이터 복원 완료 및 검증 |
 | [9](./runbook/phase-09-access-path.md) | 구 VPN 노드 종료 | **팀 전원의 SSM 전환 완료** |
 

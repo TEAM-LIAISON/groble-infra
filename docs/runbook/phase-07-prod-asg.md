@@ -7,8 +7,37 @@
 | **상태** | 미착수 |
 | **목적** | 이 프로젝트의 본 목표. 무중단 하드웨어 교체가 가능한 구조로 전환한다 |
 | **사용자 영향** | 없음 — 신 노드를 먼저 띄우고 구 노드를 드레인한다 |
-| **선행 조건** | [Phase 2](./phase-02-observability.md)(관측), [Phase 6](./phase-06-elasticache.md)(Redis 외부화) 완료 |
+| **선행 조건** | [Phase 2](./phase-02-observability.md)(관측), [Phase 6](./phase-06-elasticache.md)(Redis 외부화) 완료 + **아래 차단 조건 2건** |
 | **되돌리기** | 구 노드 재활성화 |
+
+---
+
+## ⚠️ Phase 2에서 이관된 차단 조건
+
+[Phase 2-0 측정](./phase-02-observability.md#2-0-api-태스크-워킹셋-측정-선행--phase-1에서-이관--완료)에서 드러난 것으로,
+**둘 다 이 Phase를 시작하기 전에 해소되어야 한다.**
+
+### 1. JVM 힙 상한 수정 — 안 고치면 신 노드에서 prod API가 OOM으로 죽는다
+
+현재 prod API의 JVM은 `-XX:MaxRAMPercentage=75.0`을 **호스트 RAM(3,837 MiB)** 기준으로 적용해
+힙 상한을 **2,878 MiB**로 잡고 있다. 컨테이너 하드리밋은 1,500 MiB다.
+초과분은 **현재 노드 `user_data`가 만드는 1 GiB 스왑파일**이 흡수하고 있다 (최대 947 MiB 사용).
+
+> **이 Phase에서 노드가 AL2023 + Launch Template으로 교체되면 그 스왑파일이 사라진다.**
+> JVM 설정을 그대로 둔 채 진행하면 신 노드에서 prod API가 OOM kill로 종료된다.
+
+- 요청서: [`docs/handoff/backend-jvm-heap-limit.md`](../handoff/backend-jvm-heap-limit.md)
+- [ ] 백엔드 Dockerfile 수정(`-Xms512m -Xmx900m`) 배포 완료
+- [ ] 배포 후 2~3일 재측정 → 아래 5번 `memory_reservation` 확정
+
+### 2. `spring-apps` 스크레이프를 태스크 단위로 — `desired_count` 2 이상의 전제
+
+API 태스크는 `awsvpc` 모드라 태스크마다 별도 ENI를 갖는데, Prometheus의 해당 잡은
+공개 ALB(`api.groble.im:443`)를 경유한다. **태스크가 2개 이상이 되면 ALB 라운드로빈 때문에
+서로 다른 태스크의 카운터가 한 시계열에 섞여 `rate()`가 에러 없이 틀린 값을 낸다.**
+`ec2_sd`로는 해결되지 않는다 (인스턴스는 발견해도 태스크 ENI는 발견하지 못함).
+
+- [ ] ECS Service Discovery(Cloud Map) 등록 + Prometheus `dns_sd_configs`(type A) 전환
 
 ---
 
@@ -29,6 +58,13 @@
      tag { key = "Type"        value = "api"            propagate_at_launch = true }
      ```
      Launch Template `tag_specifications`와 **중복 정의하지 않는다** — 한 곳으로 통일
+
+     ⚠️ **위 3개로는 부족하다. Phase 2-1의 relabel 매핑과 대조할 것:**
+     - **`Name` 태그가 빠져 있다.** Prometheus가 `Name` → `instance_name` 라벨로 승격하므로,
+       빠지면 **신 노드의 `instance_name` 라벨이 비어** 대시보드에서 노드를 구분할 수 없게 된다.
+       ASG는 `Name`을 자동으로 붙이지 않는다 — 명시적으로 추가해야 한다
+     - **`Type` 값이 기존 노드와 다르다.** 현재 운영 인스턴스는 `Type = "Production"`인데 위 계획은 `"api"`다.
+       `node_type` 라벨이 신·구 노드 간에 갈리므로, 값을 통일하거나 **의도한 차이임을 문서화**할 것
 3. **Capacity Provider 생성 및 클러스터 연결**
    ```hcl
    managed_draining = "ENABLED"
