@@ -62,9 +62,23 @@ Phase 1은 "리밋에 닿아 있으면서 OOM이 없으니 대부분 회수 가�
 | 컨테이너 스왑 사용 max | 915 MiB |
 | 스왑 I/O max | **pswpin 1,211 · pswpout 1,380 pages/s** (≈5 MiB/s) |
 | `MemAvailable` 최소 | **365 MiB** (3,837 MiB 노드에서) |
-| **GC 평균 pause 최대치** | **463 ms** (G1 정상치의 10배) |
+| **GC pause (`jvm_gc_pause_seconds_max`)** | p50 **8 ms** · p99 **145 ms** · **최대 2,584 ms** |
+| GC 오버헤드 최대 (`jvm_gc_overhead`) | 1.52% |
 
-**JVM 힙 일부가 디스크에 올라간 채로 서비스 중이고, 그 대가를 GC 지연으로 내고 있다.**
+**GC는 평소엔 건강하다(p50 8 ms, 오버헤드 1.5%). 문제는 드물게 발생하는 초 단위 정지다** — 최대 2.6초.
+이 정지는 스왑 때문이라고 볼 근거가 있다. GC pause 상위 10개 시점을 같은 시각의 스왑인 속도와 대조하면
+상위 구간은 `pswpin` 22~211 pages/s 를 동반하는 반면, **pause 하위 200개 구간의 스왑인 중앙값은 0**이다.
+큰 수집이 스왑아웃된 힙 페이지를 밟을 때만 초 단위로 멈추는 것으로, 기전이 일관된다.
+
+2.6초 정지는 사용자에게 그대로 노출되고, ALB 헬스체크·타임아웃을 건드릴 수 있는 크기다.
+
+**JVM 힙 일부가 디스크에 올라간 채로 서비스 중이다.**
+
+> 📌 **정정.** 이 문서의 초판은 이 자리에 "GC 평균 pause 최대 463 ms — G1 정상치의 10배"라고 적었다.
+> 그 값은 `rate(pause_sum)/rate(pause_count)`(5분 창 평균)에서 나온 것으로, 수집이 없는 구간에서
+> `inf`/`NaN`이 되는 취약한 식이었고 **상시 성능 저하인 것처럼 과장**돼 있었다.
+> Micrometer가 직접 재는 `jvm_gc_pause_seconds_max` 로 다시 측정한 결과가 위 표다.
+> **판단(=JVM 힙 상한 수정)은 달라지지 않는다** — 오히려 최대 정지는 463 ms 가 아니라 2,584 ms 로 더 나쁘다.
 
 ### 진짜 워킹셋 — GC 후 라이브 데이터
 
@@ -102,8 +116,30 @@ Phase 1은 "리밋에 닿아 있으면서 OOM이 없으니 대부분 회수 가�
 `groble-backend`는 별도 레포이므로 **작업 요청서**를 작성해 전달했다 —
 [`docs/handoff/backend-jvm-heap-limit.md`](../handoff/backend-jvm-heap-limit.md)
 
-- [ ] 백엔드에서 Dockerfile 수정 → dev 배포 → prod 배포
-- [ ] 배포 후 2~3일 재측정 → Phase 7·8의 `memoryReservation` 확정
+- [x] 백엔드 Dockerfile 수정 — [groble-backend#826](https://github.com/TEAM-LIAISON/groble-backend/pull/826) 머지 (2026-08-19, `2f7ab40`).
+      요청서의 **방식 A**(Dockerfile 직접 고정) 채택: `-Xms512m -Xmx900m -XX:+ExitOnOutOfMemoryError`
+- [x] **dev 배포 완료** — 아래 검증 결과 참조
+- [ ] **prod 배포** — 미완료. 현재 prod 태스크는 여전히 리비전 511, 힙 상한 2,878 MiB
+- [ ] prod 배포 후 2~3일 재측정 → Phase 7·8의 `memoryReservation` 확정
+
+### dev 배포 후 검증 (가동 10.4시간 시점)
+
+| 항목 | 수정 전 | 수정 후 |
+|---|---|---|
+| JVM 힙 상한 | 2,878 MiB | **900 MiB** |
+| 컨테이너 RSS | p50 1,084 / max 1,493 MiB | **1,032 MiB (평탄)** |
+| heap committed | max 1,766 MiB(prod 기준) | **590 MiB** — 상한 900 을 다 쓰지도 않는다 |
+| 노드 스왑 사용 | max 748 MiB | **273 MiB** |
+| GC 최대 pause | 107 ms | **61 ms** |
+| GC 오버헤드 | 0.130% | **0.044%** |
+
+⚠️ **dev 결과를 prod에 그대로 대입하면 안 된다.** dev 라이브 셋은 181 MiB 로 prod(510 MiB)의 1/3 수준이라
+애초에 압박이 없던 환경이다. dev 검증이 말해주는 것은 "**수정이 무언가를 망가뜨리지 않는다**"까지다.
+
+**prod 예상치** — dev 실측에서 비힙+오버헤드는 RSS 1,032 − heap committed 590 = **약 442 MiB**.
+prod 는 라이브 셋이 커서 힙이 상한 900 MiB 근처에 머물 것이므로 RSS ≈ 900 + 450~480 = **약 1,350~1,380 MiB**.
+하드리밋 1,500 MiB 대비 **여유가 120~150 MiB 로 얇다.** 배포 후 RSS 가 1,400 MiB 를 넘어 머물면
+요청서 6절의 폴백대로 `-Xmx800m` 으로 낮춘다.
 - [ ] (미규명) JDK 17이 왜 컨테이너 리밋을 인식하지 못하는지. `-Xmx` 명시로 우회하므로 수정에는 영향 없으나 근본 원인은 아니다. 진단하려면 컨테이너 내부에서 `java -XshowSettings:system` / cgroup 파일 확인이 필요한데, **prod 컨테이너에 프로세스를 띄우는 일이라 dev 노드나 로컬 재현으로 할 것**
 
 ---
