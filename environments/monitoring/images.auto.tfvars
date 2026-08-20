@@ -18,7 +18,7 @@
 #   Slack Webhook 을 새로 발급해야 했다(= 시크릿이 하나 는다).
 #   ⚠️ 10.2 로의 롤백은 불가능하다 — Grafana 11 이 SQLite 스키마를 단방향 마이그레이션한다.
 grafana_image   = "538827147369.dkr.ecr.ap-northeast-2.amazonaws.com/groble-grafana"
-grafana_version = "11.6.3-b75b8fe"
+grafana_version = "11.6.3-93edf3c" # groble-images#5: 메모리 알람을 컨테이너별 인스턴스로
 
 # Loki — groble-images
 monitoring_loki_image = "538827147369.dkr.ecr.ap-northeast-2.amazonaws.com/groble-loki:3.6.15-c8fcfa0"
@@ -28,4 +28,9 @@ monitoring_otelcol_image = "538827147369.dkr.ecr.ap-northeast-2.amazonaws.com/gr
 
 # Prometheus — groble-images
 # 2026-08-20: v2.45.0-6cbe957 -> v2.45.0-3c2a266 (노드 타깃 ec2_sd_configs 전환, runbook Phase 2-1)
-monitoring_prometheus_image = "538827147369.dkr.ecr.ap-northeast-2.amazonaws.com/groble-prometheus:v2.45.0-3c2a266"
+# 2026-08-20: v2.45.0-3c2a266 -> v2.45.0-12246df (대시보드용 recording rules 추가, runbook Phase 2-2)
+# 2026-08-20: v2.45.0-12246df -> v2.45.0-143413d (recording rule 분모 clamp_min -> `> 0` 필터, groble-images#5)
+#   리밋이 없는 컨테이너(ecs-agent 등)에서 수십억 % 가 나오던 버그 수정
+#   ⚠️ Grafana 대시보드와 알림 규칙이 groble:* recording rule 에 의존한다.
+#      이 이미지를 배포하지 않으면 해당 패널이 비고 알림은 NoData 가 된다.
+monitoring_prometheus_image = "538827147369.dkr.ecr.ap-northeast-2.amazonaws.com/groble-prometheus:v2.45.0-143413d"
