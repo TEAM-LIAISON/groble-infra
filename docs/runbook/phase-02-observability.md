@@ -197,10 +197,10 @@ prod 배포 직후 RSS 를 우선 확인하고, 1,400 MiB 를 넘어 머물면 �
    (Alertmanager가 배포돼 있지 않고, 2-2가 어차피 Grafana `alerting` 프로비저닝 작업이라 새 운영 구성요소 없이 붙는다)
 6. ✅ **배포 완료** (2026-08-20) — `v2.45.0-6cbe957` → **`v2.45.0-3c2a266`**, 태스크 정의 rev 23 → 24
 
-   > ⚠️ **배포 태그가 버전 관리에 남지 않는다.** `environments/*/terraform.tfvars` 는 `.gitignore` 의
-   > `*.tfvars` 에 걸려 있다(시크릿 포함). 즉 **어떤 이미지가 떠 있는지 git 이력에 없고**, 롤백하려면
-   > 이전 태그를 따로 알고 있어야 한다. 아래 표를 잠정 기록으로 남긴다 —
-   > 시크릿이 없는 이미지 태그만 별도 tracked 파일(`images.auto.tfvars` 등)로 분리하는 것을 검토할 것.
+   > ✅ **배포 태그를 버전 관리에 편입했다.** `terraform.tfvars` 는 `.gitignore` 의 `*.tfvars` 에
+   > 걸려 있어(시크릿 포함) 어떤 이미지가 떠 있는지 git 이력에 남지 않았다. 시크릿이 없는 이미지
+   > 식별자만 **`environments/monitoring/images.auto.tfvars`** 로 분리하고 `.gitignore` 에
+   > `!images.auto.tfvars` 예외를 뒀다. 분리 후 `terraform plan` 이 **No changes** 임을 확인했다.
 
    | 서비스 | 배포 태그 | 이전 태그 |
    |---|---|---|

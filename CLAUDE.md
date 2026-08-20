@@ -105,9 +105,23 @@ docs/              # 인프라 개선 계획·이관 절차·향후 개선·conf
 ### Key Configuration Files (per environment)
 - `main.tf` — 모듈 구성 및 리소스 호출
 - `variables.tf` — 변수 정의
-- `terraform.tfvars` — 변수 값
+- `terraform.tfvars` — 변수 값. **`.gitignore` 대상이다** (시크릿 포함)
+- `images.auto.tfvars` — **컨테이너 이미지 태그. 유일하게 추적되는 tfvars다**
 - `versions.tf` — Terraform/프로바이더 버전 제약
 - `outputs.tf` — 다른 환경에서 참조할 출력값
+
+#### 이미지 태그는 `images.auto.tfvars`에 둔다
+
+`terraform.tfvars`는 시크릿(DB·Grafana 비밀번호) 때문에 `.gitignore`의 `*.tfvars`에 걸려 있다.
+여기에 이미지 태그까지 같이 두면 **무엇이 배포됐는지 git 이력에 남지 않아** 롤백 시 이전 태그를
+따로 기억해야 한다. 그래서 시크릿이 없는 이미지 식별자만 `images.auto.tfvars`로 분리하고,
+`.gitignore`에 `!images.auto.tfvars` 예외를 뒀다. Terraform이 `*.auto.tfvars`를 자동으로 읽는다.
+
+- **이미지 태그를 `terraform.tfvars`에 다시 쓰지 말 것** — `*.auto.tfvars`가 나중에 로드되어
+  조용히 덮어쓰므로, 두 곳에 있으면 어느 값이 적용됐는지 알 수 없게 된다
+- 현재 `environments/monitoring/`에만 있다. Prod/Dev의 `spring_app_image`는 제외했다 —
+  **CodeDeploy가 실행 중인 태스크 정의를 소유**(`ignore_changes = [task_definition]`)하므로
+  tfvars 값이 실제 배포본을 반영하지 않는다 (dev는 `openjdk:17-jdk-slim` 플레이스홀더 상태)
 
 ## Network Configuration
 

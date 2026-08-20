@@ -2,6 +2,8 @@
 *.tfstate
 *.tfstate.*
 *.tfvars
+# 이미지 태그는 시크릿이 아니고, 무엇이 배포됐는지 이력이 남아야 한다 → 추적
+!images.auto.tfvars
 *.tfplan
 .terraform/
 .terraform.lock.hcl
