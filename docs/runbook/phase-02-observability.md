@@ -136,10 +136,35 @@ Phase 1은 "리밋에 닿아 있으면서 OOM이 없으니 대부분 회수 가�
 ⚠️ **dev 결과를 prod에 그대로 대입하면 안 된다.** dev 라이브 셋은 181 MiB 로 prod(510 MiB)의 1/3 수준이라
 애초에 압박이 없던 환경이다. dev 검증이 말해주는 것은 "**수정이 무언가를 망가뜨리지 않는다**"까지다.
 
-**prod 예상치** — dev 실측에서 비힙+오버헤드는 RSS 1,032 − heap committed 590 = **약 442 MiB**.
-prod 는 라이브 셋이 커서 힙이 상한 900 MiB 근처에 머물 것이므로 RSS ≈ 900 + 450~480 = **약 1,350~1,380 MiB**.
-하드리밋 1,500 MiB 대비 **여유가 120~150 MiB 로 얇다.** 배포 후 RSS 가 1,400 MiB 를 넘어 머물면
-요청서 6절의 폴백대로 `-Xmx800m` 으로 낮춘다.
+### prod 예상치 — 여유가 60 MiB 수준으로 얇다
+
+dev 컨테이너를 계층별로 분해해 역산했다 (task 1137, 가동 10.4시간 시점).
+
+| 계층 | dev 실측 |
+|---|---|
+| `container_memory_usage_bytes` (cgroup 총합) | 1,053.6 MiB |
+| ├ `container_memory_rss` | 1,032.7 MiB |
+| ├ `container_memory_cache` | 15.9 MiB |
+| └ 커널 몫 | 약 5 MiB |
+| **RSS 내역** — heap committed | **590.0 MiB** (그중 heap used 189.2 / live set 180.8) |
+| **RSS 내역** — nonheap committed | 304.4 MiB |
+| **RSS 내역** — 네이티브(스레드 스택·다이렉트 버퍼·GC 자료구조·malloc) | 약 138 MiB |
+
+> 📌 `container_memory_usage_bytes` 는 **RSS 가 아니라 `RSS + 페이지 캐시 + 커널 몫`** 이다.
+> dev 는 캐시가 16 MiB 뿐이라 RSS 와 거의 같아 보이지만, prod 는 캐시 p99 가 108 MiB 라 차이가 더 벌어진다.
+> 또한 **heap committed(590) 와 heap used(189) 는 다르다** — G1 은 한 번 확보한 힙 페이지를 OS 에
+> 잘 반납하지 않으므로, 컨테이너가 보는 값은 "실제 사용량"이 아니라 "JVM 이 OS 로부터 잡고 있는 총량"이다.
+
+**prod 환산** — 힙 외 고정분(비힙 + 네이티브)은 dev 에서 `1,032.7 − 590.0 = 442 MiB`.
+prod 는 비힙 committed 가 400 MiB 로 dev(304)보다 **96 MiB 크므로 약 538 MiB** 로 본다.
+prod 는 라이브 셋(510 MiB)이 커서 힙이 상한 900 MiB 를 거의 다 쓸 것이므로:
+
+> **prod RSS ≈ 900 + 538 = 약 1,440 MiB. 하드리밋 1,500 대비 여유 약 60 MiB.**
+
+⚠️ 이는 초판에 적었던 "1,350~1,380 MiB / 여유 120~150 MiB" 를 대체한다.
+초판은 prod 비힙이 dev 보다 크다는 점을 반영하지 않아 낙관적이었다.
+**`-Xmx800m` 폴백이 필요할 가능성이 상당하다** (800m 이면 RSS ≈ 1,338 MiB, 여유 약 162 MiB).
+prod 배포 직후 RSS 를 우선 확인하고, 1,400 MiB 를 넘어 머물면 즉시 낮춘다.
 - [ ] (미규명) JDK 17이 왜 컨테이너 리밋을 인식하지 못하는지. `-Xmx` 명시로 우회하므로 수정에는 영향 없으나 근본 원인은 아니다. 진단하려면 컨테이너 내부에서 `java -XshowSettings:system` / cgroup 파일 확인이 필요한데, **prod 컨테이너에 프로세스를 띄우는 일이라 dev 노드나 로컬 재현으로 할 것**
 
 ---
