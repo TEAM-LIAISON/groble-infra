@@ -18,7 +18,7 @@
 #   Slack Webhook 을 새로 발급해야 했다(= 시크릿이 하나 는다).
 #   ⚠️ 10.2 로의 롤백은 불가능하다 — Grafana 11 이 SQLite 스키마를 단방향 마이그레이션한다.
 grafana_image   = "538827147369.dkr.ecr.ap-northeast-2.amazonaws.com/groble-grafana"
-grafana_version = "11.6.3-93edf3c" # groble-images#5: 메모리 알람을 컨테이너별 인스턴스로
+grafana_version = "11.6.3-05735cc" # groble-images#6: 결제 실패 알람 2건 추가
 
 # Loki — groble-images
 monitoring_loki_image = "538827147369.dkr.ecr.ap-northeast-2.amazonaws.com/groble-loki:3.6.15-c8fcfa0"

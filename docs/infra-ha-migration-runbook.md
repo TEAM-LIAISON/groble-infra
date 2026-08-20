@@ -24,7 +24,7 @@
 |---|---|---|---|---|
 | **[0](./runbook/phase-00-terraform-state-s3.md)** | Terraform state → S3 backend + 잠금 | ✅ 완료 | 없음 | 로컬 state 복원 |
 | **[1](./runbook/phase-01-alarm-backstop.md)** | CloudWatch 알람 백스톱 + SNS 외부 알림 | ✅ 완료 | 없음 | 리소스 삭제 |
-| **[2](./runbook/phase-02-observability.md)** | Prometheus `ec2_sd` 전환 + Grafana as-code | **진행 중** | 없음 | 이전 이미지 태그로 롤백 |
+| **[2](./runbook/phase-02-observability.md)** | Prometheus `ec2_sd` 전환 + Grafana as-code | **진행 중** (2-0·2-1 완료, 2-2 머지 대기) | 없음 | 이전 이미지 태그로 롤백 |
 | **[3](./runbook/phase-03-nat-gateway.md)** | NAT Gateway + S3 Gateway Endpoint, 라우트 전환 | 미착수 | 짧은 egress 블립 | 라우트 되돌리기 |
 | **[4](./runbook/phase-04-deployment-controller.md)** | 배포 컨트롤러 CodeDeploy → ECS rolling | 미착수 | 없음 (리스너 스왑) | **리스너 규칙 되돌리기** |
 | **[5](./runbook/phase-05-monitoring-node-rebuild.md)** | 모니터링 노드 재구축 (private 2c, AL2023) + OTLP DNS 간접화 | 미착수 | 없음 (구 노드 병존) | DNS 레코드 되돌리기 (재배포 없음) |

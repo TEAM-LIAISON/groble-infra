@@ -4,10 +4,88 @@
 
 | | |
 |---|---|
-| **상태** | **진행 중** — 2-0 완료 · **2-1 완료(배포·검증 완료)** · 2-2 미착수 |
+| **상태** | **진행 중** — 2-0 ✅ · 2-1 ✅ · 2-2 배포 완료(**PR 2건 머지 대기**) |
 | **목적** | ASG 도입 후 새 노드가 **관측 사각지대에 들어가는 것을 막는다.** 순서가 뒤바뀌면 노드가 조용히 사라지고, 하필 그 시점이 마이그레이션 중이라 가장 위험하다 |
 | **사용자 영향** | 없음 |
 | **되돌리기** | 이전 이미지 태그로 롤백 |
+
+---
+
+## 🔖 이어받기 (2026-08-20 기준)
+
+> **다음 세션에서 여기부터 읽으면 된다.** 무엇이 끝났고 무엇이 남았는지, 그리고 순서가 중요한 것.
+
+### 지금 당장 해야 할 일 — 순서 중요
+
+**① `groble-images` PR 2건을 순서대로 머지**
+
+```
+#7  fix/slack-message-readability      → main    ← 먼저
+#8  feat/payment-success-absence-alerts → #7      ← 그 다음
+```
+
+> ⚠️ **순서를 지켜야 한다.** #7 이 알람 임계 단위를 초/바이트 → 시간/MiB 로 바꾼다.
+> #8 은 그 위에 쌓여 있다. 뒤집어 머지하면 임계 `93600`(초) 과 시간 단위 값이 어긋나
+> **알람이 영영 발화하지 않는다.** 실제로 한 번 그렇게 만들었다가 배포 전 검증에서 잡았다.
+
+**② 머지 후 Grafana 재배포** — 알림 규칙 8건 → 11건
+
+```bash
+# 1. CI 가 새 이미지를 push 할 때까지 대기 후 태그 확인
+aws ecr describe-images --repository-name groble-grafana --profile groble-terraform \
+  --region ap-northeast-2 --query 'reverse(sort_by(imageDetails,&imagePushedAt))[0].imageTags[0]' --output text
+
+# 2. environments/monitoring/images.auto.tfvars 의 grafana_version 갱신 후
+cd environments/monitoring && terraform plan   # ← 반드시 검수받고 apply
+```
+
+> Grafana 재배포는 **5~6분** 걸린다. 타깃그룹에 `deregistration_delay` 가 없어 기본값 300초를
+> 기다린다. 그동안 `monitor.groble.im` 접속 불가.
+
+**③ 배포 후 확인**
+
+```bash
+# 알림 규칙 11건, health=ok 인지
+curl -s -H "Authorization: Bearer <토큰>" \
+  http://10.0.1.193:3000/api/prometheus/grafana/api/v1/rules
+```
+
+### 미결 사항 — 사용자 판단 필요
+
+| 건 | 상태 | 필요한 결정 |
+|---|---|---|
+| **prod JVM 힙 수정 배포** | 백엔드 PR [#826](https://github.com/TEAM-LIAISON/groble-backend/pull/826) 머지됨. **dev 만 배포, prod 미배포** | 백엔드에 재요청 상태. 배포되면 알려주기로 함 → 배포 후 2~3일 재측정하여 Phase 7·8 `memoryReservation` 확정 |
+| **`JVM 힙 상한 > 컨테이너 리밋` 알람 발화 중** | prod 미배포 때문. 2시간마다 `#groble-alert` 재전송 | prod 배포되면 자동 해소. 그때까지 감수할지 일시 중지할지 |
+| **`컨테이너 메모리 하드리밋 근접` 알람 발화 중** | **dev-mysql 98.8%** (253/256 MiB) · prod-api 92.9% | JVM 을 고쳐도 dev-mysql 때문에 계속 발화한다. **dev MySQL 리밋 256 → 384 MiB 상향 제안** — dev 노드 여유 확인 후 plan 필요 |
+| 신규 구독 가입 감시 | 트래픽이 14일에 20건대라 **통계적으로 감지 불가** | 앱 지표(`groble_payment_attempts_total`) 없이는 불가. 백엔드 요청서에 포함됨 |
+
+### 백엔드에 전달된 요청서 2건
+
+| 문서 | 내용 | 상태 |
+|---|---|---|
+| [`backend-jvm-heap-limit.md`](../handoff/backend-jvm-heap-limit.md) | JVM 힙 상한 `-Xms512m -Xmx900m` 고정 | PR #826 머지, **prod 배포 대기** |
+| [`backend-payment-metrics.md`](../handoff/backend-payment-metrics.md) | 대사 불일치·승인 불명·결제 시도 지표 노출 | **전달 여부 미확인** |
+
+결제 알림 정합용 문서를 별도로 만들어 공유했다 (Artifact).
+
+### 현재 배포된 이미지
+
+```
+groble-grafana     11.6.3-05735cc      대시보드 3 · 알림 8 (머지 후 11)
+groble-prometheus  v2.45.0-143413d     ec2_sd + recording rule 12
+groble-loki        3.6.15-c8fcfa0
+groble-otelcol     0.132.0-57015e3
+```
+
+이미지 태그는 `environments/monitoring/images.auto.tfvars` 에 있고 **git 으로 추적된다**
+(`terraform.tfvars` 는 시크릿 때문에 `.gitignore` 대상).
+
+### Phase 2 이후로 넘어가기 전 확인
+
+- [ ] PR #7 → #8 머지 및 Grafana 재배포 (알림 11건)
+- [ ] prod JVM 수정 배포 → 2~3일 재측정 → `memoryReservation` 확정 — **Phase 7 차단 조건**
+- [ ] dev-mysql 메모리 리밋 결정
+- [ ] `spring-apps` 태스크 단위 스크레이프 (Cloud Map) — **Phase 7 로 이관됨**, `desired_count` 2 이상 전에 필수
 
 ---
 
@@ -256,31 +334,99 @@ API 태스크는 `awsvpc` 모드라 태스크마다 별도 ENI(고유 사설 IP)
 Terraform 변경을 수반한다. **`desired_count`를 올리기 전에 반드시 선행되어야 한다** →
 [Phase 7](./phase-07-prod-asg.md)의 선행 항목으로 이관.
 
-## 2-2. Grafana 프로비저닝 as-code
+## 2-2. Grafana 프로비저닝 as-code ✅ **배포 완료** (머지 대기 2건 있음)
 
-> 현재 대시보드·데이터소스가 노드 로컬 SQLite(`/opt/grafana/data`)에만 있어 **노드 교체 시 전부 유실된다.**
-> [Phase 5](./phase-05-monitoring-node-rebuild.md)에서 모니터링 노드를 재구축하므로 그 전에 반드시 끝나야 한다.
+기존 대시보드 4개(전부 커뮤니티 import)를 그대로 옮기지 않고, 수집 중인 지표 2,149개를
+전수 조사해 **새로 설계**했다. 인프라 담당자와 백엔드 개발자를 각각 대상으로 한다.
 
-1. 현재 Grafana UI에서 **대시보드·데이터소스·알림 규칙을 JSON으로 export**
-2. `groble-images`에 provisioning 구조로 정리 (`/etc/grafana/provisioning/{datasources,dashboards,alerting}`)
-   - Grafana는 아직 `groble-images`에 디렉터리가 없다 — **새로 만들고 CI(`build.yml`)의 paths-filter·matrix에도 등록**해야 한다
-3. provisioned 대시보드는 **읽기 전용**으로 설정 (UI 편집분과 코드가 갈라지지 않게)
-4. **"기대 타깃 수 미달" 알람 추가** (2-1의 5번에서 이관)
-   - 예: `count(up{job="node-exporter"}) < <기대 노드 수>`
-   - ⚠️ **기대값을 상수로 박아두면 노드 수를 바꿀 때 알람이 조용히 무의미해진다.**
-     provisioning 시 환경별 노드 수 변수에서 주입하거나, 최소한 **"ASG desired 변경 시 함께 바꿀 것" 목록에 등재** (계획서 §2.4)
-   - 알림 경로는 Phase 1에서 만든 Slack 2채널(`#groble-alert` / `#groble-alert-dev`)과 정렬한다
-5. 새 이미지로 Grafana 서비스 배포
+### 배포된 것
+
+| 항목 | 값 |
+|---|---|
+| Grafana | **11.6.3** (`groble-grafana:11.6.3-05735cc`) — 10.2.0 에서 업그레이드 |
+| 대시보드 | **3개** (`groble-overview` · `groble-backend` · `groble-infra`), Groble 폴더, 읽기 전용 |
+| 데이터소스 | Prometheus · Loki, **UID 고정**, `readOnly` |
+| 알림 규칙 | **8건** 가동 중 (머지 후 11건) |
+| 알림 경로 | Grafana → SNS → AWS Chatbot → Slack — **실제 알람으로 도달 검증 완료** |
+| recording rules | **12건** (`groble-prometheus:v2.45.0-143413d`) |
+
+기존 UI 대시보드 4개는 General 폴더에 그대로 남아 있다(SQLite 마이그레이션 후에도 보존됨).
+정리 여부는 새 대시보드를 써본 뒤 팀이 정하면 된다.
+
+### Grafana 11.x 로 올린 이유
+
+**네이티브 AWS SNS contact point 가 11.x 부터 있다.** 10.2 에는 없어 Slack Webhook 을 새로
+발급해야 했고, 그러면 시크릿이 하나 는다. 11.6.3 으로 올려 **Phase 1 이 만든 SNS→Chatbot→Slack
+경로를 그대로 재사용**했다 — 새 시크릿이 하나도 생기지 않았다.
+
+> ⚠️ **10.2 로의 롤백은 불가능하다.** Grafana 11 이 기동 시 SQLite 스키마를 단방향
+> 마이그레이션한다. 대시보드·데이터소스·알림이 모두 이미지에 있으므로, 최악의 경우
+> `/opt/grafana/data/grafana.db` 를 지우고 새로 시작하면 된다(사용자 계정과 기존 UI
+> 대시보드 4개는 잃는다). 백업 없이 진행하기로 합의했다.
+
+> ⚠️ `grafana-simple-json-datasource` 를 `grafana_plugins` 에서 제거했다. Angular 플러그인이라
+> 11.x 에서 **다운로드는 되지만 조용히 로드되지 않는다.** 쓰이지 않던 플러그인이다.
+
+### 설계에서 지킨 것
+
+**조회 비용을 고정했다.** `http_server_requests_seconds_bucket` 은 17,457 시계열로 전체
+TSDB 의 43% 다. 대시보드에서 `histogram_quantile` 을 직접 돌리면 Prometheus(512 MiB 하드리밋,
+유휴 340 MiB)가 **OOM 으로 죽는다 — 실제로 그렇게 죽인 적이 있다.** recording rule 로 미리
+계산해 `p95` 조회가 17,457개가 아니라 **2개 시계열**만 읽는다. CI 검증기가 원본 버킷을
+직접 집계하는 쿼리를 아예 차단한다.
+
+**임계는 전부 실측 기준선에서 왔다.** p95 81ms → 경고 300ms, 5xx 0.0003% → 경고 0.5% 등.
+
+**이 서비스에만 있는 것을 넣었다.** `groble_scheduled_last_completed_timestamp_seconds` 로
+결제·정산 배치의 마지막 성공 경과를 본다. 배치가 조용히 멈춰도 자원 그래프는 멀쩡하다.
+
+### 알림 규칙 (머지 후 11건)
+
+CloudWatch 알람 19건(Phase 1)이 ALB·RDS 를 이미 덮으므로 **중복하지 않는다.**
+아래는 CloudWatch 가 구조적으로 볼 수 없는 것들이다.
+
+| 규칙 | 임계 | severity | 근거 |
+|---|---|---|---|
+| Prometheus 기대 타깃 수 미달 | < 3개, 10분 | critical | `ec2_sd` 고장 시 타깃이 목록에서 **사라져** `up==0` 으로 안 잡힘 |
+| 스크레이프 타깃 다운 | > 0개, 10분 | warning | — |
+| **결제 경로 서버 오류(5xx)** | 15분 1건, 즉시 | critical | 7일간 5xx **0건** |
+| **결제 성공 부재** | 2시간 0건 | critical | 14일간 시간당 최저 15건(06시) |
+| **정기결제·정산 배치 정체** | **25시간** | critical | 주기 24.00h 고정시각 + 1h → 예정 시각 +1h 감지 |
+| 주기 배치 정체 (6시간 이하) | 9시간 | warning | 최장 주기 6h + 여유 |
+| 결제 실패 급증 | 15분 20건 | warning | p50 0 / p90 1 / p99 8, 20+ 는 7일 2회 |
+| 컨테이너 메모리 하드리밋 근접 | > 90% | warning | ECS `MemoryUtilization` 은 캐시를 합쳐 보여줌 |
+| 노드 스왑 | > 300 MiB | warning | CloudWatch 는 EC2 스왑을 수집 안 함. **Phase 7 차단 조건** |
+| JVM 힙 상한 > 컨테이너 리밋 | > 0 MiB | critical | 2026-08 사고의 **원인 자체**를 감시 |
+| API 응답 지연 (앱 레벨 p99) | 3초, 5분 | warning | ALB p99(CloudWatch)와 달리 앱 내부 시간 |
+
+`critical` → `#groble-alert`, `warning` → `#groble-alert-dev`.
+각 규칙의 `annotations.runbook` 에 대응 절차가 있고 Slack 알림에 함께 실린다.
+**검증기가 `runbook` 이 없는 규칙을 거부한다** — 받은 사람이 무엇을 할지 모르면 소음이다.
+
+### 배포하며 겪은 함정 (재발 방지 장치 포함)
+
+| 함정 | 증상 | 현재 방어 |
+|---|---|---|
+| 대시보드를 `/var/lib/grafana` 에 구움 | ECS 가 호스트 볼륨을 거기 마운트해 **가려짐** | 검증기가 provider 경로 검사 |
+| 데이터소스 UID 불일치 | 기존 대시보드 100곳이 `Datasource not found` | 검증기가 UID 대조 |
+| 미정의 recording rule 참조 | **오류 없이 빈 그래프** — 가장 알아채기 어려움 | 검증기가 rule 이름 대조 |
+| 분모에 `clamp_min` | 리밋 없는 컨테이너에서 **6,632,243,200%** | 검증기가 `clamp_min` 분모 거부 |
+| SNS 메시지 JSON 깨짐 | **Chatbot 이 조용히 버림** — 알람이 아예 안 옴 | 검증기가 실제 annotation 으로 JSON 파싱 검증 |
+| Slack 볼드 `**` | 별표가 그대로 노출 (mrkdwn 은 `*` 하나) | 검증기가 `**` 거부 |
+| 지표 단위와 임계 불일치 | 임계 93600(초) vs 값 5(시간) → **영영 발화 안 함** | 배포 전 쿼리 평가로 확인 |
+
 
 ---
 
 ## 검증
 
 - [x] **API 태스크 워킹셋 측정·기록** (2-0) — 라이브 셋 최대 prod 510.5 MiB / dev 304.6 MiB
-- [ ] Prometheus `/targets`에서 **기존 노드 3대가 모두 UP** — 전환 전 타깃 총 **14개**가 기준값
-- [ ] Grafana 대시보드가 프로비저닝으로 복원되었는지, 기존 패널이 정상 렌더되는지
-- [ ] `up == 0` 알람과 **"기대 타깃 수 미달" 알람** 동작 확인
-- [ ] (Phase 7 진입 전) JVM 수정 배포 후 재측정 → `memoryReservation` 확정
+- [x] Prometheus `/targets`에서 **노드 3대 모두 UP** — 타깃 총 **14개**, 전환 전과 동일
+- [x] Grafana 대시보드가 프로비저닝으로 복원 — Groble 폴더 3개, 읽기 전용 강제 확인
+- [x] `up == 0` 알람과 **"기대 타깃 수 미달" 알람** 동작 확인 (health=ok)
+- [x] **Slack 도달 검증** — JVM 힙 알람이 실제로 `#groble-alert` 에 도달
+- [ ] PR #7 → #8 머지 후 Grafana 재배포 → 알림 **11건** 확인
+- [ ] (Phase 7 진입 전) **prod** JVM 수정 배포 후 재측정 → `memoryReservation` 확정
 
 ### 전환 전 타깃 기준값 (2026-08-18)
 
