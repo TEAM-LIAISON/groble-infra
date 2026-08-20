@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **상태** | **진행 중** — 2-0 ✅ · 2-1 ✅ · 2-2 배포 완료(**백엔드 검수 대기 → PR 2건 머지**) |
+| **상태** | **진행 중** — 2-0 ✅ · 2-1 ✅ · 2-2 배포 완료 · #7 머지·배포 완료 · prod JVM 배포 완료. **남은 것은 ① 백엔드 결제 알림 검수 회신 ② prod 2~3일 재측정** |
 | **목적** | ASG 도입 후 새 노드가 **관측 사각지대에 들어가는 것을 막는다.** 순서가 뒤바뀌면 노드가 조용히 사라지고, 하필 그 시점이 마이그레이션 중이라 가장 위험하다 |
 | **사용자 영향** | 없음 |
 | **되돌리기** | 이전 이미지 태그로 롤백 |
@@ -17,9 +17,9 @@
 
 ### 지금 당장 해야 할 일 — 순서 중요
 
-> 🛑 **①·② 는 지금 막혀 있다.** 백엔드 검수 회신을 받은 뒤에 진행한다 (아래 ⓪).
+> 🛑 **막혀 있는 것은 PR #8 하나다.** #7 은 결제 검수와 무관해 분리 머지·배포를 마쳤다(아래 ①-a).
 
-**⓪ 백엔드 검수 회신 대기 — PR 머지의 선행 조건**
+**⓪ 백엔드 검수 회신 대기 — 결제 알림 3건 배포의 선행 조건**
 
 결제 알림 5건을 [`payment-alerts-review.md`](../handoff/payment-alerts-review.md) 로 정리해
 백엔드에 검수 요청했다. **회신 전에 머지하지 않는다** — 감시 대상 URI 가 틀렸으면
@@ -43,16 +43,73 @@ GET 이라 결제 실행이 아니라 결제 페이지 조회일 가능성이 �
 → `groble-images` 의 `rules.yaml` 에서 해당 규칙 식에 **`method!="OPTIONS"` 추가**.
 수정 후 2시간 창 최소는 8 → 7건으로, 오탐 여유는 그대로다.
 
-**① `groble-images` PR 2건을 순서대로 머지** (⓪ 이후)
+**①-a ✅ 완료 — PR #7 분리 머지 + Grafana 재배포** (2026-08-20)
+
+당초 "#7 → #8 순서로 머지"라고 적어 둔 탓에 **둘 다 검수에 걸린 것처럼 보였으나, 대조해 보니 달랐다.**
+
+| | 규칙 집합 | 결제 검수 의존 |
+|---|---|---|
+| **#7** 가독성 | 8건 **그대로** | **없음** — Slack 메시지 표기·단위 정합·검증기 3종뿐 |
+| **#8** 결제 | 8 → 11건 (`결제 성공 부재` 신규 등) | **있음** — Q6 답변에 따라 식 자체가 바뀔 수 있다 |
+
+#7 의 임계 변경(`93600`초→`26`시간, `314572800`바이트→`300`MiB)은 **쿼리를 같은 단위로 나눈 데 따른
+표기 변경**이라 발화 조건이 달라지지 않는다. 그래서 #7 만 먼저 머지했다.
+
+- ⚠️ **재타깃은 일어나지 않았다.** 아래 ①-b 참조 — #8 은 main 이 아니라 **머지가 끝난 #7 브랜치로 들어갔고,
+  그 결과 닫혔다.** 다만 "순서를 뒤집으면 알람이 영영 발화하지 않는다"는 함정 자체는
+  #7 이 main 에 먼저 들어갔으므로 **더는 존재하지 않는다.**
+- 머지 전 1건 수정: `결제 실패 급증` 의 runbook 이 삭제된 `backend-payment-metrics.md` 를 가리키고 있었다.
+  이 경로는 **Slack 알림 본문에 그대로 실려 나가므로** `payment-alerts-review.md` 로 고쳐서 함께 넣었다.
+
+**배포 결과**
+
+| 항목 | 값 |
+|---|---|
+| 이미지 | `groble-grafana:11.6.3-05735cc` → **`11.6.3-676e2ff`** |
+| 태스크 정의 | rev 46 → **47**, `RUNNING` / `HEALTHY` |
+| 로드된 알림 규칙 | **8건** (`state=active`, group `Groble;groble-observability`) |
+| 평가 실패 | **0건** |
+
+> 📌 **검증은 `/metrics` 로 했다.** `terraform.tfvars` 의 `grafana_admin_password` 로는
+> Grafana API 인증이 **401** 이다 — 과거에 UI 에서 비밀번호를 바꾼 것으로 보이며,
+> `GF_SECURITY_ADMIN_PASSWORD` 는 DB 최초 생성 때만 적용되므로 재배포로도 되돌지 않는다.
+> 인증 없이 열리는 `http://10.0.1.193:3000/metrics` 의
+> `grafana_alerting_rule_group_rules` · `grafana_alerting_rule_evaluation_failures_total` 로 확인했다.
+> **tfvars 와 실물 비밀번호 불일치는 별건으로 남아 있다** ([Phase 10](./phase-10-secrets-ssm.md) 에서 정리).
+
+**①-b ⚠️ PR #8 은 main 에 들어가지 않았다 — 새 PR 이 필요하다**
+
+2026-08-20 05:28 에 **11초 간격**으로 두 머지가 일어났다.
+
+| 시각 | 일 | 결과 |
+|---|---|---|
+| 05:28:11 | #7 → `main` | ✅ main 에 반영 (`d89347d`) |
+| 05:28:22 | #8 → **`fix/slack-message-readability`** | ❌ **이미 머지가 끝난 #7 브랜치로 들어갔다** (`9b32cf9`) |
+
+#8 은 base 가 `main` 으로 재타깃되기 전에 원래 base 로 머지됐다. GitHub 상 상태는 `MERGED` 지만
+**main 에는 반영되지 않았고, PR 은 닫혀 있어 다시 머지할 수 없다.**
 
 ```
-#7  fix/slack-message-readability      → main    ← 먼저
-#8  feat/payment-success-absence-alerts → #7      ← 그 다음
+main                          알림 규칙  8건   ← 지금 배포된 것
+fix/slack-message-readability 알림 규칙 11건   ← #8 내용이 여기 갇혀 있다
+feat/payment-success-absence-alerts            ← 살아 있음 (main 과 diverged: ahead 2 / behind 2)
 ```
 
-> ⚠️ **순서를 지켜야 한다.** #7 이 알람 임계 단위를 초/바이트 → 시간/MiB 로 바꾼다.
-> #8 은 그 위에 쌓여 있다. 뒤집어 머지하면 임계 `93600`(초) 과 시간 단위 값이 어긋나
-> **알람이 영영 발화하지 않는다.** 실제로 한 번 그렇게 만들었다가 배포 전 검증에서 잡았다.
+> ✅ **잘못 배포된 것은 없다.** 지금 떠 있는 8건은 main 과 일치하고, 결제 알림 3건을 아직
+> 배포하지 않는 것은 **원래 의도한 상태**다(⓪ 검수 대기). 고장이 아니라 **경로가 끊긴 것**이다.
+
+**⓪ 이후 할 일 — 새 PR 을 연다**
+
+```
+feat/payment-success-absence-alerts → main    (새 PR. #8 은 닫혀서 재사용 불가)
+```
+
+머지 전 이 브랜치에서 고쳐야 할 것 **2건**:
+
+1. **`method!="OPTIONS"` 추가** (⓪-1)
+2. **`결제 실패 급증` 의 runbook 경로 회귀 방지** — 이 브랜치는 아직 삭제된
+   `backend-payment-metrics.md` 를 가리킨다. main 은 `0ca27f4` 에서 이미 `payment-alerts-review.md`
+   로 고쳤으므로, **그대로 머지하면 되돌아간다.** 이 경로는 Slack 알림 본문에 실려 나간다
 
 **② 머지 후 Grafana 재배포** — 알림 규칙 8건 → 11건
 
@@ -61,36 +118,38 @@ GET 이라 결제 실행이 아니라 결제 페이지 조회일 가능성이 �
 aws ecr describe-images --repository-name groble-grafana --profile groble-terraform \
   --region ap-northeast-2 --query 'reverse(sort_by(imageDetails,&imagePushedAt))[0].imageTags[0]' --output text
 
-# 2. environments/monitoring/images.auto.tfvars 의 grafana_version 갱신 후
+# 2. environments/monitoring/terraform.tfvars 의 grafana_version·monitoring_prometheus_image 갱신 후
 cd environments/monitoring && terraform plan   # ← 반드시 검수받고 apply
 ```
 
-> Grafana 재배포는 **5~6분** 걸린다. 타깃그룹에 `deregistration_delay` 가 없어 기본값 300초를
-> 기다린다. 그동안 `monitor.groble.im` 접속 불가.
+> Grafana 재배포는 **7분** 걸린다(2026-08-20 실측). 타깃그룹에 `deregistration_delay` 가 없어
+> 기본값 300초를 기다린다. 그동안 `monitor.groble.im` 접속 불가.
 
 **③ 배포 후 확인**
 
 ```bash
-# 알림 규칙 11건, health=ok 인지
-curl -s -H "Authorization: Bearer <토큰>" \
-  http://10.0.1.193:3000/api/prometheus/grafana/api/v1/rules
+# 알림 규칙 11건이 로드됐고 평가 실패가 0인지 (인증 불필요)
+curl -s http://10.0.1.193:3000/metrics | grep -E 'grafana_alerting_(rule_group_rules|schedule_alert_rules|rule_evaluation_failures_total)'
 ```
+
+> Grafana 인증 API 는 쓰지 말 것 — `terraform.tfvars` 의 `grafana_admin_password` 가
+> 실물과 달라 **401** 이다 (위 ①-a 참조).
 
 ### 미결 사항 — 사용자 판단 필요
 
 | 건 | 상태 | 필요한 결정 |
 |---|---|---|
-| **prod JVM 힙 수정 배포** | 백엔드 PR [#826](https://github.com/TEAM-LIAISON/groble-backend/pull/826) 머지됨. **dev 만 배포, prod 미배포** | 백엔드에 재요청 상태. 배포되면 알려주기로 함 → 배포 후 2~3일 재측정하여 Phase 7·8 `memoryReservation` 확정 |
-| **`JVM 힙 상한 > 컨테이너 리밋` 알람 발화 중** | prod 미배포 때문. 2시간마다 `#groble-alert` 재전송 | prod 배포되면 자동 해소. 그때까지 감수할지 일시 중지할지 |
-| **`컨테이너 메모리 하드리밋 근접` 알람 발화 중** | **dev-mysql 98.8%** (253/256 MiB) · prod-api 92.9% | JVM 을 고쳐도 dev-mysql 때문에 계속 발화한다. **dev MySQL 리밋 256 → 384 MiB 상향 제안** — dev 노드 여유 확인 후 plan 필요 |
+| **prod JVM 힙 수정 배포** | ✅ **완료** (2026-08-20). 힙 상한 2,878 → **900 MiB** 확인 | 남은 것은 **2~3일 뒤 재측정**뿐이다 → Phase 7·8 `memoryReservation` 확정. **Phase 7 차단 조건** |
+| **`JVM 힙 상한 > 컨테이너 리밋` 알람** | ✅ **해소.** prod 배포로 900 MiB < 리밋 1,500 MiB 가 되어 조건이 성립하지 않는다 | 없음 |
+| **`컨테이너 메모리 하드리밋 근접` 알람 발화 중** | **dev-mysql 99.1%** (253.8/256 MiB) · prod-api 92.9% | ✅ **결정됨 — 상향하지 않는다.** [Phase 8](./phase-08-dev-migration.md) 에서 dev MySQL 이 RDS 로 이관되며 컨테이너째 사라지므로 그때까지 발화를 감수한다. 조사 결과(재시작 5회 증거 · `ignore_changes` 함정 · 무효한 `MYSQL_INNODB_BUFFER_POOL_SIZE`)는 Phase 8 문서에 기록했다 |
 | 신규 구독 가입 감시 | 트래픽이 14일에 20건대라 **통계적으로 감지 불가** | 앱 지표(`groble.payment.attempts`) 없이는 불가. 요청서 §6-3 ③ 에 포함됨 |
 
 ### 백엔드 요청서 2건
 
 | 문서 | 내용 | 상태 |
 |---|---|---|
-| [`backend-jvm-heap-limit.md`](../handoff/backend-jvm-heap-limit.md) | JVM 힙 상한 `-Xms512m -Xmx900m` 고정 | PR #826 머지, **prod 배포 대기** |
-| [`payment-alerts-review.md`](../handoff/payment-alerts-review.md) | **A** 결제 알림 5건 검수(Q1~Q12) + **B** 지표 3종 노출 요청 | **검수 대기 — PR #7·#8 머지를 여기에 걸어 뒀다** |
+| [`backend-jvm-heap-limit.md`](../handoff/backend-jvm-heap-limit.md) | JVM 힙 상한 `-Xms512m -Xmx900m` 고정 | ✅ **완료** — PR #826 머지, dev·prod 배포 완료 |
+| [`payment-alerts-review.md`](../handoff/payment-alerts-review.md) | **A** 결제 알림 5건 검수(Q1~Q12) + **B** 지표 3종 노출 요청 | **검수 대기 — 결제 알림 3건 배포를 여기에 걸어 뒀다** (#7 은 무관해 이미 머지) |
 
 > 지표 요청서(`backend-payment-metrics.md`)는 별도 문서였으나, 백엔드에 문서를 둘로 던지지 않으려고
 > **검수 요청서의 §6 으로 흡수하고 삭제했다.** 기준선도 7일 → **14일로 통일**했다.
@@ -98,22 +157,25 @@ curl -s -H "Authorization: Bearer <토큰>" \
 ### 현재 배포된 이미지
 
 ```
-groble-grafana     11.6.3-05735cc      대시보드 3 · 알림 8 (머지 후 11)
+groble-grafana     11.6.3-676e2ff      대시보드 3 · 알림 8 (결제 알림 3건 반영 시 11)
 groble-prometheus  v2.45.0-143413d     ec2_sd + recording rule 12
 groble-loki        3.6.15-c8fcfa0
 groble-otelcol     0.132.0-57015e3
 ```
 
-이미지 태그는 `environments/monitoring/images.auto.tfvars` 에 있고 **git 으로 추적된다**
-(`terraform.tfvars` 는 시크릿 때문에 `.gitignore` 대상).
+이미지 태그는 `environments/monitoring/terraform.tfvars` 에 있다.
+⚠️ 이 파일은 `.gitignore` 대상이라 **배포 태그가 git 이력에 남지 않는다** — 태그를 바꿀 때
+주석으로 이전 값을 남길 것 (2026-08-20 에 `images.auto.tfvars` 를 없애고 합쳤다).
 
 ### Phase 2 이후로 넘어가기 전 확인
 
 - [ ] 백엔드 결제 알림 검수 회신 (특히 Q6) → 반영
 - [ ] `결제 성공 부재` 식에 `method!="OPTIONS"` 추가
-- [ ] PR #7 → #8 머지 및 Grafana 재배포 (알림 11건)
-- [ ] prod JVM 수정 배포 → 2~3일 재측정 → `memoryReservation` 확정 — **Phase 7 차단 조건**
-- [ ] dev-mysql 메모리 리밋 결정
+- [x] PR #7 머지 및 Grafana 재배포 (rev 47, 알림 8건 health=ok)
+- [ ] **새 PR** (`feat/payment-success-absence-alerts` → main) 머지 및 Grafana 재배포 (알림 11건) — #8 은 닫혀서 재사용 불가(①-b)
+- [x] prod JVM 수정 배포 (2026-08-20, 힙 상한 900 MiB 확인)
+- [ ] prod 2~3일 재측정 → `memoryReservation` 확정 — **Phase 7 차단 조건**
+- [x] dev-mysql 메모리 리밋 결정 — **상향하지 않고 [Phase 8](./phase-08-dev-migration.md) 이관에 맡긴다**
 - [ ] `spring-apps` 태스크 단위 스크레이프 (Cloud Map) — **Phase 7 로 이관됨**, `desired_count` 2 이상 전에 필수
 
 ---
@@ -226,7 +288,7 @@ Phase 1은 "리밋에 닿아 있으면서 OOM이 없으니 대부분 회수 가�
 - [x] 백엔드 Dockerfile 수정 — [groble-backend#826](https://github.com/TEAM-LIAISON/groble-backend/pull/826) 머지 (2026-08-19, `2f7ab40`).
       요청서의 **방식 A**(Dockerfile 직접 고정) 채택: `-Xms512m -Xmx900m -XX:+ExitOnOutOfMemoryError`
 - [x] **dev 배포 완료** — 아래 검증 결과 참조
-- [ ] **prod 배포** — 미완료. 현재 prod 태스크는 여전히 리비전 511, 힙 상한 2,878 MiB
+- [x] **prod 배포 완료** (2026-08-20) — 아래 「prod 배포 직후 관측」 참조
 - [ ] prod 배포 후 2~3일 재측정 → Phase 7·8의 `memoryReservation` 확정
 
 ### dev 배포 후 검증 (가동 10.4시간 시점)
@@ -272,6 +334,35 @@ prod 는 라이브 셋(510 MiB)이 커서 힙이 상한 900 MiB 를 거의 다 �
 초판은 prod 비힙이 dev 보다 크다는 점을 반영하지 않아 낙관적이었다.
 **`-Xmx800m` 폴백이 필요할 가능성이 상당하다** (800m 이면 RSS ≈ 1,338 MiB, 여유 약 162 MiB).
 prod 배포 직후 RSS 를 우선 확인하고, 1,400 MiB 를 넘어 머물면 즉시 낮춘다.
+
+### prod 배포 직후 관측 (2026-08-20, 가동 21분 시점)
+
+**예상보다 낫다. 하지만 21분은 판단하기에 너무 이르다.**
+
+| 항목 | 수정 전 (15일) | 예상치 | **수정 후 (21분)** |
+|---|---|---|---|
+| JVM 힙 상한 | 2,878 MiB | 900 | **900 MiB** |
+| heap committed | max 1,766 MiB | — | **645 MiB** |
+| heap used | p99 1,362 MiB | — | 455 MiB |
+| live set | max 510.5 MiB | — | 251 MiB |
+| nonheap committed | 400 MiB | 400 | **285 MiB** |
+| **컨테이너 RSS** | max 1,493 MiB | **≈1,440** | **1,059 MiB** |
+| 컨테이너 usage / 리밋 | — | — | 1,092 / 1,500 MiB |
+| **노드 스왑 사용** | max 947 MiB | — | **64 MiB** |
+
+`JVM 힙 상한 > 컨테이너 리밋` 알람은 조건이 성립하지 않아 **해소됐다** (900 < 1,500).
+
+⚠️ **이 값으로 `memoryReservation` 을 확정하면 안 된다.** 세 가지 이유가 있다.
+
+1. **21분은 워밍업 구간이다.** live set 이 251 MiB 로 15일 최대(510.5)의 절반이다 —
+   캐시·커넥션풀·클래스로딩이 아직 안 찼다
+2. **G1 은 힙을 필요할 때 늘린다.** committed 645 MiB 는 상한 900 을 다 쓴 값이 아니다.
+   부하가 오르면 900 까지 커밋되고, 그만큼 RSS 가 올라간다
+3. **nonheap 285 MiB 는 dev(304)보다도 작다.** 예상치의 근거였던 prod nonheap 400 MiB 에
+   아직 도달하지 않았다
+
+예상식(`900 + 538 = 1,440`)이 틀렸다는 뜻이 아니라 **아직 검증되지 않았다**는 뜻이다.
+**2~3일 뒤 재측정에서 RSS p99 를 보고 확정한다.** 그때까지 1,400 MiB 를 넘어 머물면 `-Xmx800m` 으로 낮춘다.
 - [ ] (미규명) JDK 17이 왜 컨테이너 리밋을 인식하지 못하는지. `-Xmx` 명시로 우회하므로 수정에는 영향 없으나 근본 원인은 아니다. 진단하려면 컨테이너 내부에서 `java -XshowSettings:system` / cgroup 파일 확인이 필요한데, **prod 컨테이너에 프로세스를 띄우는 일이라 dev 노드나 로컬 재현으로 할 것**
 
 ---
@@ -304,10 +395,10 @@ prod 배포 직후 RSS 를 우선 확인하고, 1,400 MiB 를 넘어 머물면 �
    (Alertmanager가 배포돼 있지 않고, 2-2가 어차피 Grafana `alerting` 프로비저닝 작업이라 새 운영 구성요소 없이 붙는다)
 6. ✅ **배포 완료** (2026-08-20) — `v2.45.0-6cbe957` → **`v2.45.0-3c2a266`**, 태스크 정의 rev 23 → 24
 
-   > ✅ **배포 태그를 버전 관리에 편입했다.** `terraform.tfvars` 는 `.gitignore` 의 `*.tfvars` 에
-   > 걸려 있어(시크릿 포함) 어떤 이미지가 떠 있는지 git 이력에 남지 않았다. 시크릿이 없는 이미지
-   > 식별자만 **`environments/monitoring/images.auto.tfvars`** 로 분리하고 `.gitignore` 에
-   > `!images.auto.tfvars` 예외를 뒀다. 분리 후 `terraform plan` 이 **No changes** 임을 확인했다.
+   > 📌 이때 배포 태그를 추적하려고 `images.auto.tfvars` 로 분리했었으나,
+   > **2026-08-20 에 `terraform.tfvars` 로 다시 합쳤다** (파일이 둘로 갈리는 것을 피하려고).
+   > 합친 뒤 `terraform plan` 이 **No changes** 임을 확인했다. 지금은 배포 태그가 git 에
+   > 남지 않으므로 태그 변경 시 주석으로 이전 값을 남긴다.
 
    | 서비스 | 배포 태그 | 이전 태그 |
    |---|---|---|
@@ -363,7 +454,7 @@ API 태스크는 `awsvpc` 모드라 태스크마다 별도 ENI(고유 사설 IP)
 Terraform 변경을 수반한다. **`desired_count`를 올리기 전에 반드시 선행되어야 한다** →
 [Phase 7](./phase-07-prod-asg.md)의 선행 항목으로 이관.
 
-## 2-2. Grafana 프로비저닝 as-code ✅ **배포 완료** (머지 대기 2건 있음)
+## 2-2. Grafana 프로비저닝 as-code ✅ **배포 완료** (결제 알림 3건은 검수 대기)
 
 기존 대시보드 4개(전부 커뮤니티 import)를 그대로 옮기지 않고, 수집 중인 지표 2,149개를
 전수 조사해 **새로 설계**했다. 인프라 담당자와 백엔드 개발자를 각각 대상으로 한다.
@@ -372,10 +463,10 @@ Terraform 변경을 수반한다. **`desired_count`를 올리기 전에 반드�
 
 | 항목 | 값 |
 |---|---|
-| Grafana | **11.6.3** (`groble-grafana:11.6.3-05735cc`) — 10.2.0 에서 업그레이드 |
+| Grafana | **11.6.3** (`groble-grafana:11.6.3-676e2ff`) — 10.2.0 에서 업그레이드 |
 | 대시보드 | **3개** (`groble-overview` · `groble-backend` · `groble-infra`), Groble 폴더, 읽기 전용 |
 | 데이터소스 | Prometheus · Loki, **UID 고정**, `readOnly` |
-| 알림 규칙 | **8건** 가동 중 (머지 후 11건) |
+| 알림 규칙 | **8건** 가동 중 (결제 알림 3건 반영 시 11건) |
 | 알림 경로 | Grafana → SNS → AWS Chatbot → Slack — **실제 알람으로 도달 검증 완료** |
 | recording rules | **12건** (`groble-prometheus:v2.45.0-143413d`) |
 
@@ -409,7 +500,7 @@ TSDB 의 43% 다. 대시보드에서 `histogram_quantile` 을 직접 돌리면 P
 **이 서비스에만 있는 것을 넣었다.** `groble_scheduled_last_completed_timestamp_seconds` 로
 결제·정산 배치의 마지막 성공 경과를 본다. 배치가 조용히 멈춰도 자원 그래프는 멀쩡하다.
 
-### 알림 규칙 (머지 후 11건)
+### 알림 규칙 (결제 알림 3건 반영 시 11건 — 현재 가동은 8건)
 
 CloudWatch 알람 19건(Phase 1)이 ALB·RDS 를 이미 덮으므로 **중복하지 않는다.**
 아래는 CloudWatch 가 구조적으로 볼 수 없는 것들이다.
@@ -454,8 +545,10 @@ CloudWatch 알람 19건(Phase 1)이 ALB·RDS 를 이미 덮으므로 **중복하
 - [x] Grafana 대시보드가 프로비저닝으로 복원 — Groble 폴더 3개, 읽기 전용 강제 확인
 - [x] `up == 0` 알람과 **"기대 타깃 수 미달" 알람** 동작 확인 (health=ok)
 - [x] **Slack 도달 검증** — JVM 힙 알람이 실제로 `#groble-alert` 에 도달
-- [ ] PR #7 → #8 머지 후 Grafana 재배포 → 알림 **11건** 확인
-- [ ] (Phase 7 진입 전) **prod** JVM 수정 배포 후 재측정 → `memoryReservation` 확정
+- [x] PR #7 머지 후 Grafana 재배포 → 알림 **8건** `state=active` · 평가 실패 0건 확인 (rev 47)
+- [ ] 새 PR 머지 후 Grafana 재배포 → 알림 **11건** 확인 (#8 은 main 에 안 들어갔다 — ①-b)
+- [x] **prod** JVM 수정 배포 (2026-08-20, 힙 상한 900 MiB)
+- [ ] (Phase 7 진입 전) prod 2~3일 재측정 → `memoryReservation` 확정
 
 ### 전환 전 타깃 기준값 (2026-08-18)
 

@@ -5,7 +5,7 @@
 | **요청 대상** | groble-backend |
 | **요청자** | 인프라 (groble-infra) |
 | **작성일** | 2026-08-20 |
-| **상태** | **머지 보류 중.** 이 검수 결과를 반영한 뒤 [groble-images#7 → #8](https://github.com/TEAM-LIAISON/groble-images/pulls) 을 머지한다 |
+| **상태** | **머지 보류 중.** 이 검수 결과를 반영한 뒤 [groble-images#8](https://github.com/TEAM-LIAISON/groble-images/pull/8) 을 머지한다 (#7 은 메시지 가독성 수정이라 검수와 무관해 먼저 머지·배포했다) |
 | **기준선** | 운영 Prometheus, 직전 **14일** (문서 전체 동일 기준) |
 | **관련** | [`backend-jvm-heap-limit.md`](./backend-jvm-heap-limit.md) (별건) · [Phase 2 런북](../runbook/phase-02-observability.md) |
 

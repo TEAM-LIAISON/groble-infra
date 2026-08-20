@@ -33,7 +33,12 @@ SSM Session Manager(bastion·WireGuard 폐기) · Terraform state를 S3로
 **Phase 1 완료** — CloudWatch 알람 19개가 SNS→AWS Chatbot을 거쳐 Slack 2채널
 (`#groble-alert` 긴급 / `#groble-alert-dev`)로 전달된다. 임계치는 실측 기준선으로 확정했다
 (계획서 §2.1 "트래픽·자원 기준선").
-Phase 2부터는 미착수이며, 이 문서의 나머지 서술은 여전히 As-Is다.
+**Phase 2 진행 중** — 2-0(API 워킹셋 측정) · 2-1(Prometheus `ec2_sd_config` 전환) ·
+2-2(Grafana 프로비저닝 as-code) **배포 완료**. 남은 것은 백엔드 회신에 걸린 2건뿐이다
+(결제 알림 5건 검수 · prod JVM 힙 상한 수정 배포). 상세와 이어받기는
+[`docs/runbook/phase-02-observability.md`](docs/runbook/phase-02-observability.md)에 있다.
+Phase 3부터는 미착수다. Phase 2가 바꾼 것은 아래 [Monitoring Stack](#monitoring-stack-모두-host-mode-networking)에
+반영했고, **그 밖의 서술은 여전히 As-Is다.**
 
 ---
 
@@ -105,20 +110,21 @@ docs/              # 인프라 개선 계획·이관 절차·향후 개선·conf
 ### Key Configuration Files (per environment)
 - `main.tf` — 모듈 구성 및 리소스 호출
 - `variables.tf` — 변수 정의
-- `terraform.tfvars` — 변수 값. **`.gitignore` 대상이다** (시크릿 포함)
-- `images.auto.tfvars` — **컨테이너 이미지 태그. 유일하게 추적되는 tfvars다**
+- `terraform.tfvars` — 변수 값. **`.gitignore` 대상이다** (시크릿 + 컨테이너 이미지 태그)
 - `versions.tf` — Terraform/프로바이더 버전 제약
 - `outputs.tf` — 다른 환경에서 참조할 출력값
 
-#### 이미지 태그는 `images.auto.tfvars`에 둔다
+#### 이미지 태그는 `terraform.tfvars`에 둔다
 
-`terraform.tfvars`는 시크릿(DB·Grafana 비밀번호) 때문에 `.gitignore`의 `*.tfvars`에 걸려 있다.
-여기에 이미지 태그까지 같이 두면 **무엇이 배포됐는지 git 이력에 남지 않아** 롤백 시 이전 태그를
-따로 기억해야 한다. 그래서 시크릿이 없는 이미지 식별자만 `images.auto.tfvars`로 분리하고,
-`.gitignore`에 `!images.auto.tfvars` 예외를 뒀다. Terraform이 `*.auto.tfvars`를 자동으로 읽는다.
+컨테이너 이미지 태그(`grafana_version`, `monitoring_*_image`)는 `environments/monitoring/terraform.tfvars`에 있다.
 
-- **이미지 태그를 `terraform.tfvars`에 다시 쓰지 말 것** — `*.auto.tfvars`가 나중에 로드되어
-  조용히 덮어쓰므로, 두 곳에 있으면 어느 값이 적용됐는지 알 수 없게 된다
+⚠️ **이 파일은 `.gitignore`의 `*.tfvars`에 걸려 있어 배포된 이미지 태그가 git 이력에 남지 않는다.**
+롤백하려면 이전 태그를 따로 기억해야 하므로, **태그를 바꿀 때 주석으로 이전 값을 남길 것.**
+파일 안의 이미지 태그 블록에 그 규칙을 적어 뒀다.
+
+> 2026-08-20 이전에는 추적 가능하도록 `images.auto.tfvars`로 분리하고 `.gitignore`에 예외를
+> 뒀었으나, 파일이 둘로 갈리는 것을 피하려고 `terraform.tfvars`로 되돌렸다. 되돌리면서
+> `terraform plan`이 **No changes**임을 확인했다.
 - 현재 `environments/monitoring/`에만 있다. Prod/Dev의 `spring_app_image`는 제외했다 —
   **CodeDeploy가 실행 중인 태스크 정의를 소유**(`ignore_changes = [task_definition]`)하므로
   tfvars 값이 실제 배포본을 반영하지 않는다 (dev는 `openjdk:17-jdk-slim` 플레이스홀더 상태)
@@ -193,17 +199,32 @@ RDS는 `multi_az = false`이고 db_subnet_group이 2a/2c를 모두 포함해 **A
 
 | Service | Image | Port | CPU/Memory |
 |---------|-------|------|------------|
-| Grafana | `grafana/grafana:10.2.0` (Docker Hub) | 3000 | 250/256MB |
-| Prometheus | **`groble-prometheus:v2.45.0-*` (ECR, config baked)** | 9090 | 512/1024MB |
-| Loki | **`groble-loki:3.0.0-*` (ECR, config baked)** | 3100 | 256/512MB |
+| Grafana | **`groble-grafana:11.6.3-*` (ECR, config baked)** | 3000 | 250/256MB |
+| Prometheus | **`groble-prometheus:v2.45.0-*` (ECR, config baked)** | 9090 | 512/512MB |
+| Loki | **`groble-loki:3.6.15-*` (ECR, config baked)** | 3100 | 512/256MB |
 | OpenTelemetry | **`groble-otelcol:0.132.0-*` (ECR, config baked)** | 4317(gRPC), 4318(HTTP) | 256/256MB |
 | Node Exporter | prom/node-exporter:latest | 9100 | DAEMON, task memory 128MB |
 | cAdvisor | gcr.io/cadvisor/cadvisor:latest | 8081 | DAEMON, task memory 256MB |
 | RDS Exporter | prometheuscommunity/mysqld_exporter:latest | 9104 | -/128MB |
 
-**Prometheus·Loki·otelcol은 `groble-images` CI가 설정을 구워 ECR에 push한 이미지를 쓴다.**
-설정 변경은 이 리포지토리가 아니라 `groble-images`에서 하고, tfvars의 이미지 태그를 올린다.
-**Grafana는 아직 config baking 대상이 아니다** — 대시보드·데이터소스가 노드 로컬 SQLite(`/opt/grafana/data`)에만 있어 **노드 교체 시 전부 유실된다.**
+**Grafana·Prometheus·Loki·otelcol 전부 `groble-images` CI가 설정을 구워 ECR에 push한 이미지를 쓴다.**
+설정 변경은 이 리포지토리가 아니라 `groble-images`에서 하고, `terraform.tfvars`의 이미지 태그를 올린다.
+
+**Grafana도 Phase 2-2에서 config baking 대상이 되었다** (10.2.0 Docker Hub → ECR 11.6.3).
+대시보드 3개 · 데이터소스(UID 고정) · **알림 규칙**이 모두 이미지에 있고 `readOnly`로 강제된다.
+
+- 11.x로 올린 이유는 **네이티브 AWS SNS contact point**다. 10.2에는 없어 Slack Webhook을
+  새로 발급해야 했고, 그러면 시크릿이 하나 는다. Phase 1의 SNS→Chatbot→Slack 경로를 그대로 재사용했다
+- ⚠️ **10.2로의 롤백은 불가능하다** — Grafana 11이 기동 시 SQLite 스키마를 단방향 마이그레이션한다
+- ⚠️ **`/opt/grafana/data`의 SQLite는 여전히 노드 로컬이다.** 프로비저닝 대상(대시보드·데이터소스·알림)은
+  이미지에서 복원되지만, **사용자 계정 · 알림 silence · UI로 만든 기존 대시보드 4개는 노드 교체 시 유실된다**
+- Prometheus **recording rule 12건**에 대시보드와 알림이 의존한다. `http_server_requests_seconds_bucket`은
+  17,457 시계열(TSDB의 43%)이라 대시보드에서 `histogram_quantile`을 직접 돌리면
+  **Prometheus가 512 MiB 하드리밋에서 OOM으로 죽는다 — 실제로 죽인 적이 있다.**
+  `groble:*` recording rule을 담은 이미지를 배포하지 않으면 패널이 비고 알림은 NoData가 된다
+- 노드 타깃(node-exporter·cAdvisor) 스크레이프는 **`ec2_sd_config`**로 발견한다
+  (`tag:Cluster = groble-cluster` AND `instance-state-name = running`).
+  ⚠️ 새 노드에 이 태그가 전파되지 않으면 **경고 없이 스크레이프 목록에서 누락된다**
 
 **모니터링 데이터 흐름:**
 ```
