@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **상태** | **진행 중** — 2-0 완료 · 2-1 config 전환 PR 대기 · 2-2 미착수 |
+| **상태** | **진행 중** — 2-0 완료 · **2-1 완료(배포·검증 완료)** · 2-2 미착수 |
 | **목적** | ASG 도입 후 새 노드가 **관측 사각지대에 들어가는 것을 막는다.** 순서가 뒤바뀌면 노드가 조용히 사라지고, 하필 그 시점이 마이그레이션 중이라 가장 위험하다 |
 | **사용자 영향** | 없음 |
 | **되돌리기** | 이전 이미지 태그로 롤백 |
@@ -195,7 +195,41 @@ prod 배포 직후 RSS 를 우선 확인하고, 1,400 MiB 를 넘어 머물면 �
 4. ~~CI에서 `promtool check config` 게이트 추가~~ — ✅ **이미 있었다.** `.github/workflows/build.yml`의 Validate config 스텝
 5. ⏭ **"기대 타깃 수 미달" 알람** → **Grafana 알림으로 결정. [2-2](#2-2-grafana-프로비저닝-as-code)에서 프로비저닝한다**
    (Alertmanager가 배포돼 있지 않고, 2-2가 어차피 Grafana `alerting` 프로비저닝 작업이라 새 운영 구성요소 없이 붙는다)
-6. ⏳ 새 이미지 태그로 Prometheus 서비스 배포 — `v2.45.0-3c2a266` (현재 `v2.45.0-5acea36`)
+6. ✅ **배포 완료** (2026-08-20) — `v2.45.0-6cbe957` → **`v2.45.0-3c2a266`**, 태스크 정의 rev 23 → 24
+
+   > ⚠️ **배포 태그가 버전 관리에 남지 않는다.** `environments/*/terraform.tfvars` 는 `.gitignore` 의
+   > `*.tfvars` 에 걸려 있다(시크릿 포함). 즉 **어떤 이미지가 떠 있는지 git 이력에 없고**, 롤백하려면
+   > 이전 태그를 따로 알고 있어야 한다. 아래 표를 잠정 기록으로 남긴다 —
+   > 시크릿이 없는 이미지 태그만 별도 tracked 파일(`images.auto.tfvars` 등)로 분리하는 것을 검토할 것.
+
+   | 서비스 | 배포 태그 | 이전 태그 |
+   |---|---|---|
+   | Prometheus | `v2.45.0-3c2a266` | `v2.45.0-6cbe957` |
+
+### 배포 후 검증 결과 (2026-08-20)
+
+| 항목 | 결과 |
+|---|---|
+| 타깃 총계 | **14개 전부 UP** — 전환 전 기준값과 동일 (dropped 0) |
+| node-exporter / cAdvisor | 각 **3개**, `ec2_sd` 로 발견 |
+| `instance` 라벨 | `10.0.1.193:9100` 등 — **전환 전과 동일** |
+| `environment` / `instance_name` | `production`/`groble-prod-instance-1` 등 — **전환 전과 동일** |
+| 신규 라벨 | `node_type` / `instance_id`(`i-08b4f8ff…`) / `availability_zone`(`ap-northeast-2a`) 정상 부착 |
+| 기존 대시보드 쿼리 | `container_memory_usage_bytes` · `node_memory_*{environment=...}` 등 정상 반환 |
+| TSDB 과거 데이터 | **보존됨** (production 노드 15일치 86,391 샘플) |
+
+> 전환 직후 약 5분간 구(static)·신(ec2_sd) 시계열이 병존해 `count(up{job="node-exporter"})` 가 6으로 보였다.
+> staleness 창이 지나며 **3으로 정착**했다. 예상된 과도 상태다.
+
+**2-2의 "기대 타깃 수 미달" 알람 기준값**
+
+| 식 | 정상값 |
+|---|---|
+| `count(up{job="node-exporter"})` | **3** |
+| `count(up{job="cadvisor"})` | **3** |
+| `count(up == 1)` | **14** |
+
+⚠️ 이 값들은 **노드 수가 바뀌면 함께 바꿔야 한다** (Phase 7 ASG desired 변경 시).
 
 ### ⚠️ 이 전환이 만드는 새 실패 모드
 
