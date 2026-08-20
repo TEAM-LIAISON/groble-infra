@@ -1,12 +1,12 @@
 # Task Definition for Host Mode (simplified)
 resource "aws_ecs_task_definition" "grafana" {
-  family                = "${var.environment}-grafana"
-  network_mode          = "host"  # Host Mode for localhost communication
+  family                   = "${var.environment}-grafana"
+  network_mode             = "host" # Host Mode for localhost communication
   requires_compatibilities = ["EC2"]
-  cpu                   = var.cpu
-  memory                = var.memory
-  execution_role_arn    = var.execution_role_arn
-  task_role_arn         = var.task_role_arn
+  cpu                      = var.cpu
+  memory                   = var.memory
+  execution_role_arn       = var.execution_role_arn
+  task_role_arn            = var.task_role_arn
 
   # Volume for Grafana data persistence
   volume {
@@ -18,7 +18,7 @@ resource "aws_ecs_task_definition" "grafana" {
     {
       name  = "grafana"
       image = "${var.grafana_image}:${var.grafana_version}"
-      user  = "472:472"  # Run as grafana user
+      user  = "472:472" # Run as grafana user
 
       # Host networking - expose port for load balancer
       portMappings = [
@@ -30,7 +30,7 @@ resource "aws_ecs_task_definition" "grafana" {
       ]
 
       # 메모리 설정 (낮은 리소스 사용)
-      memory = var.container_memory
+      memory            = var.container_memory
       memoryReservation = var.container_memory_reservation
 
       # Volume mounts for data persistence
@@ -67,6 +67,17 @@ resource "aws_ecs_task_definition" "grafana" {
         {
           name  = "GF_LOG_LEVEL"
           value = "warn"
+        },
+        # 알림 채널(SNS contact point)의 토픽 ARN.
+        # 이미지의 provisioning/alerting/contact-points.yaml 이 ${...} 로 참조한다.
+        # severity=critical -> prod 토픽(#groble-alert), warning -> dev 토픽(#groble-alert-dev)
+        {
+          name  = "GF_SNS_TOPIC_PROD"
+          value = var.sns_topic_arn_prod
+        },
+        {
+          name  = "GF_SNS_TOPIC_DEV"
+          value = var.sns_topic_arn_dev
         }
       ]
 
@@ -109,7 +120,7 @@ resource "aws_ecs_service" "grafana" {
   cluster         = var.ecs_cluster_id
   task_definition = aws_ecs_task_definition.grafana.arn
   desired_count   = var.desired_count
-  
+
   # Host 모드에서 포트 충돌 방지를 위한 배포 설정
   deployment_maximum_percent         = 100
   deployment_minimum_healthy_percent = 0
@@ -133,4 +144,32 @@ resource "aws_ecs_service" "grafana" {
     Environment = var.environment
     Service     = "monitoring"
   }
+}
+#################################
+# Grafana 알림 → SNS 발행 권한
+#
+# Grafana 11.x 의 네이티브 AWS SNS contact point 가 쓰는 권한이다.
+# 이미지의 프로비저닝(contact-points.yaml)은 sigv4 에 액세스 키를 넣지 않고 비워둔다.
+# 그러면 AWS SDK 기본 자격증명 체인을 타고, ECS 에서는 credential 프록시(169.254.170.2)를
+# 거쳐 **이 Task Role** 로 해석된다. 즉 이미지에 시크릿을 넣지 않고 권한만으로 해결한다.
+#
+# ⚠️ 노드 재부팅으로 credential 프록시 iptables 가 사라지면 이 경로가 조용히 끊긴다.
+#    (과거 Loki S3 적재 실패와 같은 원인) 알람이 안 오는 것으로 나타나므로 알아채기 어렵다.
+#################################
+resource "aws_iam_role_policy" "grafana_sns_publish" {
+  count = var.sns_topic_arn_prod != "" || var.sns_topic_arn_dev != "" ? 1 : 0
+
+  name = "${var.environment}-grafana-sns-publish"
+  role = split("/", var.task_role_arn)[1] # ARN 에서 역할 이름만 추출
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["sns:Publish"]
+        Resource = compact([var.sns_topic_arn_prod, var.sns_topic_arn_dev])
+      }
+    ]
+  })
 }

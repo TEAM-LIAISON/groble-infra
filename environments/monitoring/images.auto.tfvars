@@ -12,9 +12,13 @@
 # 설정 변경은 이 리포지토리가 아니라 groble-images 에서 하고, 여기 태그를 올린다.
 # 태그 규칙: <업스트림버전>-<config내용해시>
 
-# Grafana — Docker Hub. 아직 config baking 대상이 아니다 (runbook Phase 2-2)
-grafana_image   = "grafana/grafana"
-grafana_version = "10.2.0"
+# Grafana — groble-images (대시보드·데이터소스·알림 프로비저닝 baked)
+# 2026-08-20: grafana/grafana:10.2.0 -> ECR 11.6.3-b75b8fe (runbook Phase 2-2)
+#   11.x 로 올린 이유는 네이티브 AWS SNS contact point 다. 10.2 에는 없어서
+#   Slack Webhook 을 새로 발급해야 했다(= 시크릿이 하나 는다).
+#   ⚠️ 10.2 로의 롤백은 불가능하다 — Grafana 11 이 SQLite 스키마를 단방향 마이그레이션한다.
+grafana_image   = "538827147369.dkr.ecr.ap-northeast-2.amazonaws.com/groble-grafana"
+grafana_version = "11.6.3-b75b8fe"
 
 # Loki — groble-images
 monitoring_loki_image = "538827147369.dkr.ecr.ap-northeast-2.amazonaws.com/groble-loki:3.6.15-c8fcfa0"
