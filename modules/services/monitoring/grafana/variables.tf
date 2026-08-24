@@ -92,3 +92,19 @@ variable "aws_region" {
   description = "AWS Region"
   type        = string
 }
+
+#################################
+# 알림 (Grafana → SNS → AWS Chatbot → Slack)
+#################################
+
+variable "sns_topic_arn_prod" {
+  description = "긴급 알람용 SNS 토픽 ARN (#groble-alert). Grafana 알림 규칙 중 severity=critical 이 여기로 간다"
+  type        = string
+  default     = ""
+}
+
+variable "sns_topic_arn_dev" {
+  description = "일반 알람용 SNS 토픽 ARN (#groble-alert-dev). severity=warning 이 여기로 간다"
+  type        = string
+  default     = ""
+}

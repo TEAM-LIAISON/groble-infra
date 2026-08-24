@@ -79,6 +79,10 @@ module "grafana" {
   grafana_plugins = var.grafana_plugins
   admin_password  = var.grafana_admin_password
 
+  # 알림 경로: Grafana → SNS → AWS Chatbot → Slack (Phase 1 에서 만든 경로 재사용)
+  sns_topic_arn_prod = data.terraform_remote_state.shared.outputs.alerts_sns_topic_arn_prod
+  sns_topic_arn_dev  = data.terraform_remote_state.shared.outputs.alerts_sns_topic_arn_dev
+
   # Grafana 리소스 설정
   cpu                          = var.grafana_cpu
   memory                       = var.grafana_memory
@@ -186,6 +190,7 @@ module "ecr" {
     "groble-prometheus" = 10
     "groble-otelcol"    = 10
     "groble-loki"       = 10
+    "groble-grafana"    = 10
   }
 
   # ECS 실행/태스크 역할에 pull 허용
