@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **상태** | 계획 수립 완료 + **Terraform 사전 변경분 작성 완료** (`feat/rds-mysql-84-upgrade`). 사전 확인 3건 미완 — 아래 [사전 확인](#사전-확인) |
+| **상태** | Terraform 사전 변경분 작성 완료(`feat/rds-mysql-84-upgrade`, apply 대기) · **DB 사전 확인 2건 통과.** 남은 것은 백엔드 회신 2건 — 아래 [사전 확인](#사전-확인) |
 | **목적** | 2026-08-01 부터 자동 부과되기 시작한 **RDS Extended Support 과금(월 $178.56)을 멈춘다** |
 | **사용자 영향** | Blue/Green 전환 시 **쓰기 차단 약 1분**. 그 외 무중단 |
 | **되돌리기** | 전환 후 구 인스턴스(`-old1`)가 남으므로 **엔드포인트 되돌리기 가능**. 단 전환 후 쓰기분은 유실 |
@@ -83,7 +83,7 @@ user-set 으로 잡지 않는다(`--source user` 조회 시 안 나옴). 실질 
 | 항목 | 값 | 8.4 호환 |
 |---|---|---|
 | Spring Boot | 3.5.16 | — |
-| MySQL Connector/J | **9.5.0** | ✅ 8.4 지원 |
+| MySQL Connector/J | **미확정** (캐시에 `8.3.0`·`9.5.0` 공존) | ⏳ [③(b)](#-백엔드-회신---대기-중-2건) 확인 필요 |
 | Flyway | **11.7.2** (`flyway-mysql`) | ✅ 8.4 지원 |
 | DB 접속 정보 | `DB_HOST` 환경변수 = RDS 엔드포인트 | ✅ B/G 전환 시 **재배포 불필요** |
 
@@ -152,42 +152,79 @@ done
 
 **모두 끝나기 전에는 D-Day 를 잡지 않는다.**
 
-#### ① 인증 플러그인 (가장 큰 미확인 변수)
+| # | 항목 | 상태 |
+|---|---|---|
+| ① | 인증 플러그인 | ✅ 통과 — RDS 8.4 가 native password 를 켠 채 고정한다 |
+| ② | 스키마 (MyISAM · utf8mb3) | ✅ 통과 — 106테이블 전부 InnoDB, utf8mb3 없음 |
+| ③ | 백엔드 회신 (예약어 · Connector/J 버전) | ⏳ **대기** |
+| ④⑤ | Terraform 사전 변경분 | ✅ 작성 완료, apply 대기 |
 
-MySQL 8.4 는 `mysql_native_password` 를 기본 비활성화한다. 해당 플러그인을 쓰는 계정이
-있으면 **업그레이드 후 접속이 전부 실패한다.** VPN → 모니터링 노드 경유로 접속해 확인한다.
+#### ① 인증 플러그인 — ✅ 확인 완료 (2026-08-26). **차단 요인 아니다**
 
-```sql
-SELECT user, host, plugin FROM mysql.user WHERE plugin <> 'caching_sha2_password';
+운영 DB 실측 결과다.
+
+| user | host | plugin |
+|---|---|---|
+| `groble_root` | `%` | **`mysql_native_password`** |
+| `rds_superuser_role` | `%` | `mysql_native_password` (RDS 관리 롤, 로그인 계정 아님) |
+| `rdsadmin` | `localhost` | `auth_socket` (RDS 내부 관리자, AWS가 관리) |
+| `mysql.infoschema` / `mysql.session` / `mysql.sys` | `localhost` | `caching_sha2_password` |
+
+**앱 계정 `groble_root` 가 `mysql_native_password` 를 쓰고 있다.** 업스트림 MySQL 8.4 는 이
+플러그인을 기본 비활성화하므로 원래대로면 업그레이드 후 접속 전멸이다.
+
+**그런데 RDS 는 다르다.** `mysql8.4` 파라미터그룹 기본값을 조회하면:
+
+```
+mysql_native_password   ParameterValue: ON   ApplyType: static   IsModifiable: false
+authentication_policy   ParameterValue: *:caching_sha2_password  IsModifiable: true
 ```
 
-`groble_root` 가 `mysql_native_password` 로 나오면 **업그레이드 전에** 전환한다:
+**AWS 가 `ON` 으로 고정해 두었고 끌 수조차 없다**(`IsModifiable: false`). 즉 RDS MySQL 8.4 에서는
+기존 native password 계정이 그대로 인증된다. `authentication_policy` 는 **신규 생성 계정의
+기본 플러그인**만 정하므로 기존 계정에 영향이 없다.
+
+> 앞서 이 항목을 "가장 큰 미확인 변수"로 분류했는데, RDS 가 업스트림과 다르게 동작한다.
+> **인증 플러그인 때문에 업그레이드가 막히지는 않는다.**
+
+**다만 부채로 남는다.** AWS 파라미터 설명 자체가 *"deprecated 이며 다음 메이저 릴리스에서
+제거된다"* 고 못박고 있다. 9.x 이전에 반드시 옮겨야 하며, **이번 업그레이드와 분리해서**
+진행하는 편이 낫다 (동시에 바꾸면 장애 원인 분리가 안 된다).
 
 ```sql
+-- 8.0 상태에서 먼저, 별도 작업으로. 8.4 전환과 같은 날 하지 말 것
 ALTER USER 'groble_root'@'%' IDENTIFIED WITH caching_sha2_password BY '<현재 비밀번호>';
 ```
 
-> 전환 후 Connector/J 는 `caching_sha2_password` 협상에 서버 공개키가 필요하다.
-> TLS 미사용 접속이면 JDBC URL 에 `allowPublicKeyRetrieval=true` 가 필요할 수 있다.
-> **8.0 상태에서 먼저 바꿔 접속이 되는지 확인**하면 8.4 전환과 문제를 분리할 수 있다.
+> 전환 시 Connector/J 는 `caching_sha2_password` 협상에 서버 공개키가 필요하다.
+> TLS 미사용이면 JDBC URL 에 `allowPublicKeyRetrieval=true` 가 필요할 수 있다.
 
-#### ② 스키마 호환성
+**운영 메모:** 로컬 MySQL **9.x 클라이언트는 native password 계정에 접속하지 못한다**
+(`mysql_native_password.so` 가 클라이언트에서 제거됐다). 점검 시 8.x 클라이언트나
+`pymysql` 같은 대체 클라이언트가 필요하다.
 
-```sql
--- MyISAM 잔존 (8.4에서 시스템 테이블 MyISAM 미지원)
-SELECT engine, COUNT(*) FROM information_schema.tables
- WHERE table_schema NOT IN ('mysql','information_schema','performance_schema','sys')
- GROUP BY engine;
+#### ② 스키마 호환성 — ✅ 확인 완료 (2026-08-26). **문제 없음**
 
--- utf8mb3 사용 테이블 (deprecated)
-SELECT table_schema, table_name, table_collation FROM information_schema.tables
- WHERE table_collation LIKE 'utf8mb3%';
-```
+| 점검 | 결과 |
+|---|---|
+| 스토리지 엔진 | **106개 테이블 전부 InnoDB.** MyISAM 없음 |
+| utf8mb3 (테이블 레벨) | **해당 없음** |
+| utf8mb3 (컬럼 레벨) | **해당 없음** |
 
-#### ③ 백엔드 회신 — 8.4 예약어 충돌
+컬럼 레벨은 테이블 기본 콜레이션과 다를 수 있어 따로 확인했고, 역시 없다.
 
-219건의 Flyway 스크립트와 네이티브 쿼리에 8.4 신규 예약어가 식별자로 쓰였는지 확인 요청.
-**이미 적용된 마이그레이션은 재실행되지 않으므로 런타임 네이티브 쿼리가 실제 위험 지점이다.**
+#### ③ 백엔드 회신 — ⏳ 대기 중 (2건)
+
+**(a) 8.4 신규 예약어 충돌.** 219건의 Flyway 스크립트와 네이티브 쿼리에 8.4 예약어가
+식별자로 쓰였는지 확인 요청. 이미 적용된 마이그레이션은 재실행되지 않으므로
+**런타임 네이티브 쿼리가 실제 위험 지점이다.**
+
+**(b) MySQL Connector/J 해석 버전 확정.** gradle 캐시에 `8.3.0` 과 `9.5.0` 이 함께 있어
+현재 빌드가 어느 쪽을 쓰는지 오프라인으로 확정하지 못했다. **`./gradlew dependencies` 로 확인 필요.**
+
+- `9.x` 면 문제 없다
+- **`8.3.0` 이면 확인이 필요하다** — 8.3.0 은 MySQL 8.4 GA 이전 릴리스라 8.4 서버 조합이
+  공식 검증 범위 밖이다. Connector/J `8.4+` 로 올리는 편이 안전하다
 
 #### ④⑤ Terraform 사전 변경분 — ✅ 작성 완료, apply 대기
 
@@ -382,6 +419,10 @@ aws rds delete-db-instance --profile groble-terraform --region ap-northeast-2 \
    **8.4 비호환이 CI 를 통과해 prod 에서 처음 드러난다.** 업그레이드 후 dev 도 8.4 로 맞출 것.
 3. **`/actuator/health` 에 liveness/readiness 구분이 없다.** 이번엔 임계 완화로 우회하지만,
    Phase 7(ASG) 에서 노드가 교체될 때 같은 문제가 반복된다. 백엔드에 health group 분리 요청 필요.
-4. **AZ 불일치는 이번에 해소되지 않는다.** 그린도 db_subnet_group 안에서 생성되며 2c 로
+4. **`CLAUDE.md` 의 RDS SG 서술이 실제와 다르다.** 문서는 "3306 from Prod/Dev/API Task/Monitoring"
+   이라고 적었지만, 실제 인그레스는 **Monitoring · Prod · API Task 3개 SG 뿐이고 Dev 는 없다.**
+   또한 CIDR 인그레스가 없어 **VPN(10.6.0.0/24)에서 RDS 로 직접 접속되지 않는다** —
+   점검하려면 모니터링 노드를 경유한 SSH 터널이 필요하다.
+5. **AZ 불일치는 이번에 해소되지 않는다.** 그린도 db_subnet_group 안에서 생성되며 2c 로
    배치될 가능성이 높지만 보장되지 않는다. 전환 후 실제 AZ 를 확인하고, prod EC2(2a)와의
    cross-AZ 문제는 Phase 7 에서 함께 다룬다.
