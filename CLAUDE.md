@@ -272,10 +272,22 @@ All → Grafana (3000) Dashboard
 3. **Dev Target SG**: 80, 8080, 22, 3306, 6379, 9100, 8081
 4. **Monitoring SG**: **51820/UDP (WireGuard, `0.0.0.0/0` 개방)**, 22, 3000, 4317/4318, 3100, 9090, NAT(all TCP/UDP)
 5. **API Task SG**: 8080 from ALB only (awsvpc 격리)
-6. **RDS MySQL SG**: 3306 from Prod/Dev/API Task/Monitoring
+6. **RDS MySQL SG**: 3306 from **Prod Target · API Task · Monitoring** (SG 참조 3건).
+   ⚠️ **Dev Target SG는 없다** — dev는 컨테이너 MySQL을 쓰므로 prod RDS에 붙을 일이 없다.
+   ⚠️ **CIDR 인그레스가 하나도 없다** (VPN 서브넷 포함). 아래 접근 경로 참조
 
-**개발자 접근 경로**: WireGuard(51820) → VPN 서브넷 `10.6.0.0/24` → 모니터링 노드 SSH(22) → private 노드·RDS.
+**개발자 접근 경로**: WireGuard(51820) → VPN 서브넷 `10.6.0.0/24` → 모니터링 노드 SSH(22) → private 노드.
 SSM Session Manager는 아직 도입되지 않았다.
+
+⚠️ **RDS는 VPN에서 직접 닿지 않는다.** VPN이 `10.0.0.0/16`을 라우팅하고 RDS 사설 IP까지 ping도 되지만,
+RDS SG에 CIDR 인그레스가 없어 3306이 거부된다. **모니터링 노드를 경유하는 SSH 터널로만 접속된다:**
+
+```bash
+ssh -f -N -L 13306:<rds-endpoint>:3306 -i <key>.pem ubuntu@10.0.1.193
+```
+
+> 접속 계정 `groble_root`는 `mysql_native_password`를 쓴다. **MySQL 9.x 클라이언트는 이 플러그인을
+> 제거해서 접속하지 못한다** (`mysql_native_password.so` 없음). 8.x 클라이언트나 `pymysql`을 쓸 것.
 
 ### IAM Roles (`modules/infrastructure/iam-roles/main.tf`)
 

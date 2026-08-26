@@ -419,10 +419,12 @@ aws rds delete-db-instance --profile groble-terraform --region ap-northeast-2 \
    **8.4 비호환이 CI 를 통과해 prod 에서 처음 드러난다.** 업그레이드 후 dev 도 8.4 로 맞출 것.
 3. **`/actuator/health` 에 liveness/readiness 구분이 없다.** 이번엔 임계 완화로 우회하지만,
    Phase 7(ASG) 에서 노드가 교체될 때 같은 문제가 반복된다. 백엔드에 health group 분리 요청 필요.
-4. **`CLAUDE.md` 의 RDS SG 서술이 실제와 다르다.** 문서는 "3306 from Prod/Dev/API Task/Monitoring"
-   이라고 적었지만, 실제 인그레스는 **Monitoring · Prod · API Task 3개 SG 뿐이고 Dev 는 없다.**
-   또한 CIDR 인그레스가 없어 **VPN(10.6.0.0/24)에서 RDS 로 직접 접속되지 않는다** —
-   점검하려면 모니터링 노드를 경유한 SSH 터널이 필요하다.
+4. **✅ 반영 완료 — `CLAUDE.md` 의 RDS SG 서술을 실제에 맞게 고쳤다.** 문서는
+   "3306 from Prod/Dev/API Task/Monitoring" 이라고 적었지만, 실제 인그레스는
+   **Monitoring · Prod · API Task 3개 SG 뿐이고 Dev 는 없다** (Terraform 코드도 3건뿐이라
+   drift 가 아니라 문서 오류였다). 또한 CIDR 인그레스가 없어 **VPN 에서 RDS 로 직접
+   접속되지 않는다** — 모니터링 노드 경유 SSH 터널이 필요하다는 점과, native password 계정이라
+   **MySQL 9.x 클라이언트로는 접속되지 않는다**는 점을 함께 적어 두었다.
 5. **AZ 불일치는 이번에 해소되지 않는다.** 그린도 db_subnet_group 안에서 생성되며 2c 로
    배치될 가능성이 높지만 보장되지 않는다. 전환 후 실제 AZ 를 확인하고, prod EC2(2a)와의
    cross-AZ 문제는 Phase 7 에서 함께 다룬다.
