@@ -94,8 +94,46 @@ resource "aws_db_parameter_group" "mysql_params" {
     value = "200"
   }
   
+  # RDS Blue/Green 배포의 전제조건이다. 기본값 MIXED로는 그린 인스턴스로의
+  # 논리 복제가 성립하지 않아 create-blue-green-deployment가 거부된다.
+  # 동적 파라미터라 재부팅 없이 적용된다.
+  parameter {
+    name  = "binlog_format"
+    value = "ROW"
+  }
+  
   tags = {
     Name        = "${var.project_name}-${var.environment}-mysql-params"
+    Environment = var.environment
+  }
+}
+
+# DB Parameter Group for MySQL 8.4
+#
+# 8.0용 그룹을 고쳐 쓸 수 없다 — family는 변경 불가 속성이라 in-place 수정이 되지 않고,
+# 같은 이름으로 replace를 걸면 destroy와 create가 이름 충돌로 맞물린다.
+# 그래서 별도 이름의 신규 리소스로 만든다. 이 리소스는 순수 추가라 기존 인스턴스에
+# 아무 영향을 주지 않으며, Blue/Green의 그린 인스턴스가 이것을 받아 기동한다.
+#
+# 이관 대상은 max_connections 하나뿐이다. innodb_buffer_pool_size는 위 그룹에서도
+# 엔진 기본 수식과 동일해 RDS가 user-set으로 잡지 않으므로(--source user 조회 시 미출력)
+# 여기로 옮기지 않는다. 옮기면 perpetual diff만 생긴다.
+resource "aws_db_parameter_group" "mysql_params_84" {
+  family = "mysql8.4"
+  name   = "${var.project_name}-${var.environment}-mysql-84-params"
+  
+  parameter {
+    name  = "max_connections"
+    value = "200"
+  }
+  
+  parameter {
+    name  = "binlog_format"
+    value = "ROW"
+  }
+  
+  tags = {
+    Name        = "${var.project_name}-${var.environment}-mysql-84-params"
     Environment = var.environment
   }
 }
