@@ -12,7 +12,7 @@
 |---|---|---|---|---|
 | [egress-ip-allowlist.md](./egress-ip-allowlist.md) | groble-backend | 2026-08-24 | ⏳ 회신 대기 | **[Phase 3](../runbook/phase-03-nat-gateway.md) 착수 조건.** 아웃바운드 IP가 바뀌므로 외부 업체에 등록된 허용목록 확인이 필요하다 |
 | [rds-84-parameter-parity.md](./rds-84-parameter-parity.md) | groble-backend | 2026-08-28 | 🔄 진행 중 | **회신 문서.** 백엔드가 제보한 블루/그린 파라미터 차이 3건(+ 인프라가 찾은 1건) 수정 완료. **그린 재검증 회신 대기** |
-| [rds-mysql-84-compatibility.md](./rds-mysql-84-compatibility.md) | groble-backend | 2026-08-26 | 🔄 진행 중 | **[RDS 8.4 업그레이드](../runbook/adhoc/rds-mysql-84-upgrade.md) 착수 조건.** 확장 지원 과금(월 $178.56)이 8/1부터 붙고 있다. **회신 완료(8/28) — 3건 모두 진행 가능.** 조건 3개(헬스체크 완화 확정 · 04:10~04:50 KST · 앱 배포 없는 날)를 런북에 반영했다. 현재 **그린 실쿼리 검증 회신 대기** ([접속 안내](./rds-84-green-access.md) 전달 완료) |
+| [rds-mysql-84-compatibility.md](./rds-mysql-84-compatibility.md) | groble-backend | 2026-08-26 | 🔄 진행 중 | **[RDS 8.4 업그레이드](../runbook/adhoc/rds-mysql-84-upgrade.md) 착수 조건.** 확장 지원 과금(월 $178.56)이 8/1부터 붙고 있다. **회신 완료(8/28) — 3건 모두 진행 가능.** 조건 3개(헬스체크 완화 확정 · 04:10~04:50 KST · 앱 배포 없는 날)를 런북에 반영했다. **전환 완료(2026-08-29).** 남은 회신은 ① 02:19~02:27 구간 결제 점검 ② 첫 09:00 정기결제 배치 확인 |
 | [payment-alerts-review.md](./payment-alerts-review.md) | groble-backend | 2026-08-20 | ⏳ 부분 회신 대기 | **A(알림 검수)는 회신 완료** → R1~R9 반영·배포됨. **B(지표 3종 노출) 대기** → 나오면 R10~R14 를 건다. [Phase 2](../runbook/phase-02-observability.md) 완료를 막지는 않는다 |
 
 ---

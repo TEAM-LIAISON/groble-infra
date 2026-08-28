@@ -18,9 +18,26 @@ resource "aws_db_instance" "mysql" {
   identifier = "${var.project_name}-${var.environment}-mysql"
   
   # Engine configuration
-  engine         = "mysql"
-  engine_version = "8.0"
-  instance_class = var.instance_class
+  #
+  # 2026-08-29 Blue/Green 으로 8.0 → 8.4 전환 완료. 전환은 CLI 로 수행했고
+  # 그 뒤 state rm → import 로 신규 인스턴스를 다시 붙였다.
+  # state 가 identifier 가 아니라 DbiResourceId 로 추적하기 때문에
+  # 코드만 고쳐서는 구 인스턴스를 계속 관리하게 된다.
+  # 절차: docs/runbook/adhoc/rds-mysql-84-upgrade.md
+  # ⚠️ 마이너까지 정확히 고정한다. "8.4" 로 두면 AWS 가 패밀리 기본값(8.4.9)으로
+  #    해석해 8.4.11 → 8.4.9 다운그레이드를 시도하고 apply 가 실패한다.
+  #    (2026-08-29 실제로 겪었다: InvalidParameterCombination:
+  #     Cannot upgrade mysql from 8.4.11 to 8.4.9)
+  #    8.0 시절 "8.0" 표기가 통했던 것은 패밀리 기본값이 마침 실제 버전과
+  #    같았기 때문일 뿐이다.
+  #
+  #    auto_minor_version_upgrade 가 켜져 있어 RDS 가 점검창에 마이너를 올리면
+  #    plan 에 드리프트로 뜬다. 그때 이 값을 실제 버전으로 올릴 것 —
+  #    드리프트가 보이는 편이 조용히 어긋나는 것보다 낫다.
+  engine                      = "mysql"
+  engine_version              = "8.4.11"
+  allow_major_version_upgrade = true
+  instance_class              = var.instance_class
   
   # Database configuration
   db_name  = var.database_name
@@ -60,7 +77,7 @@ resource "aws_db_instance" "mysql" {
   final_snapshot_identifier = var.skip_final_snapshot ? null : "${var.project_name}-${var.environment}-mysql-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
   
   # Parameter group
-  parameter_group_name = aws_db_parameter_group.mysql_params.name
+  parameter_group_name = aws_db_parameter_group.mysql_params_84.name
   
   tags = {
     Name        = "${var.project_name}-${var.environment}-mysql"

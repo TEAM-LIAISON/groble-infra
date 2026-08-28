@@ -40,8 +40,9 @@ SSM Session Manager(bastion·WireGuard 폐기) · Terraform state를 S3로
 남은 것은 ① NoData로 죽어 있는 JVM 힙 알람 수정 ② 백엔드 지표 3종을 받은 뒤 알림 R10~R14. 상세와 이어받기는
 [`docs/runbook/phase-02-observability.md`](docs/runbook/phase-02-observability.md)에 있다.
 Phase 3부터는 미착수이며, **Phase 3은 [egress IP 허용목록 회신](docs/handoff/egress-ip-allowlist.md)이 착수 조건이다.**
-Phase와 독립적인 [RDS MySQL 8.4 업그레이드](docs/runbook/adhoc/rds-mysql-84-upgrade.md)도 진행 중이다
-(확장 지원 과금 $178.56/월 중단 목적, 백엔드 회신 2건 대기).
+Phase와 독립적인 [RDS MySQL 8.4 업그레이드](docs/runbook/adhoc/rds-mysql-84-upgrade.md)는
+**2026-08-29 전환 완료**했다 (확장 지원 과금 $178.56/월 중단). 구 인스턴스
+`groble-prod-mysql-old1`은 롤백용으로 **D+7까지 남겨두며, 8.0이라 과금이 계속되므로 반드시 삭제할 것.**
 
 > **진행 상태의 단일 진실은 [이관 절차 목차](docs/infra-ha-migration-runbook.md)의 순서 요약 표다.**
 > 이 문단은 그 요약일 뿐이므로, 상태가 바뀌면 표를 먼저 고칠 것.
@@ -183,7 +184,10 @@ RDS는 `multi_az = false`이고 db_subnet_group이 2a/2c를 모두 포함해 **A
 > **노드당 API 태스크는 최대 2개**다. 밀도를 논할 때 메모리가 아니라 이 제약이 상한이다.
 
 ### Database
-- **Prod**: RDS MySQL 8.0.45 (**db.t3.micro**, gp2, 암호화, 7일 백업, **20GB→100GB** auto-scaling, **단일 AZ / 2c**)
+- **Prod**: RDS MySQL **8.4.11** (**db.t3.micro**, gp2, 암호화, 7일 백업, **20GB→100GB** auto-scaling, **단일 AZ / 2c**)
+  > ⚠️ `engine_version`은 **마이너까지 정확히 고정**한다(`"8.4.11"`). `"8.4"`로 두면 AWS가 패밀리
+  > 기본값(8.4.9)으로 해석해 다운그레이드를 시도하고 apply가 실패한다.
+  > 백업창 `18:00-19:00` UTC = KST 03~04시, 점검창 `sun:19:00-sun:20:00` UTC = KST 월 04~05시.
   > db.t3.micro는 메모리 1GiB다. 용량을 논할 때 EC2의 t3.medium과 혼동하지 말 것 — 이전 문서가 `db.t3.medium` / `100GB→1000GB`로 잘못 적고 있었다.
 - **Dev**: MySQL 8.0 컨테이너 (host mode, 256MB, **데이터가 노드 로컬 디스크** `/opt/mysql-dev-data`)
 
