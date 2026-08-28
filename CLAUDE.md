@@ -18,9 +18,11 @@ This is **groble-infra**, a Terraform-based AWS infrastructure project for the G
 
 | 문서 | 내용 |
 |---|---|
+| [`docs/README.md`](docs/README.md) | **문서 진입점** — 무엇을 언제 여는가, 폴더·상태 어휘 규칙 |
 | [`docs/infra-ha-improvement-plan.md`](docs/infra-ha-improvement-plan.md) | 무엇을 왜 바꾸는가 (설계·결정 근거) |
 | [`docs/infra-ha-migration-runbook.md`](docs/infra-ha-migration-runbook.md) | 어떤 순서로 이관하는가 — **목차·공통 원칙·부록** |
-| [`docs/runbook/`](docs/runbook/) | Phase 0~11 각각의 상세 절차·검증·롤백 (Phase당 1개 파일) |
+| [`docs/runbook/`](docs/runbook/) | Phase 0~11 각각의 상세 절차·검증·롤백 (Phase당 1개 파일). `adhoc/`는 Phase 순서와 무관한 단발 작업 |
+| [`docs/handoff/README.md`](docs/handoff/README.md) | 백엔드에 보낸 요청·질의와 **회신 대기 현황** (`closed/`는 종결분) |
 | [`docs/infra-future-improvements.md`](docs/infra-future-improvements.md) | 이번 범위 밖 항목 (우선순위·트리거) |
 | [`docs/monitoring-config-baking.md`](docs/monitoring-config-baking.md) | 모니터링 config baking 구조 |
 
@@ -34,10 +36,17 @@ SSM Session Manager(bastion·WireGuard 폐기) · Terraform state를 S3로
 (`#groble-alert` 긴급 / `#groble-alert-dev`)로 전달된다. 임계치는 실측 기준선으로 확정했다
 (계획서 §2.1 "트래픽·자원 기준선").
 **Phase 2 진행 중** — 2-0(API 워킹셋 측정) · 2-1(Prometheus `ec2_sd_config` 전환) ·
-2-2(Grafana 프로비저닝 as-code) **배포 완료**. 남은 것은 백엔드 회신에 걸린 2건뿐이다
-(결제 알림 5건 검수 · prod JVM 힙 상한 수정 배포). 상세와 이어받기는
+2-2(Grafana 프로비저닝 as-code) **배포·검증까지 완료**. `memoryReservation` 확정으로 Phase 7 차단이 풀렸다.
+남은 것은 ① NoData로 죽어 있는 JVM 힙 알람 수정 ② 백엔드 지표 3종을 받은 뒤 알림 R10~R14. 상세와 이어받기는
 [`docs/runbook/phase-02-observability.md`](docs/runbook/phase-02-observability.md)에 있다.
-Phase 3부터는 미착수다. Phase 2가 바꾼 것은 아래 [Monitoring Stack](#monitoring-stack-모두-host-mode-networking)에
+Phase 3부터는 미착수이며, **Phase 3은 [egress IP 허용목록 회신](docs/handoff/egress-ip-allowlist.md)이 착수 조건이다.**
+Phase와 독립적인 [RDS MySQL 8.4 업그레이드](docs/runbook/adhoc/rds-mysql-84-upgrade.md)도 진행 중이다
+(확장 지원 과금 $178.56/월 중단 목적, 백엔드 회신 2건 대기).
+
+> **진행 상태의 단일 진실은 [이관 절차 목차](docs/infra-ha-migration-runbook.md)의 순서 요약 표다.**
+> 이 문단은 그 요약일 뿐이므로, 상태가 바뀌면 표를 먼저 고칠 것.
+
+Phase 2가 바꾼 것은 아래 [Monitoring Stack](#monitoring-stack-모두-host-mode-networking)에
 반영했고, **그 밖의 서술은 여전히 As-Is다.**
 
 ---

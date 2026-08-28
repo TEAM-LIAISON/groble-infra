@@ -4,12 +4,30 @@
 
 | | |
 |---|---|
-| **상태** | ✅ 완료 |
+| **상태** | ✅ 완료 (2026-08-16) |
 | **목적** | 이후 모든 단계가 state를 크게 조작한다. 잠금·이력·백업 없이 진행하지 않는다 |
 | **사용자 영향** | 없음 (실물 인프라 무변경) |
 | **되돌리기** | 로컬 state 복원 |
 
 ---
+
+## ✅ 완료 요약
+
+> **이 문서는 이미 끝난 작업의 기록이다.** 아래 절차는 다시 따라 할 것이 아니라, 지금 배포된 상태가
+> 어떻게 만들어졌는지와 되돌리는 방법을 남겨둔 것이다.
+
+- **배포된 것** — 환경 4곳(`shared`·`prod`·`dev`·`monitoring`)의 state가 S3 `groble-terraform-state`로 이전됐다.
+  환경별 `backend.tf` 별도 파일 · S3 네이티브 잠금(`use_lockfile`) · SSE-KMS(`alias/groble/terraform-state`) · versioning.
+  Terraform은 1.5.7 → **1.15.8**(`.terraform-version` 고정). 버킷·KMS 키·CloudTrail은 Terraform 밖에 있다([`bootstrap/`](../../bootstrap/README.md)).
+- **계획과 달랐던 점** — `backend.tf`에 초안에 없던 두 항목을 넣었다. `profile`(backend는 provider 설정을 상속하지 않는다)과
+  `kms_key_id`(생략하면 backend가 AES256 헤더를 보내 버킷 기본 암호화를 덮어쓴다). 그리고 prod 파라미터그룹의
+  perpetual diff 1건을 `apply_method = pending-reboot`로 해소했다.
+- **아직 검증하지 못한 것 2건** — ① Terraform 실행 주체가 아닌 자격증명이 거부되는지(테스트할 두 번째 IAM 주체가 없다)
+  ② state 객체의 CloudTrail 데이터 이벤트 기록.
+- **롤백** — `backend.tf` 삭제 후 `~/groble-tfstate-backup-20260816/` 복원 → `terraform init -migrate-state`.
+
+---
+
 
 ## 0-a. Terraform 업그레이드 (선행) — ✅ 완료
 
