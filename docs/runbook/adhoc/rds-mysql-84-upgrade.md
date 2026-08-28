@@ -501,6 +501,43 @@ RDS 가 쓰기를 차단 → 복제 완결 대기 → **이름을 맞바꾼다.*
 그린이 `groble-prod-mysql` 이 되고, 구 인스턴스는 `groble-prod-mysql-old1` 이 된다.
 **엔드포인트 DNS 가 동일하므로 ECS 재배포는 필요 없다.**
 
+#### 스위치오버가 실제로 하는 일 (오해 방지)
+
+**블루는 업그레이드되지 않는다.** 8.4 전환은 그린을 만들 때 이미 끝났고
+(`DB_ENGINE_VERSION_UPGRADE: COMPLETED`), 스위치오버는 **이미 8.4 인 DB 로 갈아타는 것**이다.
+그래서 1분이면 된다 — 업그레이드 작업이 그 안에 없다.
+
+RDS 가 하는 일의 순서다.
+
+```
+① 양쪽 환경의 기존 커넥션을 전부 끊고 새 커넥션도 막는다
+② 블루의 쓰기를 중단시킨다
+③ 그린이 남은 복제분을 따라잡을 때까지 기다린다
+④ 이름을 맞바꾼다  (블루 → -old1, 그린 → groble-prod-mysql)
+⑤ 그린의 read_only 해제, 복제 연결 끊기
+⑥ 커넥션 수락 재개
+```
+
+**앱이 이 구간에 보는 오류는 `1290 (HY000): The MySQL server is running with the
+--read-only option` 이다.** 결제 실패 로그에서 이 문자열을 찾으면 전환 구간의 실패로 식별된다.
+
+> ⚠️ **"앱을 그린 엔드포인트로 재배포한다"는 접근은 틀렸고 위험하다.**
+> ① 전환 전에는 그린이 읽기 전용이라 쓰기가 전부 실패하고,
+> ② 전환 후에는 **그 이름이 구 DB(`-old1`)에 붙는다** — 앱이 옛 DB 를 계속 쓰게 되고
+> D+7 에 구 인스턴스를 지우면 앱이 죽는다.
+> 그린 엔드포인트는 **백엔드 검증용 임시 주소**이며 전환과 함께 사라진다.
+
+**⚠️ JVM DNS 캐시 — 재연결이 구 IP 로 갈 수 있다**
+
+RDS 가 커넥션을 끊어 주므로 앱은 재연결하고, 그때 DNS 가 그린을 가리킨다.
+**단 JVM 이 DNS 를 캐시하면 재연결이 옛 IP(= `-old1`)로 갈 수 있다.**
+
+- 보안 관리자가 설정돼 있지 않은 JDK 는 성공한 조회를 **30초** 캐시한다(기본값). 이 경우 문제없다
+- `networkaddress.cache.ttl` 을 크게 잡아 두었다면 그만큼 옛 DB 를 붙잡는다
+
+**전환 후 검증에서 "앱이 실제로 8.4 에 붙었는지"를 반드시 확인할 것.** 헬스체크 200 만으로는
+구 DB 에 붙어 있어도 통과한다 — 아래 검증의 `SELECT VERSION()` 확인이 그래서 있다.
+
 #### 검증
 
 ```bash
@@ -511,6 +548,13 @@ aws rds describe-db-instances --profile groble-terraform --region ap-northeast-2
 
 # 2. 앱 정상 여부
 curl -sf https://api.groble.im/actuator/health
+
+# 2-1. ⚠️ 앱이 정말 8.4 에 붙었는지 — 헬스체크 200 만으로는 알 수 없다
+#      (JVM DNS 캐시로 구 DB 에 붙어 있어도 200 이 나온다)
+#      백엔드에 요청하거나, 그린에서 현재 접속 목록을 확인한다:
+#        SELECT VERSION();                         -- 8.4.11 이어야 한다
+#        SELECT COUNT(*) FROM information_schema.processlist
+#         WHERE user = 'groble_root';             -- 앱 커넥션이 여기 잡혀야 한다
 
 # 3. 타깃 상태
 aws elbv2 describe-target-health --profile groble-terraform --region ap-northeast-2 \
