@@ -241,9 +241,18 @@ variable "rds_backup_retention_period" {
 }
 
 variable "rds_backup_window" {
-  description = "Daily backup window for RDS (UTC)"
+  description = "Daily backup window for RDS (UTC). 18:00-19:00 UTC = KST 03:00~04:00"
   type        = string
-  default     = "03:00-04:00"
+
+  # ⚠️ 값은 UTC다. KST 로 읽으면 9시간 어긋난다 —
+  # 이전 값 "03:00-04:00" 은 UTC 새벽처럼 보이지만 실제로는 한국 점심시간(12~13시)이었다.
+  #
+  # 점검창(sun:19:00-sun:20:00 UTC)과 인접시키되 겹치지 않게 둔다.
+  # RDS 는 백업창과 점검창이 중첩하면 수정을 거부한다.
+  #
+  # 04:10~04:50 KST 는 RDS 8.4 전환(스위치오버) 창이므로 백업이 그 시간에 돌지 않도록
+  # 04:00 KST 에 끝나게 맞췄다 — docs/runbook/adhoc/rds-mysql-84-upgrade.md
+  default = "18:00-19:00"
   
   validation {
     condition     = can(regex("^([0-1]?[0-9]|2[0-3]):[0-5][0-9]-([0-1]?[0-9]|2[0-3]):[0-5][0-9]$", var.rds_backup_window))
@@ -252,9 +261,12 @@ variable "rds_backup_window" {
 }
 
 variable "rds_maintenance_window" {
-  description = "Weekly maintenance window for RDS (UTC)"
+  description = "Weekly maintenance window for RDS (UTC). sun:19:00-sun:20:00 UTC = KST 월요일 04:00~05:00"
   type        = string
-  default     = "sun:04:00-sun:05:00"
+
+  # ⚠️ 값은 UTC다. 이전 값 "sun:04:00-sun:05:00" 은 한국 시간으로 일요일 13~14시였다.
+  # 콘솔에서 먼저 새벽으로 옮겨져 있던 것을 코드에 맞춘 것이다(2026-08-28).
+  default = "sun:19:00-sun:20:00"
   
   validation {
     condition     = can(regex("^(mon|tue|wed|thu|fri|sat|sun):[0-2][0-9]:[0-5][0-9]-(mon|tue|wed|thu|fri|sat|sun):[0-2][0-9]:[0-5][0-9]$", var.rds_maintenance_window))
