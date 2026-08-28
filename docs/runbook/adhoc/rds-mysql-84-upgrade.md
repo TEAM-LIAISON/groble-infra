@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **상태** | 🔄 진행 중 — **사전 확인 ①~⑤ 전부 완료.** `terraform apply` 반영 완료(2026-08-28). 남은 것은 **그린 생성 → 백엔드 검증 → 전환**. 날짜만 미정 |
+| **상태** | ⏳ **백엔드 실쿼리 검증 대기** — 그린 생성·데이터 일치 확인 완료(2026-08-28), 접속 안내 전달 완료. 검증 회신이 오면 **전환일 확정 → 스위치오버** |
 | **목적** | 2026-08-01 부터 자동 부과되기 시작한 **RDS Extended Support 과금(월 $178.56)을 멈춘다** |
 | **사용자 영향** | Blue/Green 전환 시 **쓰기 차단 약 1분**. 그 외 무중단 |
 | **되돌리기** | 전환 후 구 인스턴스(`-old1`)가 남으므로 **엔드포인트 되돌리기 가능**. 단 전환 후 쓰기분은 유실 |
@@ -410,6 +410,34 @@ aws rds describe-blue-green-deployments --profile groble-terraform --region ap-n
 - `SELECT user, host, plugin FROM mysql.user;` → 인증 플러그인 승계 확인
 - 애플리케이션 주요 쿼리 수동 실행 (백엔드가 지정한 네이티브 쿼리 위주)
 - `SHOW REPLICA STATUS;` → 블루와의 복제 지연 0 확인
+
+**생성 결과 (2026-08-28)**
+
+| | 값 |
+|---|---|
+| B/G 배포 ID | `bgd-j3rtbaneibatpqlc` |
+| 그린 인스턴스 | `groble-prod-mysql-green-ftzmon` |
+| 엔진 | **8.4.11** (`DB_ENGINE_VERSION_UPGRADE: COMPLETED`) |
+| 파라미터그룹 | `groble-prod-mysql-84-params` (in-sync) |
+| AZ | **ap-northeast-2c** — 블루와 동일. cross-AZ 신규 발생 없음 |
+| 복제 | `replicating` / `Normal: true`, ReplicaLag 0초 |
+| 블루 영향 | 없음 — 생성 내내 `available`, 헬스체크 200, 여유 메모리 27~37 MiB (평시 범위 내) |
+
+백엔드 전달용 접속 안내: [`docs/handoff/rds-84-green-access.md`](../../handoff/rds-84-green-access.md)
+
+**데이터 일치 실측 (2026-08-28, 양쪽 직접 접속 비교)**
+
+| 항목 | blue (8.0.45) | green (8.4.11) |
+|---|---:|---:|
+| 테이블 수 | 106 | 106 |
+| **전체 행수 합계** | **510,690** | **510,690** |
+| `mysql.user` 계정 | 7 | 7 |
+
+복제가 실제로 도는 것도 확인했다 — 비교 도중 `content_view_logs` 가 95,829 → 95,830 으로
+늘었고 **양쪽이 함께 늘었다.**
+
+**그린 쓰기는 서버가 막는다** — `read_only = 1` 이고 `groble_root` 에 `SUPER` 가 없다.
+백엔드가 실수로 써도 데이터가 어긋나지 않는다.
 
 #### 스위치오버 실행
 
