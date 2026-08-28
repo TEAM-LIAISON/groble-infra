@@ -67,3 +67,9 @@ variable "additional_ssl_certificate_arn" {
     error_message = "Additional SSL certificate ARN must be a valid ACM certificate ARN or empty string."
   }
 }
+
+variable "extra_ssl_certificate_arns" {
+  description = "Additional SSL certificate ARNs attached to both the 443 and 9443 HTTPS listeners"
+  type        = list(string)
+  default     = []
+}

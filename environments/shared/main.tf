@@ -57,6 +57,7 @@ module "load_balancer" {
   health_check_path              = var.health_check_path
   ssl_certificate_arn            = var.ssl_certificate_arn
   additional_ssl_certificate_arn = aws_acm_certificate_validation.dev_wildcard.certificate_arn
+  extra_ssl_certificate_arns     = [aws_acm_certificate_validation.mcp_dev.certificate_arn]
   idle_timeout                   = 300
 }
 
@@ -106,6 +107,71 @@ resource "aws_route53_record" "dev_wildcard_validation" {
 resource "aws_acm_certificate_validation" "dev_wildcard" {
   certificate_arn         = aws_acm_certificate.dev_wildcard.arn
   validation_record_fqdns = [for record in aws_route53_record.dev_wildcard_validation : record.fqdn]
+}
+
+#################################
+# ACM 인증서 - mcp.dev.groble.im
+#################################
+# mcp.groble.im 은 리스너에 이미 붙어 있는 *.groble.im 와일드카드로 커버된다.
+# 와일드카드는 한 단계만 매칭하므로 mcp.dev.groble.im 은 커버되지 않아 단일 SAN 인증서를 따로 발급한다.
+# (api.dev.groble.im 이 이미 같은 방식이다)
+
+# CAA 레코드 - mcp.dev.groble.im (Amazon 인증서 발급 허용)
+#
+# ⚠️ 이 레코드가 없으면 ACM 발급이 실패한다. mcp.dev.groble.im 에 CAA 가 없으면
+#    상위 dev.groble.im 으로 올라가는데, dev.groble.im 은 Vercel(cname.vercel-dns.com)로 가는
+#    CNAME 이고 그쪽 CAA 는 sectigo/pki.goog/globalsign/letsencrypt 만 허용한다 — amazon.com 이 없다.
+#    api.dev.groble.im 에 CAA 가 따로 박혀 있는 것도 같은 이유다.
+resource "aws_route53_record" "mcp_dev_caa" {
+  zone_id = module.route53.hosted_zone_id
+  name    = "mcp.dev.groble.im"
+  type    = "CAA"
+  ttl     = 300
+
+  records = [
+    "0 issue \"amazon.com\""
+  ]
+
+  allow_overwrite = true
+}
+
+resource "aws_acm_certificate" "mcp_dev" {
+  domain_name       = "mcp.dev.groble.im"
+  validation_method = "DNS"
+
+  tags = {
+    Name = "mcp-dev-groble-im"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  # CAA 가 먼저 올라간 뒤에 발급을 요청해야 한다 (위 주석 참고)
+  depends_on = [aws_route53_record.mcp_dev_caa]
+}
+
+resource "aws_route53_record" "mcp_dev_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.mcp_dev.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  }
+
+  zone_id = module.route53.hosted_zone_id
+  name    = each.value.name
+  type    = each.value.type
+  ttl     = 300
+  records = [each.value.record]
+
+  allow_overwrite = true
+}
+
+resource "aws_acm_certificate_validation" "mcp_dev" {
+  certificate_arn         = aws_acm_certificate.mcp_dev.arn
+  validation_record_fqdns = [for record in aws_route53_record.mcp_dev_validation : record.fqdn]
 }
 
 # WAF 보안 인프라
