@@ -473,13 +473,47 @@ aws ce get-cost-and-usage --profile groble-terraform --region us-east-1 \
 
 ---
 
-### Terraform 정합화 — 빠뜨리면 사고가 난다
+### Terraform 정합화 — **state 재연결이 필요하다. 코드 수정만으로는 안 된다**
 
-> ⚠️ **스위치오버 전까지 prod 에서 `terraform apply` 를 실행하지 말 것.**
-> 코드가 `engine_version = "8.0"` 인 상태에서 DB 가 8.4 가 되면,
-> **Terraform 이 8.0 으로 되돌리려 시도한다.** 스위치오버 직후 아래를 즉시 반영한다.
+> ⚠️ **이 절은 2026-08-28 에 전면 수정됐다.** 이전 판은 "`engine_version` 을 8.4 로 고치면
+> `plan` 이 No changes" 라고 적었는데 **틀렸다.** 아래가 이유다.
 
-`modules/infrastructure/rds-mysql/main.tf`:
+#### 왜 코드 수정만으로는 안 되나
+
+**Terraform state 는 이 인스턴스를 `identifier` 가 아니라 `DbiResourceId` 로 추적한다.**
+
+```
+state 상의 리소스 ID : db-WM4VKRGNLYVHSHUBNSEJJM3AZ4   ← 이것으로 추적한다
+identifier           : groble-prod-mysql
+```
+
+스위치오버는 **이름표만 맞바꾸고 `DbiResourceId` 는 인스턴스마다 고유하다.** 그래서 전환 직후:
+
+| 실제 | Terraform 이 보는 것 |
+|---|---|
+| `groble-prod-mysql` = 신규 8.4 (새 DbiResourceId) — **앱이 쓰는 DB** | 안 보임 |
+| `groble-prod-mysql-old1` = 구 8.0 (`db-WM4VKRG…`) | **여기를 계속 관리** |
+
+**즉 Terraform 이 구 인스턴스를 붙잡고 있다.** 이 상태로 `-old1` 을 지우면 state 가 고아가 되고,
+운영 DB 는 Terraform 관리 밖으로 빠진다.
+
+> `aws_db_instance` 에는 `blue_green_update { enabled = true }` 블록이 있어 Terraform 이
+> 전 과정을 대신 수행하고 state 도 정리해 준다. **다만 생성→전환→구 인스턴스 삭제를
+> 한 apply 안에서 끝내 중단점이 없다** — 백엔드 실쿼리 검증과 04:10~04:50 전환 창을
+> 둘 다 지킬 수 없어 채택하지 않았다. (독립 리소스 `aws_rds_blue_green_deployment` 는 없다)
+
+#### 순서 — 스위치오버 직후 즉시
+
+**1. state 에서 구 인스턴스를 떼어낸다**
+
+```bash
+cd environments/prod
+terraform state rm module.rds_mysql.aws_db_instance.mysql
+```
+
+> `prevent_destroy = true` 는 `state rm` 을 막지 않는다 (destroy 가 아니다). 리소스는 그대로 살아 있다.
+
+**2. 코드를 8.4 로 고친다** — `modules/infrastructure/rds-mysql/main.tf`
 
 ```hcl
 engine_version              = "8.4"          # was "8.0"
@@ -487,12 +521,44 @@ allow_major_version_upgrade = true           # 신규
 parameter_group_name        = aws_db_parameter_group.mysql_params_84.name
 ```
 
-`terraform plan` 이 **No changes** 여야 정상이다 (실제 리소스가 이미 그 상태이므로).
-차이가 보고되면 그 자리에서 멈추고 원인을 확인한다.
+**3. 신규 인스턴스를 import 한다** — **identifier 로 넣는다** (resource id 아님)
+
+```bash
+terraform import module.rds_mysql.aws_db_instance.mysql groble-prod-mysql
+```
+
+> ✅ **검증 완료 (2026-08-28).** 별도 작업공간에서 `import` 블록으로 확인한 결과,
+> provider 5.100.0 은 **identifier 를 받아 `resource_id` 로 해석**한다
+> (`groble-prod-mysql` → `db-WM4VKRG…`). 전환 후에 실행하면 새 인스턴스가 잡힌다.
+
+**4. `terraform plan` 으로 확인한다**
+
+```bash
+terraform plan
+```
+
+**예상되는 유일한 차이는 `password` 다.** RDS API 가 마스터 비밀번호를 돌려주지 않아
+import 직후 state 에 값이 없고, 코드에는 `var.mysql_root_password` 가 있어 diff 가 뜬다.
+**같은 값을 다시 넣는 것이라 무해하며**(RDS 는 마스터 비밀번호 변경을 무중단 즉시 적용한다)
+그대로 apply 해서 해소한다.
+
+**그 밖의 차이가 보이면 그 자리에서 멈추고 원인을 확인한다.** 특히
+`identifier` 나 `engine_version` 에 차이가 있으면 잘못된 인스턴스를 잡은 것이다.
+
+#### 하지 말 것
+
+- ⛔ **스위치오버 전에 `terraform apply` 를 실행하지 말 것.** 코드가 `engine_version = "8.0"`
+  인 상태라 8.4 로 바뀐 DB 를 되돌리려 한다
+- ⛔ **1~3 을 마치기 전에 `terraform apply` 를 실행하지 말 것.** state 가 `-old1` 을 가리키는
+  동안 apply 하면 **구 인스턴스의 이름을 `groble-prod-mysql` 로 되돌리려 시도**한다
+- ⛔ **정합화 전에 `-old1` 을 삭제하지 말 것.** state 가 고아가 된다
 
 정합화가 끝난 뒤 후속 apply 에서 구 8.0 파라미터그룹 리소스를 제거한다.
 
 ### 정리 (D+7, 롤백 창이 닫힌 뒤)
+
+> ⛔ **[Terraform 정합화](#terraform-정합화--state-재연결이-필요하다-코드-수정만으로는-안-된다)가
+> 끝난 뒤에만 실행한다.** state 가 아직 `-old1` 을 가리키는 상태에서 지우면 state 가 고아가 된다.
 
 ```bash
 # 1. B/G 배포 레코드 삭제 (구 인스턴스는 남긴다)
