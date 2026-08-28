@@ -167,3 +167,23 @@ variable "monitoring_instance_private_ip" {
   type        = string
   default     = "10.0.1.193"
 }
+
+variable "nat_gateway_id" {
+  description = "NAT Gateway ID. use_nat_gateway = true 일 때 기본 경로의 타깃이 된다"
+  type        = string
+  default     = ""
+}
+
+variable "use_nat_gateway" {
+  description = <<-EOT
+    private 서브넷의 기본 경로를 NAT Gateway 로 보낼지 여부 (Phase 3).
+
+    false — 모니터링 인스턴스 ENI 경유 (As-Is)
+    true  — NAT Gateway 경유
+
+    ⚠️ 이 값을 바꾸는 apply 는 진행 중이던 모든 아웃바운드 연결을 끊는다.
+       저트래픽·무배포 시간대에만 바꿀 것.
+  EOT
+  type        = bool
+  default     = false
+}

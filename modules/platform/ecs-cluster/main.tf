@@ -198,12 +198,26 @@ resource "aws_lb_target_group_attachment" "monitoring_attachment" {
 # NAT 인스턴스 라우트 설정
 #################################
 
-# Private route table에 NAT instance route 추가
+# private route table 의 기본 경로(0.0.0.0/0). 이 한 줄이 아웃바운드 전체를 결정한다.
+#
+# ⚠️ 리소스를 둘로 쪼개지 말 것 (NAT 인스턴스용 / NAT Gateway 용).
+#    같은 route table 의 같은 목적지를 두 리소스가 다투게 되어, Terraform 이
+#    destroy → create 로 처리하면 그 사이 기본 경로가 사라져 egress 가 통째로
+#    블랙홀이 된다. 반대 순서면 RouteAlreadyExists 로 실패한다.
+#    한 리소스에서 타깃 속성만 바꾸면 provider 가 ReplaceRoute 로 원자적으로
+#    갈아끼우므로 경로가 비는 순간이 없다.
+#
+# 전환/롤백은 use_nat_gateway 값 하나로 한다. apply 전 plan 이
+# "~ update in-place" 인지 반드시 육안 확인할 것 — "-/+ replace" 로 나오면
+# 위의 블랙홀 구간이 생긴다는 뜻이므로 중단한다.
 resource "aws_route" "private_nat_route" {
-  count                  = var.create_monitoring_instance ? 1 : 0
+  count = var.create_monitoring_instance || var.use_nat_gateway ? 1 : 0
+
   route_table_id         = var.private_route_table_id
   destination_cidr_block = "0.0.0.0/0"
-  network_interface_id   = aws_instance.monitoring_instance[0].primary_network_interface_id
+
+  nat_gateway_id       = var.use_nat_gateway ? var.nat_gateway_id : null
+  network_interface_id = var.use_nat_gateway ? null : one(aws_instance.monitoring_instance[*].primary_network_interface_id)
 
   depends_on = [aws_instance.monitoring_instance]
 }
