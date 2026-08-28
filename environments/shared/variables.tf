@@ -253,3 +253,16 @@ variable "attach_s3_endpoint_to_private_rt" {
   type        = bool
   default     = false
 }
+
+variable "create_nat_gateway" {
+  description = <<-EOT
+    NAT Gateway 생성 여부.
+
+    false — EIP 만 만들어 IP 를 확보한다 (시간당 요금 없음)
+    true  — NAT Gateway 를 만든다 (약 $0.059/시간). 트래픽 경로는 use_nat_gateway 가 결정한다
+
+    외부 업체 허용목록에 IP 등록이 필요하면, EIP 로 IP 를 먼저 전달해 등록을 마친 뒤 켠다.
+  EOT
+  type        = bool
+  default     = false
+}

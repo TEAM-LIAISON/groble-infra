@@ -52,3 +52,17 @@ variable "attach_s3_endpoint_to_private_rt" {
   type        = bool
   default     = false
 }
+
+variable "create_nat_gateway" {
+  description = <<-EOT
+    NAT Gateway 를 생성할지 여부 (Phase 3).
+
+    false — EIP 만 만든다. 등록할 IP 를 먼저 확보하는 단계이며, 시간당 요금이 없다
+    true  — NAT Gateway 를 만든다. 만들어도 use_nat_gateway 가 false 면 트래픽은 그대로다
+
+    외부 업체 허용목록 등록이 필요한 경우, EIP 로 IP 를 먼저 받아 등록을 진행하고
+    등록이 끝난 뒤 이 값을 켠다.
+  EOT
+  type        = bool
+  default     = false
+}

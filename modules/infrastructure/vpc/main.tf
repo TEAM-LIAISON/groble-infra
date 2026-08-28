@@ -127,6 +127,11 @@ resource "aws_route_table_association" "groble_private_rta" {
 
 data "aws_region" "current" {}
 
+# EIP 는 NAT Gateway 보다 먼저, 단독으로 만든다.
+# 전환 후 외부에서 보이는 우리 출발지 IP 가 이 값이고, 외부 업체 허용목록에
+# 등록해야 하는 것도 이 값이다. 등록에는 상대의 처리 시간이 걸리므로 IP 를 먼저
+# 확보해 전달하고, NAT Gateway 는 등록이 끝난 뒤에 만든다.
+# NAT Gateway 가 이 EIP 를 그대로 물기 때문에 등록한 IP 와 실제 나가는 IP 가 일치한다.
 resource "aws_eip" "nat" {
   domain = "vpc"
 
@@ -136,6 +141,8 @@ resource "aws_eip" "nat" {
 }
 
 resource "aws_nat_gateway" "main" {
+  count = var.create_nat_gateway ? 1 : 0
+
   allocation_id = aws_eip.nat.id
   subnet_id     = local.nat_gateway_subnet_id
 

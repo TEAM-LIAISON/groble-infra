@@ -219,5 +219,14 @@ resource "aws_route" "private_nat_route" {
   nat_gateway_id       = var.use_nat_gateway ? var.nat_gateway_id : null
   network_interface_id = var.use_nat_gateway ? null : one(aws_instance.monitoring_instance[*].primary_network_interface_id)
 
+  # NAT Gateway 가 아직 없는데 기본 경로를 그쪽으로 돌리면 egress 가 통째로 죽는다.
+  # apply 가 시작되기 전에 막는다.
+  lifecycle {
+    precondition {
+      condition     = !var.use_nat_gateway || var.nat_gateway_id != ""
+      error_message = "use_nat_gateway = true 인데 nat_gateway_id 가 비어 있다. create_nat_gateway 를 먼저 true 로 두고 apply 할 것."
+    }
+  }
+
   depends_on = [aws_instance.monitoring_instance]
 }

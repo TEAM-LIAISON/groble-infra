@@ -46,8 +46,8 @@ output "availability_zones" {
 
 # NAT Gateway 관련 출력
 output "nat_gateway_id" {
-  description = "ID of the NAT Gateway"
-  value       = aws_nat_gateway.main.id
+  description = "ID of the NAT Gateway. 아직 만들지 않았으면 null 이다"
+  value       = one(aws_nat_gateway.main[*].id)
 }
 
 output "nat_gateway_public_ip" {

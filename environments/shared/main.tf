@@ -28,7 +28,8 @@ module "vpc" {
   project_name         = var.project_name
   nat_gateway_az       = var.nat_gateway_az
 
-  # Phase 3 — S3 트래픽을 엔드포인트로 돌릴지 (라우트 교체와 독립적으로 켠다)
+  # Phase 3 — 생성/전환 스위치
+  create_nat_gateway               = var.create_nat_gateway
   attach_s3_endpoint_to_private_rt = var.attach_s3_endpoint_to_private_rt
 }
 
