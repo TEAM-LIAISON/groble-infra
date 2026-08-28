@@ -132,6 +132,50 @@ resource "aws_db_parameter_group" "mysql_params_84" {
     value = "ROW"
   }
   
+  # ⚠️ 아래 4건은 8.4 로 올리면서 조용히 달라지는 값을 8.0 과 맞추는 것이다.
+  #
+  # RDS 는 mysql8.4 부터 innodb_dedicated_server 기본값을 1 로 켜고,
+  # innodb_buffer_pool_size / innodb_redo_log_capacity 의 기본값을 아예 없앴다.
+  # 그러면 MySQL 이 감지 메모리로 자동 계산하는데, db.t3.micro(1 GiB)에서는
+  # "1GB 미만" 구간의 최솟값이 잡혀 버퍼풀이 256 MiB → 128 MiB 로 반토막 난다.
+  # redo 도 2048 MiB → 1024 MiB 로 줄어든다. (2026-08-28 그린에서 실측)
+  #
+  # 버전 업그레이드는 like-for-like 여야 한다 — 성능 특성을 같이 바꾸면
+  # 전환 후 문제가 생겼을 때 8.4 탓인지 버퍼풀 탓인지 갈리지 않는다.
+  # 튜닝이 필요하면 전환이 끝난 뒤 별도로 측정해서 한다.
+  #
+  # innodb_dedicated_server 가 1 이면 MySQL 이 buffer_pool / redo 를 자동 설정하고
+  # 명시값을 무시한다. 그래서 반드시 0 으로 꺼야 아래 두 값이 먹는다.
+  parameter {
+    name         = "innodb_dedicated_server"
+    value        = "0"
+    apply_method = "pending-reboot" # static 파라미터
+  }
+  
+  parameter {
+    name         = "innodb_buffer_pool_size"
+    value        = "{DBInstanceClassMemory*3/4}" # 8.0 기본값과 동일한 수식 → 256 MiB
+    apply_method = "pending-reboot"
+  }
+  
+  parameter {
+    name  = "innodb_redo_log_capacity"
+    value = "2147483648" # 8.0 기본값(2 GiB)과 동일
+  }
+  
+  # 8.0 은 TABLE 이 기본이고 8.4 는 기본값이 없어 FILE 로 떨어진다.
+  # general_log·slow_query_log 가 둘 다 꺼져 있어 지금은 무해하지만,
+  # 나중에 켤 때 mysql.slow_log 테이블을 보던 사람이 빈 테이블을 보게 된다.
+  parameter {
+    name  = "log_output"
+    value = "TABLE"
+  }
+  
+  # log_error_suppression_list(블루 = MY-013360)는 맞출 수 없다.
+  # RDS 가 설정 가능한 파라미터로 노출하지 않는다(8.0·8.4 양쪽 그룹에 없음) —
+  # 블루의 값은 RDS 가 내부적으로 넣은 것이다. 8.4 에서는 해당 경고
+  # (mysql_native_password deprecated)가 에러 로그에 남게 된다. 기능 영향은 없다.
+  
   tags = {
     Name        = "${var.project_name}-${var.environment}-mysql-84-params"
     Environment = var.environment

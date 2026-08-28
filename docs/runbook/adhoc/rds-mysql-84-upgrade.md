@@ -281,8 +281,9 @@ ALTER USER 'groble_root'@'%' IDENTIFIED WITH caching_sha2_password BY '<현재 �
 | `aws_db_parameter_group.mysql_params_84` 신설 (family `mysql8.4`) | 〃 | family 는 변경 불가 속성이라 기존 그룹을 고칠 수 없다. 같은 이름으로 replace 하면 destroy/create 가 이름 충돌로 맞물린다 |
 | 출력 `mysql_84_parameter_group_name` | `modules/infrastructure/rds-mysql/outputs.tf`, `environments/prod/main.tf` | 아래 B/G 명령에 그대로 넘기기 위해 |
 
-`innodb_buffer_pool_size` 는 8.4 그룹으로 옮기지 않았다. 8.0 에서도 값이 엔진 기본 수식과
-같아 RDS 가 user-set 으로 잡지 않았고(`--source user` 조회 시 미출력), 옮기면 perpetual diff 만 생긴다.
+> ⚠️ **최초 판단은 틀렸고 2026-08-28 에 바로잡았다.** 여기 원래 "`innodb_buffer_pool_size` 는
+> 8.0 에서도 실질 no-op 이니 8.4 그룹으로 옮기지 않는다"고 적혀 있었다. **8.0 기준으로는 맞지만
+> 8.4 에서는 정반대 결과가 나온다** — 아래 [파라미터 정합](#파라미터-정합--84-기본값이-조용히-바꾸는-것) 참조.
 
 **`terraform plan` 확인 결과 (2026-08-26):**
 
@@ -424,6 +425,50 @@ aws rds describe-blue-green-deployments --profile groble-terraform --region ap-n
 | 블루 영향 | 없음 — 생성 내내 `available`, 헬스체크 200, 여유 메모리 27~37 MiB (평시 범위 내) |
 
 백엔드 전달용 접속 안내: [`docs/handoff/rds-84-green-access.md`](../../handoff/rds-84-green-access.md)
+
+#### 파라미터 정합 — 8.4 기본값이 조용히 바꾸는 것
+
+**백엔드가 블루/그린 파라미터를 전수 비교해 3건의 차이를 제보했고(2026-08-28), 확인 결과 4건이었다.**
+원인은 인스턴스 클래스가 아니다 — 양쪽 모두 `db.t3.micro` 다. **RDS 의 8.0 / 8.4 기본값 정책이 다르다.**
+
+| 파라미터 | mysql8.0 기본 | mysql8.4 기본 |
+|---|---|---|
+| `innodb_dedicated_server` | 없음 (= 0) | **1 (ON)** |
+| `innodb_buffer_pool_size` | `{DBInstanceClassMemory*3/4}` | **없음** |
+| `innodb_redo_log_capacity` | `2147483648` | **없음** |
+| `log_output` | `TABLE` | **없음** |
+
+8.4 부터 AWS 가 `innodb_dedicated_server` 를 켜고 크기 기본값을 없앴다. 그러면 MySQL 이 감지 메모리로
+자동 계산하는데, **1 GiB 인스턴스에서는 "1GB 미만" 구간의 최솟값이 잡힌다.**
+
+| 변수 | blue | green (수정 전) | green (수정 후) |
+|---|---|---|---|
+| `innodb_buffer_pool_size` | 256 MiB | **128 MiB** | 256 MiB ✅ |
+| `innodb_redo_log_capacity` | 2048 MiB | **1024 MiB** | 2048 MiB ✅ |
+| `innodb_dedicated_server` | 0 | 1 | 0 ✅ |
+| `log_output` | TABLE | FILE | TABLE ✅ |
+
+**버전 업그레이드는 like-for-like 여야 한다.** 성능 특성을 같이 바꾸면 전환 후 문제가 생겼을 때
+8.4 탓인지 버퍼풀 탓인지 갈리지 않는다. 튜닝은 전환이 끝난 뒤 측정해서 별도로 한다.
+
+> `innodb_dedicated_server` 가 1 이면 MySQL 이 buffer pool·redo 를 자동 설정하고 **명시값을 무시한다.**
+> 반드시 0 으로 꺼야 나머지 두 값이 먹는다. static 파라미터라 **그린 재부팅이 필요**하다
+> (트래픽을 받지 않으므로 자유롭다. 재부팅 후 복제는 스스로 재개했고 데이터도 계속 일치했다).
+
+**맞출 수 없는 것이 하나 있다 — `log_error_suppression_list`** (blue = `MY-013360`).
+RDS 가 이 파라미터를 **설정 가능 항목으로 노출하지 않는다**(8.0·8.4 양쪽 그룹 어디에도 없음).
+블루의 값은 RDS 가 내부적으로 넣은 것이다. 8.4 에서는 해당 경고(`mysql_native_password` deprecated)가
+에러 로그에 남지만 **기능 영향은 없다.**
+
+**그 밖의 차이는 전부 MySQL 8.4 상류 기본값 변경이다** (글로벌 변수 606개 전수 diff, 실질 차이 19건).
+쿼리 플랜 관점에서 중요한 것 두 가지:
+
+- **`optimizer_switch` 는 기존 플래그 값이 전부 동일하다.** 유일한 차이는 8.4 신규 플래그
+  `hash_set_operations=on` 뿐이다 — **기존 쿼리의 실행계획이 이것 때문에 바뀌지는 않는다**
+- ⚠️ **`innodb_io_capacity` 200 → 10000, `innodb_io_capacity_max` 2000 → 20000.**
+  gp2 20GB 는 baseline 60 IOPS 라 실제 성능과 크게 어긋난다. InnoDB 가 과하게 플러시해
+  버스트 크레딧을 소진할 수 있다. **전환 후 `BurstBalance` 를 관찰할 것** (이번엔 손대지 않는다 —
+  8.4 기본값을 존중하고, 문제가 보이면 측정해서 조정한다)
 
 **데이터 일치 실측 (2026-08-28, 양쪽 직접 접속 비교)**
 
