@@ -219,6 +219,23 @@ resource "aws_lb_listener_certificate" "groble_additional_cert_test" {
   certificate_arn = var.additional_ssl_certificate_arn
 }
 
+# 호스트 추가로 늘어나는 인증서들 (예: mcp.dev.groble.im). 443·9443 양쪽에 같이 붙인다.
+# for_each 가 아니라 count 를 쓰는 이유: 신규 발급 인증서의 ARN 은 apply 전까지 알 수 없어
+# for_each 키로 쓸 수 없다. 목록 길이는 plan 시점에 확정되므로 count 는 문제없다.
+resource "aws_lb_listener_certificate" "groble_extra_certs" {
+  count = length(var.extra_ssl_certificate_arns)
+
+  listener_arn    = aws_lb_listener.groble_https_listener.arn
+  certificate_arn = var.extra_ssl_certificate_arns[count.index]
+}
+
+resource "aws_lb_listener_certificate" "groble_extra_certs_test" {
+  count = length(var.extra_ssl_certificate_arns)
+
+  listener_arn    = aws_lb_listener.groble_https_test_listener.arn
+  certificate_arn = var.extra_ssl_certificate_arns[count.index]
+}
+
 #################################
 # ALB 라우팅 규칙
 #################################
@@ -240,7 +257,7 @@ resource "aws_lb_listener_rule" "monitoring_rule" {
   }
 }
 
-# API 테스트 운영 라우팅 규칙 (api.groble.im → Production Blue)
+# 운영 라우팅 규칙 (api.groble.im · mcp.groble.im → Production Blue)
 resource "aws_lb_listener_rule" "api_test_production_rule" {
   listener_arn = aws_lb_listener.groble_https_listener.arn
   priority     = 200
@@ -252,7 +269,7 @@ resource "aws_lb_listener_rule" "api_test_production_rule" {
 
   condition {
     host_header {
-      values = ["api.groble.im"]
+      values = ["api.groble.im", "mcp.groble.im"]
     }
   }
 
@@ -269,7 +286,7 @@ resource "aws_lb_listener_rule" "api_test_production_rule" {
   }
 }
 
-# API 테스트 개발 라우팅 규칙 (api.dev.groble.im → Development Blue)
+# 개발 라우팅 규칙 (api.dev.groble.im · mcp.dev.groble.im → Development Blue)
 resource "aws_lb_listener_rule" "api_test_development_rule" {
   listener_arn = aws_lb_listener.groble_https_listener.arn
   priority     = 300
@@ -281,7 +298,7 @@ resource "aws_lb_listener_rule" "api_test_development_rule" {
 
   condition {
     host_header {
-      values = ["api.dev.groble.im"]
+      values = ["api.dev.groble.im", "mcp.dev.groble.im"]
     }
   }
 
@@ -325,7 +342,7 @@ resource "aws_lb_listener" "groble_https_test_listener" {
 # Test 리스너용 라우팅 규칙 (9443 포트)
 #################################
 
-# API 테스트 운영 - 테스트 리스너 규칙 (api.groble.im:9443 → Production Green)
+# 운영 - 테스트 리스너 규칙 (api.groble.im · mcp.groble.im:9443 → Production Blue)
 resource "aws_lb_listener_rule" "api_test_production_test_rule" {
   listener_arn = aws_lb_listener.groble_https_test_listener.arn
   priority     = 200
@@ -337,7 +354,7 @@ resource "aws_lb_listener_rule" "api_test_production_test_rule" {
 
   condition {
     host_header {
-      values = ["api.groble.im"]
+      values = ["api.groble.im", "mcp.groble.im"]
     }
   }
 
@@ -354,7 +371,7 @@ resource "aws_lb_listener_rule" "api_test_production_test_rule" {
   }
 }
 
-# API 테스트 개발 - 테스트 리스너 규칙 (api.dev.groble.im:9443 → Development Blue)
+# 개발 - 테스트 리스너 규칙 (api.dev.groble.im · mcp.dev.groble.im:9443 → Development Blue)
 resource "aws_lb_listener_rule" "api_test_development_test_rule" {
   listener_arn = aws_lb_listener.groble_https_test_listener.arn
   priority     = 300
@@ -366,7 +383,7 @@ resource "aws_lb_listener_rule" "api_test_development_test_rule" {
 
   condition {
     host_header {
-      values = ["api.dev.groble.im"]
+      values = ["api.dev.groble.im", "mcp.dev.groble.im"]
     }
   }
 

@@ -61,3 +61,34 @@ resource "aws_route53_record" "monitoring" {
     evaluate_target_health = true
   }
 }
+
+#################################
+# MCP 도메인 레코드
+#################################
+# api.* 와 같은 ALB 를 가리킨다. 새 대상 그룹 없이 ALB 호스트 헤더 규칙으로만 갈린다.
+
+# MCP 운영 도메인 (mcp.groble.im)
+resource "aws_route53_record" "mcp_production" {
+  zone_id = data.aws_route53_zone.groble_zone.zone_id
+  name    = "mcp.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = var.load_balancer_dns_name
+    zone_id                = var.load_balancer_zone_id
+    evaluate_target_health = true
+  }
+}
+
+# MCP 개발 도메인 (mcp.dev.groble.im)
+resource "aws_route53_record" "mcp_development" {
+  zone_id = data.aws_route53_zone.groble_zone.zone_id
+  name    = "mcp.dev.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = var.load_balancer_dns_name
+    zone_id                = var.load_balancer_zone_id
+    evaluate_target_health = true
+  }
+}
