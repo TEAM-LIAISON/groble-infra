@@ -175,7 +175,7 @@ done
 |---|---|---|
 | ① | 인증 플러그인 | ✅ 통과 — RDS 8.4 가 native password 를 켠 채 고정한다 |
 | ② | 스키마 (MyISAM · utf8mb3) | ✅ 통과 — 106테이블 전부 InnoDB, utf8mb3 없음 |
-| ③ | 백엔드 회신 3건 ([요청서](../../handoff/rds-mysql-84-compatibility.md)) | ✅ 통과 — 3건 모두 진행 가능, 조건 3개 첨부 |
+| ③ | 백엔드 회신 3건 ([요청서](../../handoff/closed/rds-mysql-84-compatibility.md)) | ✅ 통과 — 3건 모두 진행 가능, 조건 3개 첨부 |
 | ④⑤ | Terraform 사전 변경분 | ✅ **apply 완료 (2026-08-28)** — `binlog_format=ROW` in-sync, 8.4 PG 생성됨 |
 
 #### ① 인증 플러그인 — ✅ 확인 완료 (2026-08-26). **차단 요인 아니다**
@@ -234,7 +234,7 @@ ALTER USER 'groble_root'@'%' IDENTIFIED WITH caching_sha2_password BY '<현재 �
 
 #### ③ 백엔드 회신 — ✅ **회신 완료 (2026-08-28). 3건 모두 진행 가능**
 
-요청서: [`docs/handoff/rds-mysql-84-compatibility.md`](../../handoff/rds-mysql-84-compatibility.md)
+요청서: [`docs/handoff/rds-mysql-84-compatibility.md`](../../handoff/closed/rds-mysql-84-compatibility.md)
 
 | # | 질문 | 회신 |
 |---|---|---|
@@ -424,7 +424,7 @@ aws rds describe-blue-green-deployments --profile groble-terraform --region ap-n
 | 복제 | `replicating` / `Normal: true`, ReplicaLag 0초 |
 | 블루 영향 | 없음 — 생성 내내 `available`, 헬스체크 200, 여유 메모리 27~37 MiB (평시 범위 내) |
 
-백엔드 전달용 접속 안내: [`docs/handoff/rds-84-green-access.md`](../../handoff/rds-84-green-access.md)
+백엔드 전달용 접속 안내: [`docs/handoff/rds-84-green-access.md`](../../handoff/closed/rds-84-green-access.md)
 
 #### 파라미터 정합 — 8.4 기본값이 조용히 바꾸는 것
 
