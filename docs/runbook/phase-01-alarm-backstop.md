@@ -237,7 +237,8 @@ R1 이 침묵했다. 그 시계열이 `17:22:00Z` 에 값 2 로 처음 나타나
 `+ (sum(M unless (M offset W)) or vector(0))` 항을 더해 수정했다.
 
 **결함 ② 500 10 건 중 4 건만 `http_server_requests` 에 기록됐다** — 백엔드 계측 문제로,
-원인 미확인이다. **감시 지표로는 ALB 쪽이 더 민감하다**는 뜻이기도 하다. 별도 핸드오프 대상.
+원인 미확인이다. **감시 지표로는 ALB 쪽이 더 민감하다**는 뜻이기도 하다.
+→ [`http-metrics-5xx-undercount.md`](../handoff/http-metrics-5xx-undercount.md) 로 백엔드에 조사 요청했다.
 
 ### 지연 알람을 둘로 나눈 이유
 
