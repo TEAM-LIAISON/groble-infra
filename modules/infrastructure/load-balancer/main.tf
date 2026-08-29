@@ -150,6 +150,18 @@ resource "aws_lb_target_group" "groble_monitoring_tg" {
   vpc_id      = var.vpc_id
   target_type = "instance"
 
+  # ⚠️ 모니터링 스택은 host 모드 네트워킹이라 포트가 겹친다 — ECS 는 구 태스크가
+  #    완전히 빠질 때까지 신 태스크를 배치하지 못한다. 기본값 300초에서는
+  #    이미지를 올릴 때마다 관측이 그만큼 통째로 끊긴다.
+  #    2026-08-30 Grafana 배포(11.6.3-ddfe23a → 7bc5e87)에서 실제로 약 6분
+  #    (00:41:26~00:47:33) 내려가 있었다.
+  #    사용자 트래픽을 받지 않으므로 길게 드레이닝할 이유가 없다.
+  #
+  #    ⚠️ API 타깃그룹에는 손대지 않았다. 그쪽의 300초는 낭비가 아니라 실제
+  #       in-flight 드레이닝 시간이다(태스크는 DEACTIVATING 동안 살아 있다).
+  #       prod 는 단일 요청 최대 16.7초가 실측되므로 별도 판단이 필요하다.
+  deregistration_delay = var.monitoring_deregistration_delay
+
   health_check {
     enabled             = true
     healthy_threshold   = 2
