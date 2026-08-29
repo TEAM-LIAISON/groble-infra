@@ -46,3 +46,12 @@ output "database_username" {
   value       = aws_db_instance.mysql.username
   sensitive   = true
 }
+
+output "mysql_84_parameter_group_name" {
+  description = <<-EOT
+    MySQL 8.4용 파라미터 그룹 이름. Blue/Green 배포의
+    `--target-db-parameter-group-name` 인자로 그대로 넘긴다.
+    (`docs/runbook/rds-mysql-84-upgrade.md`)
+  EOT
+  value       = aws_db_parameter_group.mysql_params_84.name
+}
