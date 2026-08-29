@@ -349,6 +349,12 @@ module "alb_alarms" {
       ]
       alarm_actions = [module.alerting_prod.sns_topic_arn]
       ok_actions    = [module.alerting_prod.sns_topic_arn]
+
+      # prod의 500은 단 한 건도 넘기지 않는다 (기본값 10 대신 1).
+      # 실측 기준선으로 잡은 10은 "5분에 10건 미만이면 무시"라는 뜻이었고,
+      # 그래서 2026-08-17 20:04 KST `POST /api/v1/market/edit` 500 2건이
+      # 아무 데도 알려지지 않았다. dev는 개발 중 500이 흔하므로 10을 유지한다.
+      target_5xx_threshold = 1
     }
 
     # dev는 ok_actions를 걸지 않는다 — 사건당 메시지가 2배가 되는 것을
