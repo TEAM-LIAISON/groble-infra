@@ -266,8 +266,17 @@ All → Grafana (3000) Dashboard
 - **Listeners**: HTTPS(443) primary, HTTP(80)→HTTPS redirect, HTTPS(9443) CodeDeploy test
 - **Target Groups**: Prod Blue/Green, Dev Blue/Green, Monitoring (총 5개)
 - **Domains**: `api.groble.im` (prod), `api.dev.groble.im` (dev), `monitor.groble.im` (monitoring)
-- ⚠️ 타깃그룹에 **`deregistration_delay`가 설정되어 있지 않다** (기본 300초).
+- ⚠️ **API 타깃그룹 4개(prod/dev Blue·Green)는 `deregistration_delay`가 미설정이다** (기본 300초).
   ECS `ECS_CONTAINER_STOP_TIMEOUT=30s`와 정렬되지 않아 in-flight 요청이 잘릴 수 있다.
+  **정렬 값 확정은 [Phase 4](docs/runbook/phase-04-deployment-controller.md)의 작업이다**
+  (계획서 §3-3: dereg / stopTimeout / Spring graceful 을 함께 정한다).
+  > 300초를 단순히 내리는 것은 정렬이 아니라 **in-flight 보호를 줄이는 것**이다 —
+  > 태스크는 `DEACTIVATING` 동안 살아서 요청을 처리하고 SIGTERM 은 그 뒤에 온다.
+  > prod 실측 단일 요청 최대는 16.7초(`/api/v1/me`, 7일)다.
+- **모니터링 타깃그룹만 `deregistration_delay = 30`** (2026-08-30). host 모드라 포트가 겹쳐
+  ECS 가 구 태스크를 뺄 때까지 신 태스크를 배치하지 못하는데, 기본 300초에서는
+  **이미지를 올릴 때마다 관측이 통째로 끊겼다** (Grafana 배포에서 약 6분).
+  사용자 트래픽을 받지 않으므로 길게 드레이닝할 이유가 없다.
 
 ### Blue/Green Deployment (CodeDeploy)
 - Deploy Config: `ECSAllAtOnce`

@@ -573,7 +573,7 @@ rolling에서는 구/신 버전이 **동시에 실트래픽**을 받으므로 �
 
    | 항목 | 현재 | 문제 |
    |---|---|---|
-   | TG `deregistration_delay` | **미설정 (기본 300초)** | |
+   | TG `deregistration_delay` | **API 4개는 미설정(기본 300초)** · 모니터링만 **30초**(2026-08-30 적용) | |
    | ECS `stopTimeout` | `ECS_CONTAINER_STOP_TIMEOUT=30s` | |
    | Spring `server.shutdown` | 확인 필요 | |
 
