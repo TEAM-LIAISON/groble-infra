@@ -60,7 +60,7 @@ Dev에 `ok_actions`를 걸지 않은 것은 사건당 메시지가 2배가 되�
 | 알람 | 임계치 | 채널 |
 |---|---|---|
 | `groble-alb-elb-5xx` | 5분 10건 | prod |
-| `groble-{prod,dev}-target-5xx` | 5분 10건 | 각 |
+| `groble-{prod,dev}-target-5xx` | prod **5분 1건** · dev 5분 10건 | 각 |
 | `groble-{prod,dev}-latency-p99` | p99 **2초** · 15분 연속 (지속적 저하) | 각 |
 | `groble-{prod,dev}-latency-p99-spike` | p99 **5초** · 1구간 (단발 급증) | 각 |
 | `groble-{prod,dev,monitoring}-no-healthy-host` | 정상 타깃 합 < 1 · 5분 | prod/dev/prod |
@@ -170,12 +170,74 @@ CPUUtilization  4.7~5.0%     CPUCreditBalance  288 (최대치)
 
 | 알람 | 초기값 | 확정값 | 실측 근거 |
 |---|---|---|---|
-| `target-5xx` | 25건 | **10건** | 5분 구간 최대 2건, 7일 합계 5건 |
+| `target-5xx` | 25건 | **10건** → prod 는 이후 **1건** (아래) | 5분 구간 최대 2건, 7일 합계 5건 |
 | `latency-p99` | 5초 | **2초** | 평상시 p99 0.24~0.42초, p50 0.05초 |
 | `latency-p99-spike` | — | **5초 / 1구간** | 신규 (아래) |
 | `alb-elb-5xx` | 10건 | **유지** | 노이즈 1건 vs 사건 71건 — 잘 갈라진다 |
 | RDS `memory` | 100 MiB | **15 MiB** | 실측 21~62 MiB |
 | RDS `swap` | — | **600 MiB** | 실측 400~482 MiB 고원 |
+
+### 🔴 prod `target-5xx` 를 10 → 1 로 내렸다 (2026-08-30)
+
+**실측으로 잡은 10이 틀린 값이어서가 아니라, 그 임계가 담고 있던 전제가 운영 정책과 달랐다.**
+
+10은 "평상시 최대(5분당 2건)의 5배 = 노이즈는 버리고 실제 이상만 잡는다"는 뜻이었다.
+통계적으로는 타당하지만, **"500 은 한 건도 그냥 넘기지 않는다"** 는 정책과는 정면으로 어긋난다.
+알람은 "500 이 심각한가"를 물은 적이 없고 "5 분에 10 건을 넘는가"만 물었다.
+
+실제로 놓친 사건이 있다. 최근 14 일 prod 500 발생과 발화 여부:
+
+| 발생 (KST) | 엔드포인트 | 앱 지표 | ALB 지표 | Slack |
+|---|---|---|---|---|
+| 08-17 20:04 | `POST /api/v1/market/edit` | 500 × 2 | 2건 | ❌ **안 울림** |
+| 08-29 02:21~02:23 | `POST /api/v1/orders/create` · `POST /api/v1/content/track/{contentId}` | 500 × 4 | 8 + 2 = **10건** | ✅ 울림 (02:26) |
+
+`groble-prod-target-5xx` 의 14 일간 발화 이력은 `2026-08-28T17:26:05Z` ALARM → `17:29:05Z` OK **단 1 건**이다.
+08-29 건이 울린 것은 정렬된 5 분 구간에 8+2 가 합쳐져 정확히 10 에 닿았기 때문으로,
+**한 건만 적었어도 침묵했다.**
+
+Grafana R1(`groble-payment-5xx`)은 임계가 1 건이지만 **결제 URI 화이트리스트 전용**이라
+위 두 엔드포인트를 모두 커버하지 않는다. 즉 **결제 경로 밖의 prod 500 은
+5 분에 10 건 미만이면 어디서도 울리지 않는 상태였다.**
+
+**조치** — `var.services[*].target_5xx_threshold` 를 새로 두어 서비스별로 재정의할 수 있게 하고,
+prod 만 1 로 내렸다. dev 는 10 을 유지한다 (개발 중 500 은 흔하다).
+예상 발화 빈도는 실측 기준 **주 1 건 남짓**이다.
+
+#### 08-29 건의 실제 원인과, 함께 드러난 결함 2가지
+
+Loki 로그로 사건의 정체를 확인했다. 10 건 전부 같은 예외다:
+
+```
+org.springframework.orm.jpa.JpaSystemException: could not execute statement
+  [The MySQL server is running with the --read-only option so it cannot execute this statement]
+```
+
+**[RDS MySQL 8.4 Blue/Green 스위치오버](./adhoc/rds-mysql-84-upgrade.md) 창이었다.** 구 인스턴스가
+read-only 로 바뀌었는데 앱이 계속 거기에 쓰고 있었다 — 그 런북이 기록한
+*"DNS 는 정상이었다. JVM 이 구 IP 를 캐시한 것이다"* 가 이것이다.
+17:23:16Z 의 수동 CodeDeploy 배포는 원인이 아니라 **JVM DNS 캐시를 털기 위한 조치**였다.
+
+숫자가 맞아떨어진다:
+
+| 출처 | 17:21 | 17:23 | 합계 |
+|---|---|---|---|
+| ALB `HTTPCode_Target_5XX_Count` | 8 | 2 | **10** |
+| Loki `GlobalExceptionHandler` | 8 | 2 | **10** |
+| Prometheus Micrometer | — | — | **4** |
+
+> ⚠️ **초판의 가설은 틀렸다.** "Micrometer 필터 앞단에서 터졌거나 재기동 중 503" 으로 추정했으나,
+> 10 건 모두 정상적으로 `http-nio-8080-exec-*` 스레드에서 `GlobalExceptionHandler` 를 거쳤다.
+> 스레드 고갈도 없었고(live threads 56~62 안정), HikariCP pending 0, `/error`·`UNKNOWN` URI 도 없었다.
+
+**결함 ① `increase()` 가 시계열의 첫 등장을 못 본다** — Micrometer 가 기록한 4 건 중
+`POST /api/v1/orders/create` 2 건은 **R1 결제 알람의 화이트리스트 `/api/v1/orders/.+` 에 포함**되는데도
+R1 이 침묵했다. 그 시계열이 `17:22:00Z` 에 값 2 로 처음 나타나 그대로 평평했기 때문이다.
+→ [groble-images#12](https://github.com/TEAM-LIAISON/groble-images/pull/12) 에서 R1~R4 에
+`+ (sum(M unless (M offset W)) or vector(0))` 항을 더해 수정했다.
+
+**결함 ② 500 10 건 중 4 건만 `http_server_requests` 에 기록됐다** — 백엔드 계측 문제로,
+원인 미확인이다. **감시 지표로는 ALB 쪽이 더 민감하다**는 뜻이기도 하다. 별도 핸드오프 대상.
 
 ### 지연 알람을 둘로 나눈 이유
 

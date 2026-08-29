@@ -67,6 +67,15 @@ resource "aws_cloudwatch_metric_alarm" "elb_5xx" {
 # ---------------------------------------------------------------------------
 
 # 애플리케이션이 반환한 5xx. 서비스의 타깃그룹들을 합산한다.
+#
+# 임계치는 서비스마다 다르다 (var.services[*].target_5xx_threshold).
+# prod=1 / dev=기본값 10 — 같은 500이라도 환경에 따라 의미가 다르기 때문이다.
+#
+# ⚠️ **prod 임계를 다시 올리려는 사람에게**: 10은 실측 기준선(5분당 최대 2건)의
+#    5배로 잡은 값이었고 통계적으로는 타당했지만, 그 전제("소량 5xx는 노이즈")가
+#    운영 정책과 어긋나 2026-08-30에 1로 내렸다. 실제로 2026-08-17 20:04 KST의
+#    `POST /api/v1/market/edit` 500 2건이 이 임계 때문에 아무 데도 알려지지 않았다.
+#    올리기 전에 그 판단이 바뀌었는지 먼저 확인할 것.
 resource "aws_cloudwatch_metric_alarm" "target_5xx" {
   for_each = local.traffic_services
 
@@ -74,7 +83,7 @@ resource "aws_cloudwatch_metric_alarm" "target_5xx" {
   alarm_description = "${each.key} 애플리케이션이 5xx를 반환하고 있다. 앱 로그(Loki)와 최근 배포를 확인할 것."
 
   comparison_operator = "GreaterThanOrEqualToThreshold"
-  threshold           = var.target_5xx_threshold
+  threshold           = coalesce(each.value.target_5xx_threshold, var.target_5xx_threshold)
   evaluation_periods  = 1
 
   treat_missing_data = "notBreaching"
