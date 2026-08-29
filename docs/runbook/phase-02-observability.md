@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **상태** | **검증까지 완료** (2026-08-24). `memoryReservation` 확정으로 **Phase 7 차단 해제.** 남은 것은 ① 죽은 JVM 힙 알람 수정 ② 백엔드 지표 후 R10~R14 |
+| **상태** | 🔄 진행 중 — 배포·검증 완료 (2026-08-24), **백엔드 회신 대기 2건**. `memoryReservation` 확정으로 **Phase 7 차단 해제.** 남은 것은 ① 죽은 JVM 힙 알람 수정 ② 백엔드 지표 후 R10~R14 |
 | **목적** | ASG 도입 후 새 노드가 **관측 사각지대에 들어가는 것을 막는다.** 순서가 뒤바뀌면 노드가 조용히 사라지고, 하필 그 시점이 마이그레이션 중이라 가장 위험하다 |
 | **사용자 영향** | 없음 |
 | **되돌리기** | 이전 이미지 태그로 롤백 |
@@ -140,7 +140,7 @@ aws sns publish --topic-arn <토픽> --subject "[TEST] 알림 경로 도달 확�
 
 | 문서 | 내용 | 상태 |
 |---|---|---|
-| [`backend-jvm-heap-limit.md`](../handoff/backend-jvm-heap-limit.md) | JVM 힙 상한 `-Xms512m -Xmx900m` 고정 | ✅ **완료** — PR #826 머지, dev·prod 배포 완료 |
+| [`backend-jvm-heap-limit.md`](../handoff/closed/backend-jvm-heap-limit.md) | JVM 힙 상한 `-Xms512m -Xmx900m` 고정 | ✅ **완료** — PR #826 머지, dev·prod 배포 완료 |
 | [`payment-alerts-review.md`](../handoff/payment-alerts-review.md) | **A** 결제 알림 5건 검수(Q1~Q12) + **B** 지표 3종 노출 요청 | **A ✅ 회신 완료** → R1~R9 로 반영·배포. **B 는 대기** — 지표 3종이 나오면 R10~R14 를 건다 |
 
 > 지표 요청서(`backend-payment-metrics.md`)는 별도 문서였으나, 백엔드에 문서를 둘로 던지지 않으려고
@@ -389,7 +389,7 @@ Phase 1은 "리밋에 닿아 있으면서 OOM이 없으니 대부분 회수 가�
 ### 후속 조치
 
 `groble-backend`는 별도 레포이므로 **작업 요청서**를 작성해 전달했다 —
-[`docs/handoff/backend-jvm-heap-limit.md`](../handoff/backend-jvm-heap-limit.md)
+[`docs/handoff/closed/backend-jvm-heap-limit.md`](../handoff/closed/backend-jvm-heap-limit.md)
 
 - [x] 백엔드 Dockerfile 수정 — [groble-backend#826](https://github.com/TEAM-LIAISON/groble-backend/pull/826) 머지 (2026-08-19, `2f7ab40`).
       요청서의 **방식 A**(Dockerfile 직접 고정) 채택: `-Xms512m -Xmx900m -XX:+ExitOnOutOfMemoryError`

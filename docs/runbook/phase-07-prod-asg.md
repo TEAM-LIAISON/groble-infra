@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **상태** | 미착수 |
+| **상태** | ⬜ 미착수 |
 | **목적** | 이 프로젝트의 본 목표. 무중단 하드웨어 교체가 가능한 구조로 전환한다 |
 | **사용자 영향** | 없음 — 신 노드를 먼저 띄우고 구 노드를 드레인한다 |
 | **선행 조건** | [Phase 2](./phase-02-observability.md)(관측), [Phase 6](./phase-06-elasticache.md)(Redis 외부화) 완료 + **아래 차단 조건 2건** |
@@ -26,7 +26,7 @@
 > **이 Phase에서 노드가 AL2023 + Launch Template으로 교체되면 그 스왑파일이 사라진다.**
 > JVM 설정을 그대로 둔 채 진행하면 신 노드에서 prod API가 OOM kill로 종료된다.
 
-- 요청서: [`docs/handoff/backend-jvm-heap-limit.md`](../handoff/backend-jvm-heap-limit.md)
+- 요청서: [`docs/handoff/closed/backend-jvm-heap-limit.md`](../handoff/closed/backend-jvm-heap-limit.md)
 - [ ] 백엔드 Dockerfile 수정(`-Xms512m -Xmx900m`) 배포 완료
 - [ ] 배포 후 2~3일 재측정 → 아래 5번 `memory_reservation` 확정
 

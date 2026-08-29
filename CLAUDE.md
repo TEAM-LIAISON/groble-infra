@@ -18,9 +18,11 @@ This is **groble-infra**, a Terraform-based AWS infrastructure project for the G
 
 | 문서 | 내용 |
 |---|---|
+| [`docs/README.md`](docs/README.md) | **문서 진입점** — 무엇을 언제 여는가, 폴더·상태 어휘 규칙 |
 | [`docs/infra-ha-improvement-plan.md`](docs/infra-ha-improvement-plan.md) | 무엇을 왜 바꾸는가 (설계·결정 근거) |
 | [`docs/infra-ha-migration-runbook.md`](docs/infra-ha-migration-runbook.md) | 어떤 순서로 이관하는가 — **목차·공통 원칙·부록** |
-| [`docs/runbook/`](docs/runbook/) | Phase 0~11 각각의 상세 절차·검증·롤백 (Phase당 1개 파일) |
+| [`docs/runbook/`](docs/runbook/) | Phase 0~11 각각의 상세 절차·검증·롤백 (Phase당 1개 파일). `adhoc/`는 Phase 순서와 무관한 단발 작업 |
+| [`docs/handoff/README.md`](docs/handoff/README.md) | 백엔드에 보낸 요청·질의와 **회신 대기 현황** (`closed/`는 종결분) |
 | [`docs/infra-future-improvements.md`](docs/infra-future-improvements.md) | 이번 범위 밖 항목 (우선순위·트리거) |
 | [`docs/monitoring-config-baking.md`](docs/monitoring-config-baking.md) | 모니터링 config baking 구조 |
 
@@ -34,10 +36,18 @@ SSM Session Manager(bastion·WireGuard 폐기) · Terraform state를 S3로
 (`#groble-alert` 긴급 / `#groble-alert-dev`)로 전달된다. 임계치는 실측 기준선으로 확정했다
 (계획서 §2.1 "트래픽·자원 기준선").
 **Phase 2 진행 중** — 2-0(API 워킹셋 측정) · 2-1(Prometheus `ec2_sd_config` 전환) ·
-2-2(Grafana 프로비저닝 as-code) **배포 완료**. 남은 것은 백엔드 회신에 걸린 2건뿐이다
-(결제 알림 5건 검수 · prod JVM 힙 상한 수정 배포). 상세와 이어받기는
+2-2(Grafana 프로비저닝 as-code) **배포·검증까지 완료**. `memoryReservation` 확정으로 Phase 7 차단이 풀렸다.
+남은 것은 ① NoData로 죽어 있는 JVM 힙 알람 수정 ② 백엔드 지표 3종을 받은 뒤 알림 R10~R14. 상세와 이어받기는
 [`docs/runbook/phase-02-observability.md`](docs/runbook/phase-02-observability.md)에 있다.
-Phase 3부터는 미착수다. Phase 2가 바꾼 것은 아래 [Monitoring Stack](#monitoring-stack-모두-host-mode-networking)에
+Phase 3부터는 미착수이며, **Phase 3은 [egress IP 허용목록 회신](docs/handoff/egress-ip-allowlist.md)이 착수 조건이다.**
+Phase와 독립적인 [RDS MySQL 8.4 업그레이드](docs/runbook/adhoc/rds-mysql-84-upgrade.md)는
+**2026-08-29 전환 완료**했다 (확장 지원 과금 $178.56/월 중단).
+구 인스턴스도 같은 날 삭제했고, 최종 스냅샷 `groble-prod-mysql-80-final`(8.0.45)만 남아 있다.
+
+> **진행 상태의 단일 진실은 [이관 절차 목차](docs/infra-ha-migration-runbook.md)의 순서 요약 표다.**
+> 이 문단은 그 요약일 뿐이므로, 상태가 바뀌면 표를 먼저 고칠 것.
+
+Phase 2가 바꾼 것은 아래 [Monitoring Stack](#monitoring-stack-모두-host-mode-networking)에
 반영했고, **그 밖의 서술은 여전히 As-Is다.**
 
 ---
@@ -174,7 +184,10 @@ RDS는 `multi_az = false`이고 db_subnet_group이 2a/2c를 모두 포함해 **A
 > **노드당 API 태스크는 최대 2개**다. 밀도를 논할 때 메모리가 아니라 이 제약이 상한이다.
 
 ### Database
-- **Prod**: RDS MySQL 8.0.45 (**db.t3.micro**, gp2, 암호화, 7일 백업, **20GB→100GB** auto-scaling, **단일 AZ / 2c**)
+- **Prod**: RDS MySQL **8.4.11** (**db.t3.micro**, gp2, 암호화, 7일 백업, **20GB→100GB** auto-scaling, **단일 AZ / 2c**)
+  > ⚠️ `engine_version`은 **마이너까지 정확히 고정**한다(`"8.4.11"`). `"8.4"`로 두면 AWS가 패밀리
+  > 기본값(8.4.9)으로 해석해 다운그레이드를 시도하고 apply가 실패한다.
+  > 백업창 `18:00-19:00` UTC = KST 03~04시, 점검창 `sun:19:00-sun:20:00` UTC = KST 월 04~05시.
   > db.t3.micro는 메모리 1GiB다. 용량을 논할 때 EC2의 t3.medium과 혼동하지 말 것 — 이전 문서가 `db.t3.medium` / `100GB→1000GB`로 잘못 적고 있었다.
 - **Dev**: MySQL 8.0 컨테이너 (host mode, 256MB, **데이터가 노드 로컬 디스크** `/opt/mysql-dev-data`)
 
@@ -272,10 +285,22 @@ All → Grafana (3000) Dashboard
 3. **Dev Target SG**: 80, 8080, 22, 3306, 6379, 9100, 8081
 4. **Monitoring SG**: **51820/UDP (WireGuard, `0.0.0.0/0` 개방)**, 22, 3000, 4317/4318, 3100, 9090, NAT(all TCP/UDP)
 5. **API Task SG**: 8080 from ALB only (awsvpc 격리)
-6. **RDS MySQL SG**: 3306 from Prod/Dev/API Task/Monitoring
+6. **RDS MySQL SG**: 3306 from **Prod Target · API Task · Monitoring** (SG 참조 3건).
+   ⚠️ **Dev Target SG는 없다** — dev는 컨테이너 MySQL을 쓰므로 prod RDS에 붙을 일이 없다.
+   ⚠️ **CIDR 인그레스가 하나도 없다** (VPN 서브넷 포함). 아래 접근 경로 참조
 
-**개발자 접근 경로**: WireGuard(51820) → VPN 서브넷 `10.6.0.0/24` → 모니터링 노드 SSH(22) → private 노드·RDS.
+**개발자 접근 경로**: WireGuard(51820) → VPN 서브넷 `10.6.0.0/24` → 모니터링 노드 SSH(22) → private 노드.
 SSM Session Manager는 아직 도입되지 않았다.
+
+⚠️ **RDS는 VPN에서 직접 닿지 않는다.** VPN이 `10.0.0.0/16`을 라우팅하고 RDS 사설 IP까지 ping도 되지만,
+RDS SG에 CIDR 인그레스가 없어 3306이 거부된다. **모니터링 노드를 경유하는 SSH 터널로만 접속된다:**
+
+```bash
+ssh -f -N -L 13306:<rds-endpoint>:3306 -i <key>.pem ubuntu@10.0.1.193
+```
+
+> 접속 계정 `groble_root`는 `mysql_native_password`를 쓴다. **MySQL 9.x 클라이언트는 이 플러그인을
+> 제거해서 접속하지 못한다** (`mysql_native_password.so` 없음). 8.x 클라이언트나 `pymysql`을 쓸 것.
 
 ### IAM Roles (`modules/infrastructure/iam-roles/main.tf`)
 

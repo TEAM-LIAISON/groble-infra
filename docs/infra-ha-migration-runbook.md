@@ -6,6 +6,9 @@
 > 설계의 "무엇을·왜"는 계획서에, 실행의 "어떤 순서로·어떻게 되돌리는가"는 이 문서에 있다.
 >
 > **각 Phase의 상세 절차는 [`runbook/`](./runbook/) 아래 개별 문서에 있다.** 이 문서는 목차·공통 원칙·부록이다.
+>
+> 아래 **전체 순서 요약 표가 진행 상태의 단일 진실이다.** 상태가 바뀌면 이 표와 해당 Phase 문서의
+> 헤더를 함께 고친다 (문서 규칙은 [`docs/README.md`](./README.md)).
 
 ---
 
@@ -22,20 +25,35 @@
 
 | Phase | 내용 | 상태 | 사용자 영향 | 되돌리기 |
 |---|---|---|---|---|
-| **[0](./runbook/phase-00-terraform-state-s3.md)** | Terraform state → S3 backend + 잠금 | ✅ 완료 | 없음 | 로컬 state 복원 |
-| **[1](./runbook/phase-01-alarm-backstop.md)** | CloudWatch 알람 백스톱 + SNS 외부 알림 | ✅ 완료 | 없음 | 리소스 삭제 |
-| **[2](./runbook/phase-02-observability.md)** | Prometheus `ec2_sd` 전환 + Grafana as-code | **진행 중** (2-0·2-1 완료, 2-2 머지 대기) | 없음 | 이전 이미지 태그로 롤백 |
-| **[3](./runbook/phase-03-nat-gateway.md)** | NAT Gateway + S3 Gateway Endpoint, 라우트 전환 | 미착수 | 짧은 egress 블립 | 라우트 되돌리기 |
-| **[4](./runbook/phase-04-deployment-controller.md)** | 배포 컨트롤러 CodeDeploy → ECS rolling | 미착수 | 없음 (리스너 스왑) | **리스너 규칙 되돌리기** |
-| **[5](./runbook/phase-05-monitoring-node-rebuild.md)** | 모니터링 노드 재구축 (private 2c, AL2023) + OTLP DNS 간접화 | 미착수 | 없음 (구 노드 병존) | DNS 레코드 되돌리기 (재배포 없음) |
-| **[6](./runbook/phase-06-elasticache.md)** | Prod Redis → ElastiCache (**stop-first**, rolling 아님) | 미착수 | **진행 중 결제 세션 소실 + 1~2분 순단** ⚠️ | 되돌려도 재소실 |
-| **[7](./runbook/phase-07-prod-asg.md)** | Prod ASG 전환 (구 노드 드레인) | 미착수 | 없음 | 구 노드 재활성화 |
-| **[8](./runbook/phase-08-dev-migration.md)** | Dev 전환 (RDS + ElastiCache + ASG) | 미착수 | Dev만 | 단계별 |
-| **[9](./runbook/phase-09-access-path.md)** | 접근 경로 정리 (WireGuard/bastion/22 폐기) | 미착수 | 없음 | SG 규칙 복원 |
-| **[10](./runbook/phase-10-secrets-ssm.md)** | Secrets → SSM Parameter Store | 미착수 | 없음 (rolling 재배포) | 이전 태스크 정의 |
-| **[11](./runbook/phase-11-cleanup.md)** | 잔재 정리 및 문서 갱신 | 미착수 | 없음 | — |
+| **[0](./runbook/phase-00-terraform-state-s3.md)** | Terraform state → S3 backend + 잠금 | ✅ 완료 (2026-08-16) | 없음 | 로컬 state 복원 |
+| **[1](./runbook/phase-01-alarm-backstop.md)** | CloudWatch 알람 백스톱 + SNS 외부 알림 | ✅ 완료 (2026-08-17) | 없음 | 리소스 삭제 |
+| **[2](./runbook/phase-02-observability.md)** | Prometheus `ec2_sd` 전환 + Grafana as-code | 🔄 진행 중 — 배포·검증 완료, **백엔드 회신 대기 2건** | 없음 | 이전 이미지 태그로 롤백 |
+| **[3](./runbook/phase-03-nat-gateway.md)** | NAT Gateway + S3 Gateway Endpoint, 라우트 전환 | ⬜ 미착수 | 짧은 egress 블립 | 라우트 되돌리기 |
+| **[4](./runbook/phase-04-deployment-controller.md)** | 배포 컨트롤러 CodeDeploy → ECS rolling | ⬜ 미착수 | 없음 (리스너 스왑) | **리스너 규칙 되돌리기** |
+| **[5](./runbook/phase-05-monitoring-node-rebuild.md)** | 모니터링 노드 재구축 (private 2c, AL2023) + OTLP DNS 간접화 | ⬜ 미착수 | 없음 (구 노드 병존) | DNS 레코드 되돌리기 (재배포 없음) |
+| **[6](./runbook/phase-06-elasticache.md)** | Prod Redis → ElastiCache (**stop-first**, rolling 아님) | ⬜ 미착수 | **진행 중 결제 세션 소실 + 1~2분 순단** ⚠️ | 되돌려도 재소실 |
+| **[7](./runbook/phase-07-prod-asg.md)** | Prod ASG 전환 (구 노드 드레인) | ⬜ 미착수 | 없음 | 구 노드 재활성화 |
+| **[8](./runbook/phase-08-dev-migration.md)** | Dev 전환 (RDS + ElastiCache + ASG) | ⬜ 미착수 | Dev만 | 단계별 |
+| **[9](./runbook/phase-09-access-path.md)** | 접근 경로 정리 (WireGuard/bastion/22 폐기) | ⬜ 미착수 | 없음 | SG 규칙 복원 |
+| **[10](./runbook/phase-10-secrets-ssm.md)** | Secrets → SSM Parameter Store | ⬜ 미착수 | 없음 (rolling 재배포) | 이전 태스크 정의 |
+| **[11](./runbook/phase-11-cleanup.md)** | 잔재 정리 및 문서 갱신 | ⬜ 미착수 | 없음 | — |
+| **[별건](./runbook/adhoc/rds-mysql-84-upgrade.md)** | RDS MySQL 8.0 → 8.4 (확장 지원 과금 $178.56/월 중단) | 📦 **종결** (2026-08-29) — 전환·정리 완료 | 쓰기 차단 35초 + **앱 재연결 문제로 7~8분 쓰기 실패** | 되돌릴 수 없음 (최종 스냅샷만 보유) |
+
+**RDS 8.4 업그레이드는 Phase 순서와 독립적이다.** 2026-08-01 부터 확장 지원 과금이 자동으로 붙기
+시작해 촉발된 별건이며, Phase 6·7 과 자원이 겹치지 않아 언제든 끼워 넣을 수 있다.
 
 **Phase 6 이전까지는 사용자 영향이 사실상 0이다.** 그 지점까지 최대한 검증을 쌓고 진입한다.
+
+### 지금 무엇에 막혀 있나
+
+**진행 중인 3건이 모두 백엔드 회신을 기다린다.** 무엇을 물어놨고 무엇이 돌아왔는지는
+[`handoff/README.md`](./handoff/README.md)에 모여 있다.
+
+| 대기 | 막고 있는 것 |
+|---|---|
+| [egress IP 허용목록](./handoff/egress-ip-allowlist.md) | **Phase 3 착수 조건** |
+| [결제 지표 3종 노출](./handoff/payment-alerts-review.md) (§6) | 알림 R10~R14. Phase 2 완료는 막지 않는다 |
+| 전환 구간(02:19~02:27) 결제 점검 · 첫 09:00 배치 확인 | [RDS 8.4 업그레이드](./runbook/adhoc/rds-mysql-84-upgrade.md) — 전환은 끝났고 사후 확인만 남았다 |
 
 ---
 

@@ -334,6 +334,11 @@ output "rds_instance_id" {
   value       = module.rds_mysql.rds_instance_id
 }
 
+output "mysql_84_parameter_group_name" {
+  description = "MySQL 8.4 파라미터 그룹 이름 (Blue/Green 업그레이드용)"
+  value       = module.rds_mysql.mysql_84_parameter_group_name
+}
+
 # Phase 1 알람
 output "rds_alarm_names" {
   description = "Prod RDS 알람 이름 목록"
