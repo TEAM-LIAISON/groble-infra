@@ -11,8 +11,6 @@
 | 문서 | 대상 | 요청일 | 상태 | 무엇이 막혀 있나 |
 |---|---|---|---|---|
 | [egress-ip-allowlist.md](./egress-ip-allowlist.md) | groble-backend | 2026-08-24 | 🔄 진행 중 | **[Phase 3](../runbook/phase-03-nat-gateway.md) 전환의 차단 조건.** 허용목록 관리가 확인되어 **EIP `15.165.223.110` 을 먼저 확보**했다. 현재 **외부 업체 등록 완료 회신 대기** — 등록 전에 전환하면 지속 장애가 된다 |
-| [rds-84-parameter-parity.md](./rds-84-parameter-parity.md) | groble-backend | 2026-08-28 | 🔄 진행 중 | **회신 문서.** 백엔드가 제보한 블루/그린 파라미터 차이 3건(+ 인프라가 찾은 1건) 수정 완료. **그린 재검증 회신 대기** |
-| [rds-mysql-84-compatibility.md](./rds-mysql-84-compatibility.md) | groble-backend | 2026-08-26 | 🔄 진행 중 | **[RDS 8.4 업그레이드](../runbook/adhoc/rds-mysql-84-upgrade.md) 착수 조건.** 확장 지원 과금(월 $178.56)이 8/1부터 붙고 있다. **회신 완료(8/28) — 3건 모두 진행 가능.** 조건 3개(헬스체크 완화 확정 · 04:10~04:50 KST · 앱 배포 없는 날)를 런북에 반영했다. **전환 완료(2026-08-29).** 남은 회신은 ① 02:19~02:27 구간 결제 점검 ② 첫 09:00 정기결제 배치 확인 |
 | [payment-alerts-review.md](./payment-alerts-review.md) | groble-backend | 2026-08-20 | ⏳ 부분 회신 대기 | **A(알림 검수)는 회신 완료** → R1~R9 반영·배포됨. **B(지표 3종 노출) 대기** → 나오면 R10~R14 를 건다. [Phase 2](../runbook/phase-02-observability.md) 완료를 막지는 않는다 |
 
 ---
@@ -22,6 +20,9 @@
 | 문서 | 대상 | 요청일 | 종결일 | 결과 |
 |---|---|---|---|---|
 | [backend-jvm-heap-limit.md](./closed/backend-jvm-heap-limit.md) | groble-backend | 2026-08-18 | 2026-08-20 | ✅ PR #826 머지, dev·prod 배포 완료. 힙 상한 2,878 → **900 MiB**. [Phase 7](../runbook/phase-07-prod-asg.md) 차단 해제 |
+| [rds-mysql-84-compatibility.md](./closed/rds-mysql-84-compatibility.md) | groble-backend | 2026-08-26 | 2026-08-30 | ✅ 호환성 3건 모두 진행 가능. **2026-08-29 전환 완료**, 구 인스턴스 삭제까지 종결. 확장 지원 과금 $178.56/월 중단 |
+| [rds-84-parameter-parity.md](./closed/rds-84-parameter-parity.md) | groble-backend | 2026-08-28 | 2026-08-30 | ✅ 블루/그린 파라미터 차이 4건 수정. **그린이 그대로 전환되어 재검증 항목이 소멸**했다 |
+| [rds-84-green-access.md](./closed/rds-84-green-access.md) | groble-backend | 2026-08-28 | 2026-08-30 | 📦 검증용 그린 접속 안내. **그린이 운영으로 전환되어 엔드포인트가 만료**됐다 |
 
 ---
 
