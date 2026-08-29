@@ -43,3 +43,19 @@ output "availability_zones" {
   description = "List of availability zones used"
   value       = var.availability_zones
 }
+
+# NAT Gateway 관련 출력
+output "nat_gateway_id" {
+  description = "ID of the NAT Gateway. 아직 만들지 않았으면 null 이다"
+  value       = one(aws_nat_gateway.main[*].id)
+}
+
+output "nat_gateway_public_ip" {
+  description = "NAT Gateway 의 고정 공인 IP. 외부 업체 허용목록에 등록해야 하는 값이다"
+  value       = aws_eip.nat.public_ip
+}
+
+output "s3_vpc_endpoint_id" {
+  description = "ID of the S3 Gateway Endpoint"
+  value       = aws_vpc_endpoint.s3.id
+}

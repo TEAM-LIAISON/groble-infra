@@ -39,7 +39,12 @@ SSM Session Manager(bastion·WireGuard 폐기) · Terraform state를 S3로
 2-2(Grafana 프로비저닝 as-code) **배포·검증까지 완료**. `memoryReservation` 확정으로 Phase 7 차단이 풀렸다.
 남은 것은 ① NoData로 죽어 있는 JVM 힙 알람 수정 ② 백엔드 지표 3종을 받은 뒤 알림 R10~R14. 상세와 이어받기는
 [`docs/runbook/phase-02-observability.md`](docs/runbook/phase-02-observability.md)에 있다.
-Phase 3부터는 미착수이며, **Phase 3은 [egress IP 허용목록 회신](docs/handoff/egress-ip-allowlist.md)이 착수 조건이다.**
+**Phase 3 진행 중** — 3-a(EIP `15.165.223.110` 확보 + S3 엔드포인트 생성)까지 apply 했다.
+**아웃바운드 경로는 아직 바뀌지 않았다** (전환 스위치 3개가 전부 off). 남은 차단 조건은
+**[외부 업체 허용목록에 이 IP 를 등록](docs/handoff/egress-ip-allowlist.md)하는 것**이며,
+등록 완료 회신이 오면 스위치를 순서대로 켠다. 상세는
+[`docs/runbook/phase-03-nat-gateway.md`](docs/runbook/phase-03-nat-gateway.md)에 있다.
+Phase 4부터는 미착수다.
 Phase와 독립적인 [RDS MySQL 8.4 업그레이드](docs/runbook/adhoc/rds-mysql-84-upgrade.md)는
 **2026-08-29 전환 완료**했다 (확장 지원 과금 $178.56/월 중단).
 구 인스턴스도 같은 날 삭제했고, 최종 스냅샷 `groble-prod-mysql-80-final`(8.0.45)만 남아 있다.

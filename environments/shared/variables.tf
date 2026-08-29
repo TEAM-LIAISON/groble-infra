@@ -215,3 +215,54 @@ variable "slack_channel_id_dev" {
   type        = string
   default     = ""
 }
+
+#################################
+# Phase 3 — NAT Gateway 전환
+#################################
+
+variable "nat_gateway_az" {
+  description = "NAT Gateway 를 배치할 AZ. 계획서 §2.2 의 '전 구성요소 2c 정렬'을 따른다"
+  type        = string
+  default     = "ap-northeast-2c"
+}
+
+variable "use_nat_gateway" {
+  description = <<-EOT
+    private 서브넷의 기본 경로(0.0.0.0/0)를 NAT Gateway 로 보낼지 여부.
+
+    false — 모니터링 인스턴스 ENI 경유 (As-Is)
+    true  — NAT Gateway 경유 (Phase 3 전환 완료 상태)
+
+    ⚠️ 이 값을 바꾸는 apply 가 곧 Phase 3 의 전환 그 자체다.
+       진행 중이던 아웃바운드 연결이 전부 끊기므로 저트래픽·무배포 시간대에만 바꾼다.
+       롤백도 이 값을 되돌리는 것이며, 되돌릴 때도 동일하게 연결이 끊긴다.
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "attach_s3_endpoint_to_private_rt" {
+  description = <<-EOT
+    S3 Gateway Endpoint 를 private route table 에 연결할지 여부.
+
+    use_nat_gateway 와 독립적인 스위치다. 새벽 전환 때 라우트 교체를 먼저 검증하고
+    이것을 나중에 켜면, 문제가 생겼을 때 둘 중 무엇이 원인인지 바로 갈린다.
+
+    ⚠️ 켜는 순간 진행 중이던 S3 연결(파일 업로드 · ECR 레이어 pull)이 끊긴다.
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "create_nat_gateway" {
+  description = <<-EOT
+    NAT Gateway 생성 여부.
+
+    false — EIP 만 만들어 IP 를 확보한다 (시간당 요금 없음)
+    true  — NAT Gateway 를 만든다 (약 $0.059/시간). 트래픽 경로는 use_nat_gateway 가 결정한다
+
+    외부 업체 허용목록에 IP 등록이 필요하면, EIP 로 IP 를 먼저 전달해 등록을 마친 뒤 켠다.
+  EOT
+  type        = bool
+  default     = false
+}

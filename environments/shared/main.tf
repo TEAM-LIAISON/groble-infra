@@ -26,6 +26,11 @@ module "vpc" {
   public_subnet_cidrs  = var.public_subnet_cidrs
   private_subnet_cidrs = var.private_subnet_cidrs
   project_name         = var.project_name
+  nat_gateway_az       = var.nat_gateway_az
+
+  # Phase 3 — 생성/전환 스위치
+  create_nat_gateway               = var.create_nat_gateway
+  attach_s3_endpoint_to_private_rt = var.attach_s3_endpoint_to_private_rt
 }
 
 # 보안 그룹 인프라
@@ -242,6 +247,10 @@ module "ecs_cluster" {
 
   # Route Tables
   private_route_table_id = module.vpc.private_route_table_id
+
+  # Phase 3 — 기본 경로 타깃. use_nat_gateway 를 true 로 바꾸는 순간 전환된다
+  nat_gateway_id  = module.vpc.nat_gateway_id
+  use_nat_gateway = var.use_nat_gateway
 }
 
 #################################

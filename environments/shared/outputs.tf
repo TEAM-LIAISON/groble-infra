@@ -114,3 +114,22 @@ output "alb_alarm_names" {
   description = "ALB 관련 알람 이름 목록"
   value       = module.alb_alarms.alarm_names
 }
+
+#################################
+# Phase 3 — NAT Gateway
+#################################
+
+output "nat_gateway_public_ip" {
+  description = "NAT Gateway 의 고정 공인 IP. 전환 후 외부에서 보이는 우리 서버의 출발지 IP이며, 외부 업체 허용목록에 등록해야 하는 값이다"
+  value       = module.vpc.nat_gateway_public_ip
+}
+
+output "nat_gateway_id" {
+  description = "NAT Gateway ID"
+  value       = module.vpc.nat_gateway_id
+}
+
+output "egress_path" {
+  description = "현재 private 서브넷의 아웃바운드가 무엇을 경유하는지"
+  value       = var.use_nat_gateway ? "NAT Gateway (${module.vpc.nat_gateway_id})" : "모니터링 EC2 인스턴스 (NAT 겸직)"
+}
