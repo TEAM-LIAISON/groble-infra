@@ -20,7 +20,7 @@
 | 문서 | 대상 | 요청일 | 종결일 | 결과 |
 |---|---|---|---|---|
 | [backend-jvm-heap-limit.md](./closed/backend-jvm-heap-limit.md) | groble-backend | 2026-08-18 | 2026-08-20 | ✅ PR #826 머지, dev·prod 배포 완료. 힙 상한 2,878 → **900 MiB**. [Phase 7](../runbook/phase-07-prod-asg.md) 차단 해제 |
-| [rds-mysql-84-compatibility.md](./closed/rds-mysql-84-compatibility.md) | groble-backend | 2026-08-26 | 2026-08-30 | ✅ 호환성 3건 모두 진행 가능. **2026-08-29 전환 완료**, 구 인스턴스 삭제까지 종결. 확장 지원 과금 $178.56/월 중단 |
+| [rds-mysql-84-compatibility.md](./closed/rds-mysql-84-compatibility.md) | groble-backend | 2026-08-26 | 2026-08-30 | ✅ 호환성 3건 모두 진행 가능. **2026-08-29 전환 완료**, 구 인스턴스 삭제까지 종결. 확장 지원 과금 $178.56/월 중단. **전환 직후 결제 점검·정기결제 배치 이상 없음 확인** |
 | [rds-84-parameter-parity.md](./closed/rds-84-parameter-parity.md) | groble-backend | 2026-08-28 | 2026-08-30 | ✅ 블루/그린 파라미터 차이 4건 수정. **그린이 그대로 전환되어 재검증 항목이 소멸**했다 |
 | [rds-84-green-access.md](./closed/rds-84-green-access.md) | groble-backend | 2026-08-28 | 2026-08-30 | 📦 검증용 그린 접속 안내. **그린이 운영으로 전환되어 엔드포인트가 만료**됐다 |
 
