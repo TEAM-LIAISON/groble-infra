@@ -41,8 +41,8 @@ SSM Session Manager(bastion·WireGuard 폐기) · Terraform state를 S3로
 [`docs/runbook/phase-02-observability.md`](docs/runbook/phase-02-observability.md)에 있다.
 Phase 3부터는 미착수이며, **Phase 3은 [egress IP 허용목록 회신](docs/handoff/egress-ip-allowlist.md)이 착수 조건이다.**
 Phase와 독립적인 [RDS MySQL 8.4 업그레이드](docs/runbook/adhoc/rds-mysql-84-upgrade.md)는
-**2026-08-29 전환 완료**했다 (확장 지원 과금 $178.56/월 중단). 구 인스턴스
-`groble-prod-mysql-old1`은 롤백용으로 **D+7까지 남겨두며, 8.0이라 과금이 계속되므로 반드시 삭제할 것.**
+**2026-08-29 전환 완료**했다 (확장 지원 과금 $178.56/월 중단).
+구 인스턴스도 같은 날 삭제했고, 최종 스냅샷 `groble-prod-mysql-80-final`(8.0.45)만 남아 있다.
 
 > **진행 상태의 단일 진실은 [이관 절차 목차](docs/infra-ha-migration-runbook.md)의 순서 요약 표다.**
 > 이 문단은 그 요약일 뿐이므로, 상태가 바뀌면 표를 먼저 고칠 것.

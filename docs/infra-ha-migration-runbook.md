@@ -37,7 +37,7 @@
 | **[9](./runbook/phase-09-access-path.md)** | 접근 경로 정리 (WireGuard/bastion/22 폐기) | ⬜ 미착수 | 없음 | SG 규칙 복원 |
 | **[10](./runbook/phase-10-secrets-ssm.md)** | Secrets → SSM Parameter Store | ⬜ 미착수 | 없음 (rolling 재배포) | 이전 태스크 정의 |
 | **[11](./runbook/phase-11-cleanup.md)** | 잔재 정리 및 문서 갱신 | ⬜ 미착수 | 없음 | — |
-| **[별건](./runbook/adhoc/rds-mysql-84-upgrade.md)** | RDS MySQL 8.0 → 8.4 (확장 지원 과금 $178.56/월 중단) | ✅ **전환 완료** (2026-08-29 02:19) | 쓰기 차단 35초 + **앱 재연결 문제로 7~8분 쓰기 실패** | D+7 까지 구 인스턴스로 되돌리기 가능 |
+| **[별건](./runbook/adhoc/rds-mysql-84-upgrade.md)** | RDS MySQL 8.0 → 8.4 (확장 지원 과금 $178.56/월 중단) | 📦 **종결** (2026-08-29) — 전환·정리 완료 | 쓰기 차단 35초 + **앱 재연결 문제로 7~8분 쓰기 실패** | 되돌릴 수 없음 (최종 스냅샷만 보유) |
 
 **RDS 8.4 업그레이드는 Phase 순서와 독립적이다.** 2026-08-01 부터 확장 지원 과금이 자동으로 붙기
 시작해 촉발된 별건이며, Phase 6·7 과 자원이 겹치지 않아 언제든 끼워 넣을 수 있다.
