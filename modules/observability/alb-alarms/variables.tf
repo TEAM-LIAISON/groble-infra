@@ -21,12 +21,17 @@ variable "services" {
     - traffic_alarms: 5xx·지연 알람을 만들지 여부.
       사용자 트래픽을 받지 않는 서비스(모니터링 대시보드 등)는 false로 둬
       불필요한 알람과 비용을 줄인다. 타깃 헬스 알람은 항상 만든다.
+    - target_5xx_threshold: 5xx 임계치를 이 서비스만 다르게 둘 때 쓴다.
+      생략하면 var.target_5xx_threshold(전역 기본값)를 따른다.
+      환경마다 5xx의 의미가 다르기 때문에 필요한 손잡이다 —
+      prod의 500은 사용자가 실제로 실패한 것이지만, dev의 500은 개발 중 흔한 일이다.
   EOT
   type = map(object({
-    target_groups  = list(string)
-    alarm_actions  = list(string)
-    ok_actions     = optional(list(string), [])
-    traffic_alarms = optional(bool, true)
+    target_groups        = list(string)
+    alarm_actions        = list(string)
+    ok_actions           = optional(list(string), [])
+    traffic_alarms       = optional(bool, true)
+    target_5xx_threshold = optional(number)
   }))
   default = {}
 }
@@ -61,10 +66,15 @@ variable "elb_5xx_threshold" {
 
 variable "target_5xx_threshold" {
   description = <<-EOT
-    5분간 애플리케이션 5xx 건수 임계치 (서비스별).
+    5분간 애플리케이션 5xx 건수 임계치의 **기본값**.
+    서비스별로 다르게 두려면 var.services[*].target_5xx_threshold 로 재정의한다.
 
     실측(2026-08-10~16, prod): 5분 구간당 최대 **2건**, 7일 합계 5건.
     10은 평상시 최대의 5배로, 노이즈는 무시하고 실제 이상만 잡는다.
+
+    ⚠️ **prod 는 이 기본값을 쓰지 않는다** (environments/shared/main.tf 에서 1 로 재정의).
+    "볼륨이 크면 이상"이라는 이 기준이 "500 은 한 건도 그냥 넘기지 않는다"는
+    운영 정책과 어긋나기 때문이다. 배경은 docs/runbook/phase-01-alarm-backstop.md 참조.
   EOT
   type        = number
   default     = 10
