@@ -59,6 +59,13 @@ VPN 을 모두 지고 있고, Prometheus 는 512 MiB 하드리밋에서 **실제
 → 신 노드는 **다른 Name 태그**를 쓴다. 근본 해소는 **5-b(DNS 간접화)로 이 데이터소스를 없애는 것**이며,
    이 데이터소스의 **유일한 용도가 OTLP 엔드포인트**다. 그래서 아래 절차는 5-b 를 노드 생성보다 앞에 둔다.
 
+> ✅ **해소됨 (2026-08-30, C단계).** 데이터소스를 제거했고, 신 노드는
+> `groble-monitoring-v2-instance` 로 만들었다. 구 노드는 남은 역할에 맞춰
+> **`groble-nat-instance` 로 개명**했다(태그만 변경 — `0 to add / 1 to change / 0 to destroy`,
+> ENI·LaunchTime 유지, egress 무중단).
+> ⚠️ Prometheus 가 Name 태그를 `instance_name` 라벨로 승격하므로 개명 시점에 그 노드의
+> 시계열이 끊긴다. 규칙 의존은 0건이라 알람 영향은 없다.
+
 ### 2. `AmazonSSMManagedInstanceCore` 가 ECS Instance Role 에 없다
 
 [iam-roles/main.tf:28](../../modules/infrastructure/iam-roles/main.tf#L28) 에는

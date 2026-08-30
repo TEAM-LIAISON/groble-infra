@@ -169,7 +169,8 @@ RDS는 `multi_az = false`이고 db_subnet_group이 2a/2c를 모두 포함해 **A
 |----------|------|--------|--------|------|
 | Production | t3.medium | Private (2a) | 30GB gp3 | Prod API, Redis |
 | Development | t3.medium | Private (2c) | 30GB gp3 | Dev API, MySQL, Redis |
-| Monitoring | t3.small | Public (2a) | 30GB gp3 | 모니터링 스택 + **NAT + bastion + WireGuard VPN** |
+| Monitoring(구) `groble-nat-instance` | t3.small | Public (2a) | 30GB gp3 | 모니터링 스택 + **NAT + bastion + WireGuard VPN** |
+| Monitoring(신) `groble-monitoring-v2-instance` | t3a.small | **Private (2c)** | 30GB gp3 | AL2023. [Phase 4](docs/runbook/phase-04-monitoring-node-rebuild.md) D단계에서 기동. 스택 이동은 E단계 |
 
 **Monitoring 인스턴스는 4가지 역할을 겸직한다** — 죽으면 관측·아웃바운드·개발자 접근이 동시에 끊긴다.
 

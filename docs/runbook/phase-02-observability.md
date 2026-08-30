@@ -484,9 +484,16 @@ prod 배포 직후 RSS 를 우선 확인하고, 1,400 MiB 를 넘어 머물면 �
 
    | 인스턴스 | Name | environment | Type | Cluster | 사설 IP |
    |---|---|---|---|---|---|
-   | 모니터링 | `groble-monitoring-instance` | `monitoring` | `Monitoring` | `groble-cluster` | 10.0.1.193 |
+   | 모니터링(구) | `groble-nat-instance` ※ | `monitoring` | `Monitoring` | `groble-cluster` | 10.0.1.193 |
    | 운영 | `groble-prod-instance-1` | `production` | `Production` | `groble-cluster` | 10.0.11.62 |
    | 개발 | `groble-develop-instance` | `development` | `Development` | `groble-cluster` | 10.0.12.215 |
+   | 모니터링(신) | `groble-monitoring-v2-instance` | `monitoring` | `Monitoring` | `groble-cluster` | 10.0.12.100 |
+
+   > ※ 구 모니터링 노드는 2026-08-30 [Phase 4](./phase-04-monitoring-node-rebuild.md) 에서
+   > `groble-monitoring-instance` → `groble-nat-instance` 로 개명했다(태그만 변경, 재기동 없음).
+   > 관측 스택이 신 노드로 옮겨가면 이 노드에는 NAT·bastion·WireGuard 만 남기 때문이다.
+   > **Prometheus 가 Name 태그를 `instance_name` 라벨로 승격하므로 그 시점에 해당 노드의
+   > 시계열이 끊긴다** — 규칙 의존은 0건이고 대시보드 연속성에만 영향이다.
 
 3. ✅ `groble-images`의 Prometheus config를 `static_configs` → `ec2_sd_config`로 변경
    - 태그 필터: `tag:Cluster = groble-cluster` **AND** `instance-state-name = running`

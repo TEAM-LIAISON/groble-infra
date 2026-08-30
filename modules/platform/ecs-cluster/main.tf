@@ -131,9 +131,20 @@ resource "aws_instance" "monitoring_instance" {
   }
 
   tags = {
-    Name        = "${var.project_name}-monitoring-instance"
-    Type        = "Monitoring"
-    Cluster     = "${var.project_name}-cluster"
+    # 2026-08-30 Phase 4 — 이름을 역할에 맞췄다.
+    # 관측 스택은 신 노드(groble-monitoring-v2-instance)로 옮겨가고, 이 노드에
+    # 남는 것은 NAT·bastion·WireGuard 다. 실제 스택 이동은 E단계에서 한다.
+    #
+    # ⚠️ 태그 변경은 in-place 다(재생성 없음). egress 경로가 이 노드의 ENI 에
+    #    걸려 있으므로 plan 에 replace 가 보이면 즉시 중단할 것.
+    # ⚠️ Prometheus 가 이 태그를 instance_name 라벨로 승격한다. 변경 시점에
+    #    해당 노드의 시계열이 끊긴다(규칙 의존 0건, 대시보드 연속성만 영향).
+    Name    = "${var.project_name}-nat-instance"
+    Type    = "Monitoring"
+    Cluster = "${var.project_name}-cluster"
+
+    # environment 는 그대로 둔다 — E단계 전까지 이 노드가 실제로 관측 스택을
+    # 돌리고 있고, Prometheus 라벨과 ECS placement 판단에도 쓰인다.
     environment = "monitoring"
   }
 }
