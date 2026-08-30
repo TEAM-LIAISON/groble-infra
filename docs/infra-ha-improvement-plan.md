@@ -174,7 +174,7 @@ t3.small(2GiB)은 API 태스크를 **노드당 1개**만 담을 수 있다. 따�
 현재 코드에는 capacity provider가 전혀 없다(`capacity_provider_strategy: []`). 신규 도입 항목이다.
 
 > ⚠️ **순서 의존성 — 서비스에 CP를 나중에 붙이는 변경은 Terraform 함정이 될 수 있다.**
-> 배포 컨트롤러 전환(§2.6, 런북 Phase 4)에서 만드는 신 ECS 서비스는 CP가 아직 없으므로 launch type으로 생성된다. 이후 Phase 7에서 이 서비스에 `capacity_provider_strategy`를 추가하는 변경은 **AWS provider 버전에 따라 서비스 재생성(destroy → create)을 강제할 수 있다.** §2.6의 `deployment_controller`와 같은 종류의 함정이다.
+> 배포 컨트롤러 전환(§2.6, 런북 Phase 5)에서 만드는 신 ECS 서비스는 CP가 아직 없으므로 launch type으로 생성된다. 이후 Phase 7에서 이 서비스에 `capacity_provider_strategy`를 추가하는 변경은 **AWS provider 버전에 따라 서비스 재생성(destroy → create)을 강제할 수 있다.** §2.6의 `deployment_controller`와 같은 종류의 함정이다.
 > - Phase 7에서 이 변경을 apply하기 전 **plan에 서비스 replace가 없는지 육안 확인**한다.
 > - CP 전략을 붙이지 않은(launch type) 서비스의 태스크도 컨테이너 인스턴스가 DRAINING이 되면 정상적으로 옮겨진다. 따라서 CP 전략 부착이 재생성을 요구하면 **부착을 미루고 managed draining만으로 운용**해도 무중단 교체 목표는 달성된다. 이 경우 CP 전략 부착은 다음 서비스 재생성 기회로 이관한다.
 > - 리허설(Phase 7-10)에서 실제 드레인 동작을 확인하는 항목이 이 판단의 근거가 된다.
@@ -376,7 +376,7 @@ ASG 전환으로 노드 IP가 변하므로, 관측 경로의 주소 의존성을
 | 앱 설정 | `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel.internal.groble.im:4318` |
 
 효과:
-- 모니터링 노드 재구축(런북 Phase 5)이 **레코드 값 변경으로 끝난다** — 앱 재배포가 필요 없다.
+- 모니터링 노드 재구축(런북 Phase 4)이 **레코드 값 변경으로 끝난다** — 앱 재배포가 필요 없다.
 - 향후 관측 평면 HA(내부 NLB, 향후 개선 Medium-5)로 갈 때도 레코드를 NLB alias로 바꾸면 되므로 **앱 무변경**이다.
 - ElastiCache 전환 전까지의 컨테이너 Redis, 향후 RDS 엔드포인트 등도 같은 패턴으로 간접화할 수 있다(선택).
 
@@ -491,7 +491,7 @@ ECS-optimized AL2023에는 SSM Agent가 기본 탑재되어 있어, 실제 작�
 
 **롤백은 리스너 규칙을 되돌리는 것**이며, 구 서비스가 그대로 살아 있다. 이번 마이그레이션에서 가장 깔끔한 되돌리기 지점이다. 슬롯 부족은 현재 `desired_count = 1`인 상태에서 전환해 회피한다(슬롯 2개만 사용).
 
-상세 절차는 [`runbook/phase-04-deployment-controller.md`](./runbook/phase-04-deployment-controller.md)를 따른다.
+상세 절차는 [`runbook/phase-05-deployment-controller.md`](./runbook/phase-05-deployment-controller.md)를 따른다.
 
 **트레이드오프(수용함)**: 프로덕션 전 검증(테스트 리스너 9443) 상실, 롤백이 분 단위, **버전 혼재** 발생.
 → §3 릴리스 안정성 요건으로 보완한다.
@@ -596,7 +596,7 @@ rolling에서는 구/신 버전이 **동시에 실트래픽**을 받으므로 �
 
 ### rolling 전환의 차단 조건 — 앱 측 작업 (groble-backend)
 
-위 항목 중 일부는 rolling 전환 **후에** 튜닝하는 것이 아니라, rolling이 안전하려면 **전에** 존재해야 하는 것들이다. 인프라 리포지토리 문서라 앱 의존성이 흐릿해지기 쉬우므로 여기 명시한다. **아래 4개가 모두 완료되기 전에는 런북 Phase 4(배포 컨트롤러 전환)에 진입하지 않는다.**
+위 항목 중 일부는 rolling 전환 **후에** 튜닝하는 것이 아니라, rolling이 안전하려면 **전에** 존재해야 하는 것들이다. 인프라 리포지토리 문서라 앱 의존성이 흐릿해지기 쉬우므로 여기 명시한다. **아래 4개가 모두 완료되기 전에는 런북 Phase 5(배포 컨트롤러 전환)에 진입하지 않는다.**
 
 | # | 앱 작업 | 확인 방법 | 추적 |
 |---|---|---|---|
@@ -613,7 +613,7 @@ rolling에서는 구/신 버전이 **동시에 실트래픽**을 받으므로 �
 
 | # | 항목 | 상태 |
 |---|---|---|
-| 1 | **rolling 전환의 앱 측 차단 조건 4건** — expand/contract 합의 · readiness/liveness 분리 · graceful shutdown · 드레이닝 값 정렬 (§3 표) | 진행 예정 — **런북 Phase 4의 차단 조건**. groble-backend 이슈와 연결 |
+| 1 | **rolling 전환의 앱 측 차단 조건 4건** — expand/contract 합의 · readiness/liveness 분리 · graceful shutdown · 드레이닝 값 정렬 (§3 표) | 진행 예정 — **런북 Phase 5의 차단 조건**. groble-backend 이슈와 연결 |
 | 2 | ~~드레이닝 파라미터 구체 값~~ → 1번 D항목으로 통합 | — |
 | 3 | **서킷 브레이커·알람 임계치 실제 값** | 구현 시 확정 |
 | 4 | **Dev API 실사용 메모리 실측** | 한도는 900으로 확정(§2.1)했으나 Prod 실측값에서 유추한 값이다. Dev 전환 후 실측하여 조정 |
@@ -794,7 +794,7 @@ graph TB
 
 ### 배포
 - ✅ **ECS rolling** — Prod: desired 2, `100% / 150%`(surge) / Dev: desired 2, `50% / 100%`(축소 우선), 서킷 브레이커 롤백
-- ✅ **Phase 4 진입 차단 조건 = 앱 측 4건** (expand/contract · readiness/liveness · graceful shutdown · 드레이닝 값) — §3 표, groble-backend 이슈와 연결
+- ✅ **Phase 5 진입 차단 조건 = 앱 측 4건** (expand/contract · readiness/liveness · graceful shutdown · 드레이닝 값) — §3 표, groble-backend 이슈와 연결
 - ✅ Dev 메모리: `reservation 800 / limit 900` (t3.small 예산 ~1000MiB 기준)
 - ✅ 컷오버는 **Green TG 재활용 + 리스너 스왑** (서비스 재생성으로 인한 다운타임 회피)
 - ✅ **배포 주체는 CI** — Terraform은 `ignore_changes = [task_definition]` 유지

@@ -35,6 +35,10 @@
    deployment_maximum_percent         = 100   # 최대 2태스크 (노드당 1개)
    ```
 
+   > **[Phase 5](./phase-05-deployment-controller.md) 의 임시값 `100/200` 을 여기서 To-Be 값으로 되돌린다.**
+   > 임시값을 쓴 이유는 desired 1 에서 `50/100` 이 `min=ceil(0.5)=1` · `max=floor(1.0)=1` 로
+   > 교착이기 때문이다. desired 2 가 되면서 그 제약이 사라진다.
+
    배포 시퀀스: `구2:신0 → 1:0 → 1:1 → 0:1 → 0:2`
 
    > ⚠️ `minimum_healthy_percent`를 100으로 두면 태스크를 먼저 내릴 수 없어 **배포가 교착 상태에 빠진다.** 반드시 50으로 낮춘다.
