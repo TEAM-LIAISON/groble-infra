@@ -280,10 +280,15 @@ F(레코드 값 변경)는 DNS 를 쓰는 쪽만 따라오므로 구해주지 �
 - [x] **E 후** Prometheus 타깃 **16/16 up**, recording rule 정상
 - [x] **E 후** Loki 신규 로그 유입 지속 (S3 경로가 NAT 를 타게 된 뒤에도)
 - [x] **F 후** 앱 텔레메트리가 **재배포 없이** 신 노드로 이동 — 이 Phase 의 핵심 성과
-- [ ] **Grafana 알림 → SNS → Slack 경로 (의존 ②) — 미검증.** 강제 발화를 하지 않았다.
-      contact point(`sns-critical`·`sns-warning`)가 복원된 것은 확인했으나 **실제 도달은 확인하지 않았다.**
-      신 노드는 private 서브넷이라 SNS 호출이 NAT 를 경유한다 — 여기서 막히면 Grafana 알림이 조용히 사라진다.
-      ⚠️ **다음 알림이 실제로 울릴 때 Slack 도착을 반드시 확인할 것**
+- [x] **Grafana 알림 → SNS → Slack 경로 (의존 ②) — 검증됨** (2026-08-30 20:09 KST).
+      강제 발화 없이 **전환 작업 자체가 만든 알림으로 확인됐다.** 드레이닝 중 구 노드의
+      cadvisor·node-exporter 가 빠지면서 `스크레이프 타깃 다운` 이 발화했고, 복귀 후
+      `[resolved]` 까지 Slack 에 도달했다.
+      - **CloudWatch 백스톱이 아니라 Grafana 경로임을 확인했다** — CloudWatch 알람 19개는
+        전부 `groble-*` 영문 이름이고 이 이름이 없다. Slack 문구가 Grafana 규칙의
+        `summary`·`runbook` annotation 과 글자 그대로 일치하며, 템플릿 변수가 `2개` 로 렌더링됐다
+      - **firing 과 resolved 양쪽 다 도달한다.** resolve 쪽이 더 잘 누락되는데 그것까지 왔다
+      - 즉 **신 노드가 private 서브넷에서 NAT 를 경유해 SNS 를 호출하는 경로가 살아 있다**
 
 ## 롤백
 
