@@ -163,9 +163,9 @@ AL2023 ECS-optimized 는 ecs-init 이 내장이라 완전히 다른 스크립트
 E 에서 스택이 신 노드로 옮겨가는 순간 그 환경의 관측이 통째로 끊기고,
 F(레코드 값 변경)는 DNS 를 쓰는 쪽만 따라오므로 구해주지 못한다.**
 
-- [ ] **dev** — Terraform apply + 앱 배포 완료, Loki·Prometheus 유입 확인
-- [ ] **prod** — Terraform apply + 앱 배포 완료, Loki·Prometheus 유입 확인
-- [ ] 두 칸이 모두 채워지기 전에는 **E 에 진입하지 않는다**
+- [x] **dev** — 리비전 1182(이미지 `dev-563a416`, PR #882 머지분) 배포·유입 확인 (2026-08-30)
+- [x] **prod** — 리비전 523(이미지 `prod-d17ee87`, PR #883 머지분) 배포·유입 확인 (2026-08-30)
+- [x] 두 칸이 모두 채워지기 전에는 **E 에 진입하지 않는다** → 충족 후 진입했다
 
 확인 기준은 **"아무 일도 일어나지 않는 것"** 이다 — 이름이 구 노드를 가리키므로
 로그·메트릭이 전과 같은 곳으로 끊김 없이 계속 들어와야 한다.
@@ -253,9 +253,9 @@ F(레코드 값 변경)는 DNS 를 쓰는 쪽만 따라오므로 구해주지 �
 
 ### 전환 직후 공동 확인 (백엔드와 함께)
 
-- [ ] 신 노드에 **메트릭 유입** (Prometheus 에 `environment` 별 시계열)
-- [ ] 신 노드에 **로그 유입** (Loki 에 `env=production` · `env=development`)
-- [ ] **loki4j drop 지표** — 전환 순간의 유실이 여기 드러난다 (`metricsEnabled`)
+- [x] 신 노드에 **메트릭 유입** — production 174 series / development 17 series
+- [x] 신 노드에 **로그 유입** — 양쪽 환경 모두 확인
+- [x] **loki4j drop 지표** — `loki4j_drop_events_total = 0` (**유실 없음**). `send_errors_total = 9` 는 커넥션이 끊긴 순간의 실패이며 재시도로 흡수됐다
 
 > 이후 모니터링 노드를 다시 교체할 때도 **같은 두 단계(레코드 변경 → 구 수신 중단)를
 > 반복하면 된다.** 앱 재배포가 필요 없는 것이 이 Phase 의 진짜 성과다.
@@ -268,18 +268,22 @@ F(레코드 값 변경)는 DNS 를 쓰는 쪽만 따라오므로 구해주지 �
 
 ## 검증
 
-- [ ] **A 후** SSM 정책이 붙었는지 (`aws iam list-attached-role-policies`)
-- [ ] **C 후** 앱 로그·트레이스가 **여전히 구 노드**로 들어오는지 — 간접화 자체의 검증
-- [ ] **C 후** prod·dev `terraform plan` 이 깨끗한지 (데이터소스 제거 확인)
-- [ ] **C 게이트** — dev·prod **둘 다** 앱 배포까지 끝나고 Loki·Prometheus 유입이 확인됐는지.
-      **한 칸이라도 비면 E 로 가지 않는다**
-- [ ] **D 후** 신 노드가 ECS 클러스터에 등록되고 `Cluster` 태그로 `ec2_sd` 에 잡히는지
-- [ ] **E 전** WireGuard 로 신 노드 SSH 가 되는지 (락아웃 방지 — SSM 실패 시의 대안)
-- [ ] **E 후** Grafana 대시보드 3개 · 데이터소스 · 알림 규칙이 프로비저닝으로 복원됐는지
-- [ ] **E 후** Prometheus 타깃이 `ec2_sd` 로 전부 잡히는지 (`groble:*` recording rule 12건 포함)
-- [ ] **E 후** Loki 에 신규 로그가 계속 쌓이는지 — **S3 경로가 NAT 를 타게 됐으므로 특히 확인** (의존 ①)
-- [ ] **F 후** 60초 내 앱 트레이스·로그가 **신 otelcol** 로 들어오는지 — **재배포 없이** 옮겨졌는지가 핵심
-- [ ] Grafana 알림 1건을 강제 발화시켜 SNS→Slack 이 NAT 경유로도 나가는지 (의존 ②)
+- [x] **A 후** SSM 정책 부착 확인 — 네 노드 모두 SSM Online
+- [x] **C 후** 앱 텔레메트리가 여전히 구 노드로 — 동작 변화 없음 확인
+- [x] **C 후** prod·dev `terraform plan` No changes
+- [x] **C 게이트** — dev·prod 둘 다 배포·유입 확인 완료
+- [x] **D 후** ECS 등록(agent 1.106.1) · `ec2_sd` 가 `10.0.12.100` 자동 발견
+- [ ] ~~**E 전** WireGuard 로 신 노드 SSH~~ — **하지 않았다.** SSM 이 첫 부팅부터 동작해
+      대안 경로를 시험할 이유가 없었다. `key_name` 은 붙어 있으므로 필요하면 쓸 수 있다.
+      **다음 노드 교체 때는 SSM 이 안 될 가능성에 대비해 먼저 확인하는 편이 낫다**
+- [x] **E 후** Grafana 복원 — 대시보드 3 · 데이터소스 2(UID 고정, health 200) · 알림 규칙 14 · contact point 3(`sns-critical`·`sns-warning` 포함)
+- [x] **E 후** Prometheus 타깃 **16/16 up**, recording rule 정상
+- [x] **E 후** Loki 신규 로그 유입 지속 (S3 경로가 NAT 를 타게 된 뒤에도)
+- [x] **F 후** 앱 텔레메트리가 **재배포 없이** 신 노드로 이동 — 이 Phase 의 핵심 성과
+- [ ] **Grafana 알림 → SNS → Slack 경로 (의존 ②) — 미검증.** 강제 발화를 하지 않았다.
+      contact point(`sns-critical`·`sns-warning`)가 복원된 것은 확인했으나 **실제 도달은 확인하지 않았다.**
+      신 노드는 private 서브넷이라 SNS 호출이 NAT 를 경유한다 — 여기서 막히면 Grafana 알림이 조용히 사라진다.
+      ⚠️ **다음 알림이 실제로 울릴 때 Slack 도착을 반드시 확인할 것**
 
 ## 롤백
 
