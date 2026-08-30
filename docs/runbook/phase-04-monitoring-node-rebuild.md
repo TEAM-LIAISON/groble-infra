@@ -126,8 +126,42 @@ AL2023 ECS-optimized 는 ecs-init 이 내장이라 완전히 다른 스크립트
 
 - prod·dev 의 `otel_exporter_endpoint` 를 IP → `http://otel.internal.groble.im:4318`
 - **`data "aws_instance" "shared_monitoring_instance"` 를 제거한다** → 위 함정 1번이 여기서 해소된다
-- 재배포 1회 (CodeDeploy Blue/Green 으로 무방)
 - **이 시점에도 트래픽은 여전히 구 노드로 간다 — 동작 변화 없이 간접화만 도입한다**
+
+#### ⚠️ 전송 주소는 두 곳에 있다. 둘 다 바꿔야 한다
+
+앱은 목적지를 둘 가지며 **로그는 otelcol 을 거치지 않고 Loki 에 직접 간다.**
+
+| 설정 | 목적지 | 이 값을 정하는 곳 | 누가 바꾸나 |
+|---|---|---|---|
+| `loki.url` | Loki `:3100` | **앱 yml 뿐** — 태스크 정의에 LOKI 환경변수가 없다 | **앱 리포지토리 PR** |
+| `otel.exporter.otlp.endpoint` | otelcol `:4318` | **태스크 정의의 `OTEL_EXPORTER_OTLP_ENDPOINT`** — 환경변수가 yml 을 이긴다 | **이 리포지토리** |
+
+한쪽만 바꾸면 로그나 메트릭 중 하나만 옮겨간다.
+
+#### 🚧 **게이트 — 재배포가 실제로 끝나야 E 로 갈 수 있다**
+
+**Terraform apply 만으로는 앱에 반영되지 않는다.** 태스크 정의 리비전이 하나 생길 뿐이고
+`lifecycle { ignore_changes = [task_definition] }` 때문에 서비스는 구 리비전을 계속 돈다.
+
+> CD 워크플로가 `describe-task-definition --task-definition <family>`(리비전 미지정 = **최신 ACTIVE**)
+> 를 읽어 이미지만 갈아끼우므로, **Terraform 이 등록한 리비전이 다음 배포의 기반**이 된다.
+> 즉 apply → (앱 배포) 순서면 자동으로 실려 간다.
+>
+> ⚠️ 그래서 **apply 전에 `terraform.tfvars` 의 `spring_app_image` 를 실행 중 이미지와 맞춰야 한다.**
+> 낡은 값을 둔 채 apply 하면 그 낡은 이미지가 family 의 최신 리비전이 되어,
+> "리비전 미지정 배포"가 그것을 띄운다.
+
+**배포되지 않은 환경은 여전히 구 노드의 IP 를 직접 보고 있다.
+E 에서 스택이 신 노드로 옮겨가는 순간 그 환경의 관측이 통째로 끊기고,
+F(레코드 값 변경)는 DNS 를 쓰는 쪽만 따라오므로 구해주지 못한다.**
+
+- [ ] **dev** — Terraform apply + 앱 배포 완료, Loki·Prometheus 유입 확인
+- [ ] **prod** — Terraform apply + 앱 배포 완료, Loki·Prometheus 유입 확인
+- [ ] 두 칸이 모두 채워지기 전에는 **E 에 진입하지 않는다**
+
+확인 기준은 **"아무 일도 일어나지 않는 것"** 이다 — 이름이 구 노드를 가리키므로
+로그·메트릭이 전과 같은 곳으로 끊김 없이 계속 들어와야 한다.
 - ⚠️ **사전 확인: JVM DNS 캐시 TTL** (계획서 §3-8, To-Do 12) — 무기한이면 F 가 재배포 없이는 반영되지 않아
   이 Phase 의 핵심 성과가 사라진다. **2026-08-29 RDS 8.4 스위치오버 때 JVM 이 구 IP 를 붙잡아
   7~8분간 쓰기가 실패한 전력이 있다** ([adhoc 런북 사고 1](./adhoc/rds-mysql-84-upgrade.md)) —
@@ -144,6 +178,9 @@ AL2023 ECS-optimized 는 ecs-init 이 내장이라 완전히 다른 스크립트
 - 인스턴스 프로파일은 A 에서 갱신된 것
 
 ### E. SSM 확인 → 스택 이동
+
+> 🚧 **진입 전 확인: C 의 게이트 두 칸(dev·prod 배포)이 모두 채워졌는가.**
+> 배포되지 않은 환경은 이 단계에서 관측이 끊긴다.
 
 1. **SSM 접속 확인** — `aws ssm start-session --target <new-instance-id>`
    - 실패하면 여기서 멈춘다. 구 노드 폐기(Phase 9·11)의 선행 조건이다
@@ -174,6 +211,8 @@ AL2023 ECS-optimized 는 ecs-init 이 내장이라 완전히 다른 스크립트
 - [ ] **A 후** SSM 정책이 붙었는지 (`aws iam list-attached-role-policies`)
 - [ ] **C 후** 앱 로그·트레이스가 **여전히 구 노드**로 들어오는지 — 간접화 자체의 검증
 - [ ] **C 후** prod·dev `terraform plan` 이 깨끗한지 (데이터소스 제거 확인)
+- [ ] **C 게이트** — dev·prod **둘 다** 앱 배포까지 끝나고 Loki·Prometheus 유입이 확인됐는지.
+      **한 칸이라도 비면 E 로 가지 않는다**
 - [ ] **D 후** 신 노드가 ECS 클러스터에 등록되고 `Cluster` 태그로 `ec2_sd` 에 잡히는지
 - [ ] **E 전** WireGuard 로 신 노드 SSH 가 되는지 (락아웃 방지 — SSM 실패 시의 대안)
 - [ ] **E 후** Grafana 대시보드 3개 · 데이터소스 · 알림 규칙이 프로비저닝으로 복원됐는지
