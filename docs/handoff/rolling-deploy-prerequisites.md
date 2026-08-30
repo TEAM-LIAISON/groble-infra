@@ -15,8 +15,7 @@
 **롤링 배포로 전환하기 위한 앱 측 준비 4건입니다.** 정해진 기한은 없으나
 **4건이 모두 끝나기 전에는 전환에 착수하지 않습니다.**
 
-> JVM DNS 캐시 건은 [`jvm-dns-cache.md`](./jvm-dns-cache.md) 로 분리했습니다 —
-> 그쪽이 더 급하고(모니터링 노드 교체가 막혀 있습니다) 성격도 다릅니다.
+> JVM DNS 캐시 건은 [`closed/jvm-dns-cache.md`](./closed/jvm-dns-cache.md) 로 분리했고 종결됐습니다.
 
 ---
 

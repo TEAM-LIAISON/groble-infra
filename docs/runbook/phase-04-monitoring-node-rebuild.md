@@ -173,7 +173,7 @@ F(레코드 값 변경)는 DNS 를 쓰는 쪽만 따라오므로 구해주지 �
   이 Phase 의 핵심 성과가 사라진다. **2026-08-29 RDS 8.4 스위치오버 때 JVM 이 구 IP 를 붙잡아
   7~8분간 쓰기가 실패한 전력이 있다** ([adhoc 런북 사고 1](./adhoc/rds-mysql-84-upgrade.md)) —
   즉 현재 TTL 은 사실상 무기한으로 봐야 한다.
-  → 요청서: [`handoff/jvm-dns-cache.md`](../handoff/jvm-dns-cache.md)
+  → 회신: [`handoff/closed/jvm-dns-cache.md`](../handoff/closed/jvm-dns-cache.md) — **차단 조건이 아니었다**(TTL 30초). 다만 keep-alive 때문에 E·F 순서가 바뀌었다
 
 ### D. 신 노드 생성
 
@@ -184,10 +184,37 @@ F(레코드 값 변경)는 DNS 를 쓰는 쪽만 따라오므로 구해주지 �
 - **`key_name` 유지** (함정 ③ — SSM 이 안 될 때의 유일한 대안)
 - 인스턴스 프로파일은 A 에서 갱신된 것
 
-### E. SSM 확인 → 스택 이동
+### ⚠️ E·F 의 순서가 바뀌었다 — DNS 를 **먼저** 바꾼다 (2026-08-30)
 
-> 🚧 **진입 전 확인: C 의 게이트 두 칸(dev·prod 배포)이 모두 채워졌는가.**
-> 배포되지 않은 환경은 이 단계에서 관측이 끊긴다.
+원래는 E(스택 이동) → F(DNS 변경) 순이었다. **백엔드 회신으로 순서를 뒤집었다.**
+
+**이유: 앱이 keep-alive 로 커넥션을 재사용해 IP 를 고정한다.**
+레코드만 바꿔서는 옮겨가지 않는다 — 살아 있는 커넥션은 DNS 를 다시 조회하지 않는다.
+
+| 레인 | 구현 | 왜 안 끊기나 |
+|---|---|---|
+| OTLP(메트릭) | OpenTelemetry Java exporter + OkHttp | 유휴 5분까지 재사용하는데 전송 주기가 60초라 **유휴로 빠질 틈이 없다** |
+| 로그 | loki4j 1.5.1 | keep-alive 로 수초 간격 배치를 계속 보낸다 |
+
+**커넥션을 끊어 줘야 재연결하면서 DNS 를 새로 조회한다.** 그 "끊는 행위"가 바로
+구 노드의 수신 프로세스 중단 = 드레이닝이다. 그래서 **레코드를 먼저 바꿔 두고
+드레이닝으로 커넥션을 끊는** 순서가 된다.
+
+> DNS TTL 자체는 문제가 아니다 — **성공 30초 / 실패 10초**(JDK 17 기본값)로 이미 충분하다.
+> 백엔드가 `-Dsun.net.inetaddr.ttl=60` 명시 설정 PR 을 별도로 올리고 있으나,
+> **이 Phase 의 차단 조건은 아니다.** ([회신](../handoff/closed/jvm-dns-cache.md))
+
+---
+
+### E. DNS 를 신 노드로 (구 5-d)
+
+- shared 의 `otel_target_private_ip` 를 **신 노드 IP(`10.0.12.100`)** 로 바꾼다
+- **plan 이 `aws_route53_record.otel_internal` 의 `~ update in-place` 하나여야 한다.**
+  그 외가 잡히면 중단
+- **이 시점에는 아무 일도 일어나지 않는다** — 앱은 keep-alive 로 여전히 구 노드에 보낸다.
+  그것이 정상이다
+
+### F. SSM 확인 → 스택 이동 (커넥션이 끊기며 전환이 일어난다)
 
 1. **SSM 접속 확인** — `aws ssm start-session --target <new-instance-id>`
    - 실패하면 여기서 멈춘다. 구 노드 폐기(Phase 9·11)의 선행 조건이다
@@ -196,16 +223,23 @@ F(레코드 값 변경)는 DNS 를 쓰는 쪽만 따라오므로 구해주지 �
    aws ecs update-container-instances-state --cluster groble-cluster \
      --container-instances <old-container-instance-arn> --status DRAINING
    ```
+   - 구 노드의 collector·Loki 가 죽으면서 **앱의 keep-alive 커넥션이 끊긴다**
+     → 다음 전송이 재연결하며 DNS 를 새로 조회 → **이미 신 노드를 가리키므로 그리로 정착한다.
+     앱 재배포 불필요**
    - ⚠️ **관측이 수 분 끊긴다.** host mode + desired 1 이라 태스크가 하나씩 옮겨간다
    - 모니터링 타깃그룹은 `deregistration_delay = 30` 이므로(2026-08-30) 이 창이 6분에서 크게 줄어 있다
-3. ALB 모니터링 타깃그룹을 신 노드로 재연결 → `monitor.groble.im` 접속 확인
+3. ALB 모니터링 타깃그룹은 **신·구 노드가 모두 붙어 있어 헬스체크로 자동 전환된다**
+   → `monitor.groble.im` 접속 확인
 4. Grafana 로그인 (**비밀번호가 tfvars 값으로 바뀌어 있다**)
 
-### F. 5-d — DNS 를 신 노드로
+### 전환 직후 공동 확인 (백엔드와 함께)
 
-- `otel.internal.groble.im` 레코드 값을 **신 노드 IP** 로 변경
-- 60초 내 트래픽이 신 노드로 이동. **앱 재배포 없음**
-- 이후 모니터링 노드를 다시 교체할 때는 **F 만 반복하면 된다** — 이 간접화가 이 Phase 의 진짜 성과다
+- [ ] 신 노드에 **메트릭 유입** (Prometheus 에 `environment` 별 시계열)
+- [ ] 신 노드에 **로그 유입** (Loki 에 `env=production` · `env=development`)
+- [ ] **loki4j drop 지표** — 전환 순간의 유실이 여기 드러난다 (`metricsEnabled`)
+
+> 이후 모니터링 노드를 다시 교체할 때도 **같은 두 단계(레코드 변경 → 구 수신 중단)를
+> 반복하면 된다.** 앱 재배포가 필요 없는 것이 이 Phase 의 진짜 성과다.
 
 ### G. 구 노드 정리 — 이번엔 여기까지만
 

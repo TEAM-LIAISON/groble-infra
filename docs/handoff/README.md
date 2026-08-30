@@ -12,7 +12,6 @@
 |---|---|---|---|---|
 | [egress-ip-allowlist.md](./egress-ip-allowlist.md) | groble-backend | 2026-08-24 | 🔄 진행 중 | **[Phase 3](../runbook/phase-03-nat-gateway.md) 전환의 차단 조건.** 허용목록 관리가 확인되어 **EIP `15.165.223.110` 을 먼저 확보**했다. 현재 **외부 업체 등록 완료 회신 대기** — 등록 전에 전환하면 지속 장애가 된다 |
 | [http-metrics-5xx-undercount.md](./http-metrics-5xx-undercount.md) | groble-backend | 2026-08-30 | ⏳ 회신 대기 | **A** 앱이 반환한 500 10건 중 **4건만 `http_server_requests` 에 기록**된 원인 — 결제 알람 R1·R3·R4 가 전부 이 지표에 의존한다. **B** 스케줄러 23개 중 **10개가 정체 알람 대상 밖** — 중요도·실행 주기를 받아야 임계를 정할 수 있다. 진행 중인 Phase 를 막지는 않는다 |
-| [jvm-dns-cache.md](./jvm-dns-cache.md) | groble-backend | 2026-08-30 | ⏳ 회신 대기 | **[Phase 4](../runbook/phase-04-monitoring-node-rebuild.md) F단계의 마지막 차단 조건.** JVM 이 DNS 를 무기한 캐시하면 레코드만 바꿔 노드를 옮기는 구조가 성립하지 않는다. 2026-08-29 RDS 전환 때 실제로 발생해 7~8분간 쓰기가 실패했다 |
 | [rolling-deploy-prerequisites.md](./rolling-deploy-prerequisites.md) | groble-backend | 2026-08-30 | ⏳ 회신 대기 | **[Phase 5](../runbook/phase-05-deployment-controller.md) 착수 조건 4건.** 롤링에서는 구·신 버전이 동시에 실트래픽을 받으므로 expand/contract · readiness 분리 · graceful shutdown · 드레이닝 값 정렬이 전제다 |
 | [payment-alerts-review.md](./payment-alerts-review.md) | groble-backend | 2026-08-20 | ⏳ 부분 회신 대기 | **A(알림 검수)는 회신 완료** → R1~R9 반영·배포됨. **B(지표 3종 노출) 대기** → 나오면 R10~R14 를 건다. [Phase 2](../runbook/phase-02-observability.md) 완료를 막지는 않는다 |
 
@@ -22,6 +21,7 @@
 
 | 문서 | 대상 | 요청일 | 종결일 | 결과 |
 |---|---|---|---|---|
+| [jvm-dns-cache.md](./closed/jvm-dns-cache.md) | groble-backend | 2026-08-30 | 2026-08-30 | ✅ **차단 조건이 아니었다** — TTL 은 이미 30초(JDK 17 기본값)였다. 대신 **keep-alive 가 IP 를 고정**한다는 것이 확인되어 교체 절차를 "레코드 변경 → 구 노드 수신 중단"으로 바꿨다. 8/29 사고의 원인도 DNS 캐시가 아니라 커넥션 풀 수명으로 정정됐다 |
 | [backend-jvm-heap-limit.md](./closed/backend-jvm-heap-limit.md) | groble-backend | 2026-08-18 | 2026-08-20 | ✅ PR #826 머지, dev·prod 배포 완료. 힙 상한 2,878 → **900 MiB**. [Phase 7](../runbook/phase-07-prod-asg.md) 차단 해제 |
 | [rds-mysql-84-compatibility.md](./closed/rds-mysql-84-compatibility.md) | groble-backend | 2026-08-26 | 2026-08-30 | ✅ 호환성 3건 모두 진행 가능. **2026-08-29 전환 완료**, 구 인스턴스 삭제까지 종결. 확장 지원 과금 $178.56/월 중단. **전환 직후 결제 점검·정기결제 배치 이상 없음 확인** |
 | [rds-84-parameter-parity.md](./closed/rds-84-parameter-parity.md) | groble-backend | 2026-08-28 | 2026-08-30 | ✅ 블루/그린 파라미터 차이 4건 수정. **그린이 그대로 전환되어 재검증 항목이 소멸**했다 |
