@@ -133,3 +133,27 @@ output "egress_path" {
   description = "현재 private 서브넷의 아웃바운드가 무엇을 경유하는지"
   value       = var.use_nat_gateway ? "NAT Gateway (${module.vpc.nat_gateway_id})" : "모니터링 EC2 인스턴스 (NAT 겸직)"
 }
+
+#################################
+# 내부 DNS (Phase 4)
+#################################
+
+output "otel_endpoint_fqdn" {
+  description = "앱의 OTEL_EXPORTER_OTLP_ENDPOINT 호스트명. prod·dev 가 remote state 로 읽는다"
+  value       = module.route53.otel_endpoint_fqdn
+}
+
+output "internal_hosted_zone_id" {
+  description = "internal.groble.im private hosted zone ID"
+  value       = module.route53.internal_zone_id
+}
+
+output "monitoring_v2_instance_id" {
+  description = "신 모니터링 노드 인스턴스 ID (SSM 접속·드레이닝용). 미생성 시 null"
+  value       = module.ecs_cluster.monitoring_v2_instance_id
+}
+
+output "monitoring_v2_instance_private_ip" {
+  description = "신 모니터링 노드 사설 IP. Phase 4 F단계에서 route53 의 otel_target_private_ip 를 이 값으로 바꾼다"
+  value       = module.ecs_cluster.monitoring_v2_instance_private_ip
+}

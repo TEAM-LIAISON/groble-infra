@@ -263,3 +263,47 @@ variable "rds_database_password" {
   default     = ""
 }
 
+
+#################################
+# Exporter 자원 (Phase 4 재배분으로 노출)
+#################################
+# 이 셋은 이전까지 모듈 기본값을 그대로 썼다. 실측 결과 크게 과대 선언되어 있어
+# 값을 여기로 끌어올려 조정 가능하게 한다.
+#
+# ⚠️ node-exporter 와 cadvisor 는 DAEMON 이다 — prod·dev 노드에도 함께 적용된다.
+
+variable "node_exporter_memory" {
+  description = "node-exporter task memory (MB). 7일 최대 실측 18MB"
+  type        = number
+  default     = 48
+}
+
+variable "node_exporter_container_memory_reservation" {
+  description = "node-exporter soft limit (MB)"
+  type        = number
+  default     = 32
+}
+
+variable "cadvisor_memory" {
+  description = "cAdvisor task memory (MB). 7일 최대 실측 34MB"
+  type        = number
+  default     = 96
+}
+
+variable "cadvisor_container_memory_reservation" {
+  description = "cAdvisor soft limit (MB)"
+  type        = number
+  default     = 64
+}
+
+variable "rds_exporter_memory" {
+  description = "rds-exporter task memory (MB). 7일 최대 실측 15MB"
+  type        = number
+  default     = 48
+}
+
+variable "rds_exporter_container_memory_reservation" {
+  description = "rds-exporter soft limit (MB)"
+  type        = number
+  default     = 32
+}

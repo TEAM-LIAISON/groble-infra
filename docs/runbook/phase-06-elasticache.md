@@ -1,6 +1,6 @@
 # Phase 6 — Prod Redis → ElastiCache ⚠️
 
-> [← Phase 5](./phase-05-monitoring-node-rebuild.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 7 →](./phase-07-prod-asg.md)
+> [← Phase 5](./phase-05-deployment-controller.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 7 →](./phase-07-prod-asg.md)
 
 | | |
 |---|---|
@@ -61,4 +61,4 @@
 
 ---
 
-[← Phase 5 — 모니터링 노드 재구축](./phase-05-monitoring-node-rebuild.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 7 — Prod ASG 전환 →](./phase-07-prod-asg.md)
+[← Phase 5 — 배포 컨트롤러 전환](./phase-05-deployment-controller.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 7 — Prod ASG 전환 →](./phase-07-prod-asg.md)

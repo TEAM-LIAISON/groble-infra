@@ -1,6 +1,6 @@
 # Phase 3 — NAT Gateway 전환
 
-> [← Phase 2](./phase-02-observability.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 4 →](./phase-04-deployment-controller.md)
+> [← Phase 2](./phase-02-observability.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 4 →](./phase-04-monitoring-node-rebuild.md)
 
 | | |
 |---|---|
@@ -234,7 +234,7 @@ terraform -chdir=environments/shared apply
 무료가 아니라는 뜻이다. 한 번에 성공시킬 준비를 하고 들어간다.
 
 모니터링 노드의 `source_dest_check = false` 와 iptables MASQUERADE 를 **그대로 두었기 때문에**
-되돌리면 즉시 복구된다. 이것들은 Phase 5(노드 재구축)까지 건드리지 않는다.
+되돌리면 즉시 복구된다. 이것들은 Phase 4(노드 재구축)까지 건드리지 않는다.
 
 ---
 
@@ -274,11 +274,11 @@ prod 가 2c 로 넘어가면 해소된다.** 계획서가 "2c 정렬로 비용�
 
 [`environments/shared/main.tf`](../../environments/shared/main.tf) 의 알람 채널 주석이
 "Phase 3·5 이후 dev 로 내린다"고 적고 있으나, **Phase 3 만으로는 내리지 않는다.** NAT 겸직이
-빠져도 관측·bastion·VPN 은 그대로라 여전히 prod-critical 이다. **Phase 5 이후에 조정한다.**
+빠져도 관측·bastion·VPN 은 그대로라 여전히 prod-critical 이다. **Phase 4 이후에 조정한다.**
 
 ### 이번에 건드리지 않는 것
 
-롤백 여지를 남기려고 그대로 둔다. 전부 Phase 5·9 의 몫이다.
+롤백 여지를 남기려고 그대로 둔다. 전부 Phase 4·9 의 몫이다.
 
 - 모니터링 노드의 `source_dest_check = false`
 - 노드 안의 iptables MASQUERADE
@@ -288,4 +288,4 @@ prod 가 2c 로 넘어가면 해소된다.** 계획서가 "2c 정렬로 비용�
 
 ---
 
-[← Phase 2 — 관측 선행 전환](./phase-02-observability.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 4 — 배포 컨트롤러 전환 →](./phase-04-deployment-controller.md)
+[← Phase 2 — 관측 선행 전환](./phase-02-observability.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 4 — 모니터링 노드 재구축 →](./phase-04-monitoring-node-rebuild.md)

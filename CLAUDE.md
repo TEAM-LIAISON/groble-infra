@@ -44,7 +44,16 @@ SSM Session Manager(bastion·WireGuard 폐기) · Terraform state를 S3로
 **[외부 업체 허용목록에 이 IP 를 등록](docs/handoff/egress-ip-allowlist.md)하는 것**이며,
 등록 완료 회신이 오면 스위치를 순서대로 켠다. 상세는
 [`docs/runbook/phase-03-nat-gateway.md`](docs/runbook/phase-03-nat-gateway.md)에 있다.
-Phase 4부터는 미착수다.
+**Phase 4·5 는 2026-08-30 에 번호를 맞바꿨다** — 원래 4가 배포 컨트롤러 전환, 5가 모니터링 노드
+재구축이었다. 배포 컨트롤러 전환이 앱 측 차단 조건 4건에 막혀 있는 동안 모니터링 노드 재구축은
+진행할 수 있어서다. 근거는 [이관 절차 목차](docs/infra-ha-migration-runbook.md)에 있다.
+**[Phase 4 — 모니터링 노드 재구축](docs/runbook/phase-04-monitoring-node-rebuild.md)은 2026-08-30 완료했다** —
+관측 스택이 `groble-monitoring-v2-instance`(AL2023, private 2c, t3a.small)로 옮겨갔고,
+앱의 OTLP·Loki 주소가 `otel.internal.groble.im` 으로 간접화되어 **다음 교체부터는
+레코드 값 변경 + 구 노드 수신 중단만으로 끝난다**(앱 재배포 없음).
+구 노드는 `groble-nat-instance` 로 개명해 NAT·bastion·VPN 만 지고 남아 있다.
+**다음 작업은 [Phase 5 — 배포 컨트롤러 전환](docs/runbook/phase-05-deployment-controller.md)**이며
+앱 측 차단 조건 4건 회신 대기다. Phase 5부터는 미착수다.
 Phase와 독립적인 [RDS MySQL 8.4 업그레이드](docs/runbook/adhoc/rds-mysql-84-upgrade.md)는
 **2026-08-29 전환 완료**했다 (확장 지원 과금 $178.56/월 중단).
 구 인스턴스도 같은 날 삭제했고, 최종 스냅샷 `groble-prod-mysql-80-final`(8.0.45)만 남아 있다.
@@ -164,7 +173,8 @@ RDS는 `multi_az = false`이고 db_subnet_group이 2a/2c를 모두 포함해 **A
 |----------|------|--------|--------|------|
 | Production | t3.medium | Private (2a) | 30GB gp3 | Prod API, Redis |
 | Development | t3.medium | Private (2c) | 30GB gp3 | Dev API, MySQL, Redis |
-| Monitoring | t3.small | Public (2a) | 30GB gp3 | 모니터링 스택 + **NAT + bastion + WireGuard VPN** |
+| Monitoring(구) `groble-nat-instance` | t3.small | Public (2a) | 30GB gp3 | 모니터링 스택 + **NAT + bastion + WireGuard VPN** |
+| Monitoring(신) `groble-monitoring-v2-instance` | t3a.small | **Private (2c)** | 30GB gp3 | AL2023. [Phase 4](docs/runbook/phase-04-monitoring-node-rebuild.md) D단계에서 기동. 스택 이동은 E단계 |
 
 **Monitoring 인스턴스는 4가지 역할을 겸직한다** — 죽으면 관측·아웃바운드·개발자 접근이 동시에 끊긴다.
 
@@ -246,14 +256,29 @@ RDS는 `multi_az = false`이고 db_subnet_group이 2a/2c를 모두 포함해 **A
 
 **모니터링 데이터 흐름:**
 ```
-Applications → OTLP (4317/4318) → OpenTelemetry Collector → Prometheus (metrics) + Loki (logs)
+앱 메트릭·트레이스 → OTLP (4318) → OpenTelemetry Collector → Prometheus
+앱 로그          → Loki (3100) 직접 전송 (loki4j)      ← otelcol 을 거치지 않는다
 Node Exporter (9100) + cAdvisor (8081) → Prometheus scrape
 RDS Exporter (9104) → Prometheus scrape
 All → Grafana (3000) Dashboard
 ```
 
-앱의 OTLP 엔드포인트는 **모니터링 인스턴스의 사설 IP로 하드코딩**되어 있다
-(`environments/*/main.tf`의 `otel_exporter_endpoint`).
+⚠️ **앱은 목적지를 둘 가지며, 로그는 otelcol 을 거치지 않는다.** 이전 문서가
+"Applications → OTLP → otelcol → Prometheus + Loki"로 잘못 적고 있었다.
+`application-{dev,prod}.yml` 에 두 값이 따로 있다:
+
+| 설정 | 목적지 | 이 값을 실제로 정하는 곳 |
+|---|---|---|
+| `loki.url` | Loki `:3100/loki/api/v1/push` | **앱 yml 뿐이다** — 태스크 정의에 LOKI 환경변수가 없다 |
+| `otel.exporter.otlp.endpoint` | otelcol `:4318` | **태스크 정의의 `OTEL_EXPORTER_OTLP_ENDPOINT`** — 환경변수가 yml 을 이긴다 |
+
+**따라서 전송 주소를 바꾸려면 두 곳을 모두 고쳐야 한다** (앱 리포지토리 yml + 이 리포지토리 태스크 정의).
+한쪽만 고치면 로그나 메트릭 중 하나만 옮겨간다.
+
+**엔드포인트 주소** — [Phase 4](docs/runbook/phase-04-monitoring-node-rebuild.md) 에서
+사설 IP 하드코딩(`10.0.1.193`)을 private DNS `otel.internal.groble.im` 으로 옮기는 중이다.
+레코드는 생성됐고(TTL 60), 앱·태스크 정의 전환은 진행 중이다. 완료되면 모니터링 노드 교체가
+**레코드 값 변경만으로 끝난다** — 앱 재배포가 필요 없다 (단 JVM `networkaddress.cache.ttl` 이 유한해야 한다).
 
 **스토리지 보존:**
 - **Prometheus: 로컬 15일 (10GB)뿐이다.** S3 버킷(`prometheus_storage`)과 IAM 권한이 존재하지만
@@ -268,7 +293,7 @@ All → Grafana (3000) Dashboard
 - **Domains**: `api.groble.im` (prod), `api.dev.groble.im` (dev), `monitor.groble.im` (monitoring)
 - ⚠️ **API 타깃그룹 4개(prod/dev Blue·Green)는 `deregistration_delay`가 미설정이다** (기본 300초).
   ECS `ECS_CONTAINER_STOP_TIMEOUT=30s`와 정렬되지 않아 in-flight 요청이 잘릴 수 있다.
-  **정렬 값 확정은 [Phase 4](docs/runbook/phase-04-deployment-controller.md)의 작업이다**
+  **정렬 값 확정은 [Phase 5](docs/runbook/phase-05-deployment-controller.md)의 작업이다**
   (계획서 §3-3: dereg / stopTimeout / Spring graceful 을 함께 정한다).
   > 300초를 단순히 내리는 것은 정렬이 아니라 **in-flight 보호를 줄이는 것**이다 —
   > 태스크는 `DEACTIVATING` 동안 살아서 요청을 처리하고 SIGTERM 은 그 뒤에 온다.
@@ -303,11 +328,26 @@ All → Grafana (3000) Dashboard
    ⚠️ **Dev Target SG는 없다** — dev는 컨테이너 MySQL을 쓰므로 prod RDS에 붙을 일이 없다.
    ⚠️ **CIDR 인그레스가 하나도 없다** (VPN 서브넷 포함). 아래 접근 경로 참조
 
-**개발자 접근 경로**: WireGuard(51820) → VPN 서브넷 `10.6.0.0/24` → 모니터링 노드 SSH(22) → private 노드.
-SSM Session Manager는 아직 도입되지 않았다.
+**개발자 접근 경로**: **SSM Session Manager 가 기본이다** (2026-08-30, Phase 4). 네 노드 모두
+`AmazonSSMManagedInstanceCore` 로 등록되어 VPN·SSH 키·22번 포트 없이 로컬에서 바로 붙는다.
+RDS 도 노드 경유 포트 포워딩으로 닿는다 — 방법은 [`docs/developer-access.md`](docs/developer-access.md).
 
-⚠️ **RDS는 VPN에서 직접 닿지 않는다.** VPN이 `10.0.0.0/16`을 라우팅하고 RDS 사설 IP까지 ping도 되지만,
-RDS SG에 CIDR 인그레스가 없어 3306이 거부된다. **모니터링 노드를 경유하는 SSH 터널로만 접속된다:**
+기존 경로(WireGuard(51820) → VPN 서브넷 `10.6.0.0/24` → 모니터링 노드 SSH(22) → private 노드)는
+**아직 살아 있다.** 실제 폐기는 [Phase 9](docs/runbook/phase-09-access-path.md) 의 몫이다.
+
+⚠️ **RDS는 VPN에서 직접 닿지 않는다.** RDS SG에 CIDR 인그레스가 없고 SG 참조만 허용하므로
+(`groble-monitor-target-group` · `groble-prod-target-group` · `groble-api-task-sg`)
+**노드를 경유해야 한다. dev 노드는 SG 참조에 없어서 안 된다.**
+
+권장: SSM 포트 포워딩 (모니터링 노드 경유, VPN 불필요) — [`docs/developer-access.md`](docs/developer-access.md)
+
+```bash
+aws ssm start-session --profile groble --target <monitoring-instance-id> \
+  --document-name AWS-StartPortForwardingSessionToRemoteHost \
+  --parameters '{"host":["<rds-endpoint>"],"portNumber":["3306"],"localPortNumber":["13306"]}'
+```
+
+기존 SSH 터널도 아직 동작한다 (Phase 9 까지):
 
 ```bash
 ssh -f -N -L 13306:<rds-endpoint>:3306 -i <key>.pem ubuntu@10.0.1.193
@@ -357,7 +397,9 @@ prod_instance_private_ip       = "10.0.11.62"
 dev_instance_private_ip        = "10.0.12.215"
 monitoring_instance_private_ip = "10.0.1.193"
 ```
-Redis 호스트·OTLP 엔드포인트·Prometheus 스크레이프 타깃이 이 IP들에 의존한다.
+Redis 호스트·Prometheus 스크레이프 타깃이 이 IP들에 의존한다.
+OTLP·Loki 전송 주소는 [Phase 4](docs/runbook/phase-04-monitoring-node-rebuild.md) 에서
+`otel.internal.groble.im` 으로 빠지는 중이다.
 
 ### Environment-Specific
 - **Dev**: `environment = "dev"`, `mysql_database = "groble_develop_database"`

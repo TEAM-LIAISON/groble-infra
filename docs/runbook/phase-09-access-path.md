@@ -7,7 +7,7 @@
 | **상태** | ⬜ 미착수 |
 | **목적** | bastion·WireGuard·SSH를 폐기하고 SSM으로 일원화한다 |
 | **사용자 영향** | 없음 (개발자 워크플로는 변경됨) |
-| **선행 조건** | [Phase 5](./phase-05-monitoring-node-rebuild.md)·[7](./phase-07-prod-asg.md)·[8](./phase-08-dev-migration.md)에서 **SSM 접속이 실제로 검증되어 있어야 한다** |
+| **선행 조건** | [Phase 4](./phase-04-monitoring-node-rebuild.md)·[7](./phase-07-prod-asg.md)·[8](./phase-08-dev-migration.md)에서 **SSM 접속이 실제로 검증되어 있어야 한다** |
 | **되돌리기** | SG 규칙 복원 |
 
 ---

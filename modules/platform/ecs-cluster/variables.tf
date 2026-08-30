@@ -187,3 +187,51 @@ variable "use_nat_gateway" {
   type        = bool
   default     = false
 }
+
+#################################
+# 신 모니터링 노드 (Phase 4)
+#################################
+
+variable "create_monitoring_v2_instance" {
+  description = <<-EOT
+    Phase 4 의 신 모니터링 노드(private 2c, AL2023)를 만들지 여부.
+
+    false — 만들지 않는다 (기본)
+    true  — 만든다. 구 노드와 병존하며, 이것만으로는 스택이 옮겨가지 않는다
+            (E단계에서 구 노드를 DRAINING 으로 바꿔 밀어낸다)
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "monitoring_v2_instance_private_ip" {
+  description = <<-EOT
+    신 모니터링 노드의 고정 사설 IP. private 2c(10.0.12.0/24) 대역이어야 한다.
+
+    ⚠️ dev 노드(10.0.12.215)와 겹치지 않게 할 것. AWS 가 서브넷당 처음 4개와
+       마지막 1개를 예약하므로 10.0.12.4 이상을 쓴다.
+  EOT
+  type        = string
+  default     = "10.0.12.100"
+}
+
+variable "monitoring_v2_instance_type" {
+  description = <<-EOT
+    신 모니터링 노드 타입. 계획서 §0 에 따라 pet 으로 유지한다(ASG 아님).
+
+    2026-08-30 재배분으로 관측 스택 선언 합계가 1,792 → 1,408 MiB 가 되었고,
+    ECS_RESERVED_MEMORY 256 기준 여유가 310 MiB 다. small 로 충분하다.
+    (재배분 전에는 여유가 54 MiB 뿐이라 t3.medium 상향을 검토했었다)
+
+    기본값이 t3a.small 인 이유 — t3.small 대비 10% 저렴하다
+    (ap-northeast-2 온디맨드 $0.0234 vs $0.0260/h, 월 $17.08 vs $18.98).
+    vCPU·메모리는 동일하다.
+
+    ⚠️ **t3a.small 은 최대 ENI 가 2개다** (t3.small 은 3개). t3a 계열 중 small 만
+       그렇다 — medium 이상은 t3 와 같은 3개다.
+       **이 노드에는 무해하다**: 모니터링 서비스 7개가 전부 host 모드라 ENI 를
+       소비하지 않는다. 다만 이 노드에 awsvpc 태스크를 올리려 한다면 1개가 상한이다.
+  EOT
+  type        = string
+  default     = "t3a.small"
+}

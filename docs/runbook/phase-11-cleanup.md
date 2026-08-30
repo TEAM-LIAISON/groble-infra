@@ -12,7 +12,7 @@
 
 ## 정리 대상
 
-- [ ] CodeDeploy 애플리케이션 / 배포그룹 / IAM 역할 ([Phase 4](./phase-04-deployment-controller.md)에서 남겼다면)
+- [ ] CodeDeploy 애플리케이션 / 배포그룹 / IAM 역할 ([Phase 5](./phase-05-deployment-controller.md)에서 남겼다면)
 - [ ] **테스트 리스너(9443)** 및 관련 SG 규칙 — rolling에서는 사용하지 않음
 - [ ] 사용하지 않는 Blue 타깃그룹
 - [ ] `ecs-cluster` 모듈의 고정 사설 IP 변수 (`prod_instance_private_ip` 등)

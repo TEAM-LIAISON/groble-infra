@@ -72,6 +72,19 @@ module "route53" {
 
   load_balancer_dns_name = module.load_balancer.load_balancer_dns_name
   load_balancer_zone_id  = module.load_balancer.load_balancer_zone_id
+
+  # Phase 4 — 내부 DNS. 앱의 OTLP 엔드포인트를 노드 IP 에서 이름으로 뺀다
+  vpc_id = module.vpc.vpc_id
+
+  # 2026-08-30 Phase 4 E단계 — 신 노드로 전환했다.
+  #
+  # ⚠️ 이것만으로는 트래픽이 옮겨가지 않는다. 앱이 keep-alive 로 커넥션을 재사용해
+  #    IP 를 고정하기 때문이다(OkHttp 는 전송 주기 60초라 유휴 5분에 도달하지 못하고,
+  #    loki4j 도 수초 간격 배치를 계속 보낸다). **F단계에서 구 노드를 드레이닝해
+  #    수신을 끊어야** 재연결이 이 레코드를 새로 조회한다.
+  #
+  # 이후 노드를 다시 교체할 때도 이 한 줄을 바꾸고 구 노드 수신을 끊으면 된다.
+  otel_target_private_ip = module.ecs_cluster.monitoring_v2_instance_private_ip
 }
 
 #################################
@@ -221,6 +234,12 @@ module "ecs_cluster" {
   create_prod_instance       = true
   create_monitoring_instance = true
   create_dev_instance        = true
+
+  # Phase 4 — 신 모니터링 노드 (private 2c, AL2023). 구 노드와 병존한다.
+  # 만들어도 스택은 옮겨가지 않는다 — E단계에서 구 노드를 DRAINING 으로 밀어낸다.
+  create_monitoring_v2_instance     = var.create_monitoring_v2_instance
+  monitoring_v2_instance_type       = var.monitoring_v2_instance_type
+  monitoring_v2_instance_private_ip = var.monitoring_v2_instance_private_ip
 
   # Instance 구성
   prod_instance_count      = var.prod_instance_count

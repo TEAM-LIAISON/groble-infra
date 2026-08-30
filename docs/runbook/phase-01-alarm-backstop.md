@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **상태** | ✅ 완료 (2026-08-17). 잔여 항목 1건은 Phase 2로 이관 (워킹셋 측정) |
-| **목적** | 이후 단계에서 문제가 생겼을 때 **자체 호스팅 관측이 죽어도 알림이 도달**해야 한다. Phase 4의 배포 자동 롤백도 이 알람에 의존한다 |
+| **목적** | 이후 단계에서 문제가 생겼을 때 **자체 호스팅 관측이 죽어도 알림이 도달**해야 한다. Phase 5의 배포 자동 롤백도 이 알람에 의존한다 |
 | **사용자 영향** | 없음 |
 | **되돌리기** | 리소스 삭제 |
 
@@ -52,7 +52,7 @@ Dev에 `ok_actions`를 걸지 않은 것은 사건당 메시지가 2배가 되�
 
 > **모니터링 노드 알람이 dev가 아니라 prod 채널로 가는 이유**:
 > 이 노드가 private 서브넷의 NAT을 겸직하고 있어, 죽으면 prod의 아웃바운드와 ECR pull이 함께 끊긴다.
-> [Phase 3](./phase-03-nat-gateway.md)(NAT Gateway)·[Phase 5](./phase-05-monitoring-node-rebuild.md)(노드 재구축)로
+> [Phase 3](./phase-03-nat-gateway.md)(NAT Gateway)·[Phase 4](./phase-04-monitoring-node-rebuild.md)(노드 재구축)로
 > 이 결합이 해소되면 dev 채널로 내린다.
 
 ### 알람 19개
@@ -106,7 +106,7 @@ Slack 채널 ID는 `terraform.tfvars`에 있고 **이 파일은 gitignore 대상
 **Blue/Green 타깃그룹은 배포마다 활성 쪽이 뒤바뀐다.** 특정 TG에 알람을 고정하면 스왑 직후부터
 유휴 TG를 감시하게 되어 무의미해진다. 서비스에 속한 TG들을 metric math로 집계해 판정한다
 (헬스·5xx는 `SUM`, p99는 백분위수라 더할 수 없으므로 `MAX`).
-[Phase 4](./phase-04-deployment-controller.md)에서 단일 TG로 정리되면 이 구조는 단순해진다.
+[Phase 5](./phase-05-deployment-controller.md)에서 단일 TG로 정리되면 이 구조는 단순해진다.
 
 **Chatbot IAM 역할 삭제 시 권한 부족으로 막힌다.** provider가 삭제 전 `iam:ListInstanceProfilesForRole`을
 호출하는데 SSO 역할에 그 권한이 없다(`iam:DeleteRole`은 있다). AWS CLI로 직접 삭제 후 `terraform state rm`으로 해소했다.
@@ -258,7 +258,7 @@ R1 이 침묵했다. 그 시계열이 `17:22:00Z` 에 값 2 로 처음 나타나
 42초 p99는 일부 사용자가 42초를 기다렸다는 뜻이므로 놓칠 수 없다.
 5초 임계치면 위 두 사건이 잡히고 7일간 그 외 오탐은 없다.
 
-> ⚠️ `latency-p99-spike`는 [Phase 4](./phase-04-deployment-controller.md)(rolling)·[Phase 7](./phase-07-prod-asg.md)(instance refresh)
+> ⚠️ `latency-p99-spike`는 [Phase 5](./phase-05-deployment-controller.md)(rolling)·[Phase 7](./phase-07-prod-asg.md)(instance refresh)
 > 중에 울릴 수 있다. 전환 작업 중이라면 그 자체가 정보이지만, 오탐으로 느껴지면 작업 창에서만 임계치를 올릴 것.
 
 8/13의 42초 지연에는 **5xx가 없었다** — 실패가 아니라 순수 지연이다.

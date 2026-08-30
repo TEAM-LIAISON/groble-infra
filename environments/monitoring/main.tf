@@ -142,6 +142,10 @@ module "node_exporter" {
   ecs_cluster_id     = data.terraform_remote_state.shared.outputs.ecs_cluster_id
   execution_role_arn = data.terraform_remote_state.shared.outputs.ecs_execution_role_arn
   task_role_arn      = data.terraform_remote_state.shared.outputs.ecs_task_role_arn
+
+  memory                       = var.node_exporter_memory
+  container_memory             = var.node_exporter_memory
+  container_memory_reservation = var.node_exporter_container_memory_reservation
 }
 
 # cAdvisor Service (DAEMON - runs on all instances)
@@ -152,6 +156,10 @@ module "cadvisor" {
   ecs_cluster_id     = data.terraform_remote_state.shared.outputs.ecs_cluster_id
   execution_role_arn = data.terraform_remote_state.shared.outputs.ecs_execution_role_arn
   task_role_arn      = data.terraform_remote_state.shared.outputs.ecs_task_role_arn
+
+  memory                       = var.cadvisor_memory
+  container_memory             = var.cadvisor_memory
+  container_memory_reservation = var.cadvisor_container_memory_reservation
 }
 
 # RDS Exporter Service (single instance on monitoring)
@@ -163,6 +171,10 @@ module "rds_exporter" {
   ecs_cluster_id     = data.terraform_remote_state.shared.outputs.ecs_cluster_id
   execution_role_arn = data.terraform_remote_state.shared.outputs.ecs_execution_role_arn
   task_role_arn      = data.terraform_remote_state.shared.outputs.ecs_task_role_arn
+
+  memory                       = var.rds_exporter_memory
+  container_memory             = var.rds_exporter_memory
+  container_memory_reservation = var.rds_exporter_container_memory_reservation
 
   rds_endpoint      = var.rds_endpoint
   database_username = var.rds_database_username
