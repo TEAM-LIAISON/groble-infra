@@ -72,6 +72,14 @@ module "route53" {
 
   load_balancer_dns_name = module.load_balancer.load_balancer_dns_name
   load_balancer_zone_id  = module.load_balancer.load_balancer_zone_id
+
+  # Phase 4 — 내부 DNS. 앱의 OTLP 엔드포인트를 노드 IP 에서 이름으로 뺀다
+  vpc_id = module.vpc.vpc_id
+
+  # ⚠️ Phase 4 F단계에서 이 참조를 신 모니터링 노드 출력으로 바꾼다.
+  #    그 apply 의 plan 은 aws_route53_record.otel_internal 의
+  #    "~ update in-place" 하나여야 한다 — 그 외가 잡히면 중단할 것.
+  otel_target_private_ip = module.ecs_cluster.monitoring_instance_private_ip
 }
 
 #################################
