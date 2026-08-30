@@ -251,14 +251,29 @@ RDS는 `multi_az = false`이고 db_subnet_group이 2a/2c를 모두 포함해 **A
 
 **모니터링 데이터 흐름:**
 ```
-Applications → OTLP (4317/4318) → OpenTelemetry Collector → Prometheus (metrics) + Loki (logs)
+앱 메트릭·트레이스 → OTLP (4318) → OpenTelemetry Collector → Prometheus
+앱 로그          → Loki (3100) 직접 전송 (loki4j)      ← otelcol 을 거치지 않는다
 Node Exporter (9100) + cAdvisor (8081) → Prometheus scrape
 RDS Exporter (9104) → Prometheus scrape
 All → Grafana (3000) Dashboard
 ```
 
-앱의 OTLP 엔드포인트는 **모니터링 인스턴스의 사설 IP로 하드코딩**되어 있다
-(`environments/*/main.tf`의 `otel_exporter_endpoint`).
+⚠️ **앱은 목적지를 둘 가지며, 로그는 otelcol 을 거치지 않는다.** 이전 문서가
+"Applications → OTLP → otelcol → Prometheus + Loki"로 잘못 적고 있었다.
+`application-{dev,prod}.yml` 에 두 값이 따로 있다:
+
+| 설정 | 목적지 | 이 값을 실제로 정하는 곳 |
+|---|---|---|
+| `loki.url` | Loki `:3100/loki/api/v1/push` | **앱 yml 뿐이다** — 태스크 정의에 LOKI 환경변수가 없다 |
+| `otel.exporter.otlp.endpoint` | otelcol `:4318` | **태스크 정의의 `OTEL_EXPORTER_OTLP_ENDPOINT`** — 환경변수가 yml 을 이긴다 |
+
+**따라서 전송 주소를 바꾸려면 두 곳을 모두 고쳐야 한다** (앱 리포지토리 yml + 이 리포지토리 태스크 정의).
+한쪽만 고치면 로그나 메트릭 중 하나만 옮겨간다.
+
+**엔드포인트 주소** — [Phase 4](docs/runbook/phase-04-monitoring-node-rebuild.md) 에서
+사설 IP 하드코딩(`10.0.1.193`)을 private DNS `otel.internal.groble.im` 으로 옮기는 중이다.
+레코드는 생성됐고(TTL 60), 앱·태스크 정의 전환은 진행 중이다. 완료되면 모니터링 노드 교체가
+**레코드 값 변경만으로 끝난다** — 앱 재배포가 필요 없다 (단 JVM `networkaddress.cache.ttl` 이 유한해야 한다).
 
 **스토리지 보존:**
 - **Prometheus: 로컬 15일 (10GB)뿐이다.** S3 버킷(`prometheus_storage`)과 IAM 권한이 존재하지만
@@ -362,7 +377,9 @@ prod_instance_private_ip       = "10.0.11.62"
 dev_instance_private_ip        = "10.0.12.215"
 monitoring_instance_private_ip = "10.0.1.193"
 ```
-Redis 호스트·OTLP 엔드포인트·Prometheus 스크레이프 타깃이 이 IP들에 의존한다.
+Redis 호스트·Prometheus 스크레이프 타깃이 이 IP들에 의존한다.
+OTLP·Loki 전송 주소는 [Phase 4](docs/runbook/phase-04-monitoring-node-rebuild.md) 에서
+`otel.internal.groble.im` 으로 빠지는 중이다.
 
 ### Environment-Specific
 - **Dev**: `environment = "dev"`, `mysql_database = "groble_develop_database"`

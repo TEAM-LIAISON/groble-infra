@@ -96,17 +96,6 @@ data "aws_instance" "shared_prod_instance" {
   }
 }
 
-data "aws_instance" "shared_monitoring_instance" {
-  filter {
-    name   = "tag:Name"
-    values = ["groble-monitoring-instance"]  # shared 환경의 monitoring 인스턴스 태그명
-  }
-  filter {
-    name   = "instance-state-name"
-    values = ["running"]
-  }
-}
-
 data "aws_iam_role" "shared_ecs_task_execution_role" {
   name = "groble-ecs-task-execution-role"
 }
@@ -242,8 +231,10 @@ module "api_service" {
   # Redis 설정 - data source로 참조
   redis_host = data.aws_instance.shared_prod_instance.private_ip
   
-  # OpenTelemetry 설정 (monitoring 인스턴스 IP 참조)
-  otel_exporter_endpoint = "http://${data.aws_instance.shared_monitoring_instance.private_ip}:4318"
+  # OpenTelemetry 설정
+  # Phase 4 — 모니터링 노드 IP 가 아니라 이름을 본다 (계획서 §2.4).
+  # 노드를 교체할 때 이 값을 바꾸지 않는다 — Route 53 레코드만 바꾸면 60초 안에 옮겨간다.
+  otel_exporter_endpoint = "http://${data.terraform_remote_state.shared.outputs.otel_endpoint_fqdn}:4318"
   
   # Network 설정
   subnet_ids         = [data.aws_subnet.prod_api_subnet.id]  # prod API service Private 서브넷 (NAT instance 경유)
