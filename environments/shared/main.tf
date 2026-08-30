@@ -230,6 +230,12 @@ module "ecs_cluster" {
   create_monitoring_instance = true
   create_dev_instance        = true
 
+  # Phase 4 — 신 모니터링 노드 (private 2c, AL2023). 구 노드와 병존한다.
+  # 만들어도 스택은 옮겨가지 않는다 — E단계에서 구 노드를 DRAINING 으로 밀어낸다.
+  create_monitoring_v2_instance     = var.create_monitoring_v2_instance
+  monitoring_v2_instance_type       = var.monitoring_v2_instance_type
+  monitoring_v2_instance_private_ip = var.monitoring_v2_instance_private_ip
+
   # Instance 구성
   prod_instance_count      = var.prod_instance_count
   prod_instance_type       = var.prod_instance_type

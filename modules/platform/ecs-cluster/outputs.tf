@@ -71,3 +71,23 @@ output "dev_instance_private_ip" {
   description = "Development instance private IP"
   value       = var.create_dev_instance ? aws_instance.dev_instance[0].private_ip : null
 }
+
+#################################
+# 신 모니터링 노드 (Phase 4)
+#################################
+
+output "monitoring_v2_instance_id" {
+  description = "신 모니터링 노드의 인스턴스 ID (SSM 접속·드레이닝에 쓴다)"
+  value       = try(aws_instance.monitoring_v2_instance[0].id, null)
+}
+
+output "monitoring_v2_instance_private_ip" {
+  description = <<-EOT
+    신 모니터링 노드의 사설 IP.
+
+    Phase 4 F단계에서 shared 의 route53 모듈 otel_target_private_ip 를
+    이 출력으로 바꾸면 전환된다. 그 apply 의 plan 은
+    aws_route53_record.otel_internal 의 "~ update in-place" 하나여야 한다.
+  EOT
+  value       = try(aws_instance.monitoring_v2_instance[0].private_ip, null)
+}

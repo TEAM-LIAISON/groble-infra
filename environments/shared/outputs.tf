@@ -147,3 +147,13 @@ output "internal_hosted_zone_id" {
   description = "internal.groble.im private hosted zone ID"
   value       = module.route53.internal_zone_id
 }
+
+output "monitoring_v2_instance_id" {
+  description = "신 모니터링 노드 인스턴스 ID (SSM 접속·드레이닝용). 미생성 시 null"
+  value       = module.ecs_cluster.monitoring_v2_instance_id
+}
+
+output "monitoring_v2_instance_private_ip" {
+  description = "신 모니터링 노드 사설 IP. Phase 4 F단계에서 route53 의 otel_target_private_ip 를 이 값으로 바꾼다"
+  value       = module.ecs_cluster.monitoring_v2_instance_private_ip
+}

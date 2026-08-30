@@ -266,3 +266,31 @@ variable "create_nat_gateway" {
   type        = bool
   default     = false
 }
+
+#################################
+# 신 모니터링 노드 (Phase 4)
+#################################
+
+variable "create_monitoring_v2_instance" {
+  description = <<-EOT
+    Phase 4 의 신 모니터링 노드(private 2c, AL2023)를 만들지 여부.
+
+    false — 만들지 않는다 (기본, 현 상태)
+    true  — D단계. 구 노드와 병존하며 사용자 영향이 없다.
+            스택 이동은 E단계(구 노드 DRAINING)에서 별도로 한다
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "monitoring_v2_instance_type" {
+  description = "신 모니터링 노드 타입. 모듈 변수의 메모리 주의사항 참조"
+  type        = string
+  default     = "t3.small"
+}
+
+variable "monitoring_v2_instance_private_ip" {
+  description = "신 모니터링 노드의 고정 사설 IP (private 2c). dev 노드 10.0.12.215 와 겹치지 않게 할 것"
+  type        = string
+  default     = "10.0.12.100"
+}

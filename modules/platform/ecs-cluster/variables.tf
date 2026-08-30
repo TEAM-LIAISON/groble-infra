@@ -187,3 +187,42 @@ variable "use_nat_gateway" {
   type        = bool
   default     = false
 }
+
+#################################
+# 신 모니터링 노드 (Phase 4)
+#################################
+
+variable "create_monitoring_v2_instance" {
+  description = <<-EOT
+    Phase 4 의 신 모니터링 노드(private 2c, AL2023)를 만들지 여부.
+
+    false — 만들지 않는다 (기본)
+    true  — 만든다. 구 노드와 병존하며, 이것만으로는 스택이 옮겨가지 않는다
+            (E단계에서 구 노드를 DRAINING 으로 바꿔 밀어낸다)
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "monitoring_v2_instance_private_ip" {
+  description = <<-EOT
+    신 모니터링 노드의 고정 사설 IP. private 2c(10.0.12.0/24) 대역이어야 한다.
+
+    ⚠️ dev 노드(10.0.12.215)와 겹치지 않게 할 것. AWS 가 서브넷당 처음 4개와
+       마지막 1개를 예약하므로 10.0.12.4 이상을 쓴다.
+  EOT
+  type        = string
+  default     = "10.0.12.100"
+}
+
+variable "monitoring_v2_instance_type" {
+  description = <<-EOT
+    신 모니터링 노드 타입. 계획서 §0 에 따라 pet 으로 유지한다(ASG 아님).
+
+    ⚠️ t3.small 은 관측 스택 7개(태스크 memory 합계 1,792 MiB)에 여유가 거의 없다.
+       user_data 의 ECS_RESERVED_MEMORY 주석 참조 — 여유가 필요하면 t3.medium 으로
+       올리되 계획서 §2.1 의 "1× t3.small pet" 서술도 함께 고칠 것.
+  EOT
+  type        = string
+  default     = "t3.small"
+}

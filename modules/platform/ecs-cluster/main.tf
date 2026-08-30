@@ -139,6 +139,105 @@ resource "aws_instance" "monitoring_instance" {
 }
 
 #################################
+# 신 모니터링 EC2 인스턴스 (Phase 4 — 모니터링 노드 재구축)
+#################################
+# 구 노드(public 2a, Ubuntu, NAT·bastion·VPN 겸직)를 대체하는 관측 전용 노드다.
+# **구 노드를 대체하지만 없애지는 않는다** — NAT·bastion·VPN 은 구 노드에 남고,
+# 그 폐기는 Phase 3(NAT) → Phase 9(접근 경로) → Phase 11(정리) 의 몫이다.
+#
+# 계획서 §0 에 따라 pet 으로 유지한다. ASG 로 만들지 않는다.
+
+# AL2023 ECS-optimized AMI 는 AWS 가 SSM Parameter 로 최신값을 게시한다.
+# ID 를 코드에 박으면 낡는다.
+data "aws_ssm_parameter" "ecs_al2023_ami" {
+  count = var.create_monitoring_v2_instance ? 1 : 0
+  name  = "/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id"
+}
+
+resource "aws_instance" "monitoring_v2_instance" {
+  count = var.create_monitoring_v2_instance ? 1 : 0
+
+  ami           = data.aws_ssm_parameter.ecs_al2023_ami[0].value
+  instance_type = var.monitoring_v2_instance_type
+
+  # ⚠️ key_name 을 유지한다. 이 노드는 public IP 가 없어 진입 경로가
+  #    SSM 과 WireGuard SSH 뿐이다. user_data 가 잘못되면 SSM 에이전트가
+  #    등록되지 않을 수 있고, 그때 SSH 가 유일한 복구 수단이다.
+  key_name = var.key_pair_name != "" ? var.key_pair_name : null
+
+  # private 2c. 구 노드는 public 2a 였다 — 계획서의 2c 정렬을 따른다.
+  subnet_id                   = var.private_subnet_ids[1]
+  private_ip                  = var.monitoring_v2_instance_private_ip
+  associate_public_ip_address = false
+
+  vpc_security_group_ids = [var.monitoring_security_group_id]
+  iam_instance_profile   = var.ecs_instance_profile_name
+
+  # source_dest_check 를 끄지 않는다 — 이 노드는 NAT 가 아니다.
+  # 구 노드는 false 였다.
+
+  root_block_device {
+    volume_size           = var.monitoring_root_volume_size
+    volume_type           = var.monitoring_root_volume_type
+    delete_on_termination = true
+    encrypted             = true
+
+    tags = {
+      Name = "${var.project_name}-monitoring-v2-root-volume"
+      Type = "Monitoring"
+    }
+  }
+
+  user_data = base64encode(templatefile("${path.module}/user_data/monitoring_al2023_user_data.sh", {
+    cluster_name = aws_ecs_cluster.cluster.name
+  }))
+
+  # ⚠️ ami 만 무시한다. user_data 는 일부러 무시하지 않는다.
+  #
+  #    구 노드는 `ignore_changes = [ami, user_data]` 였고, 그래서 **user_data 를
+  #    고쳐도 실행 중 노드에 반영되지 않았다** — credential 프록시 iptables 버그를
+  #    제자리에서 고칠 수 없었던 이유가 이것이다.
+  #
+  #    ami: SSM Parameter 가 AWS 의 AMI 릴리스마다 움직인다. 무시하지 않으면
+  #         관계없는 apply 가 노드를 교체해 버린다. 교체는 의도적으로 한다
+  #         (`terraform apply -replace=...` + 아래 순서).
+  #    user_data: 바꾸면 plan 에 replace 로 **보인다**. 그것이 신호다 —
+  #         모르는 사이 반영이 안 되는 것보다 낫다. 다만 이 노드는 pet 이므로
+  #         replace 는 관측 단절을 뜻한다. 계획된 교체(E·F단계)로 처리할 것.
+  lifecycle {
+    ignore_changes = [ami]
+  }
+
+  tags = {
+    # ⚠️ 구 노드와 다른 Name 이어야 한다. prod·dev 가 tag:Name 으로 인스턴스를
+    #    조회하던 곳이 있었고(Phase 4 C단계에서 제거), 같은 이름이면 매치가
+    #    2개가 되어 plan 이 깨진다.
+    Name = "${var.project_name}-monitoring-v2-instance"
+    Type = "Monitoring"
+
+    # ⚠️ 이 태그가 없으면 Prometheus `ec2_sd_config` 가 이 노드를
+    #    **경고 없이** 스크레이프 목록에서 누락한다
+    #    (tag:Cluster = groble-cluster AND instance-state-name = running).
+    Cluster = "${var.project_name}-cluster"
+
+    environment = "monitoring"
+    Phase       = "4"
+  }
+}
+
+# 신 노드도 모니터링 타깃그룹에 붙인다.
+#
+# 병존 중에는 Grafana 태스크가 한 노드에만 있으므로 다른 쪽 타깃은 unhealthy 가 되고,
+# ALB 는 healthy 한 쪽으로만 보낸다. 즉 **스택이 옮겨가면 트래픽도 따라간다** —
+# E단계의 "ALB 타깃그룹 재연결"이 수동 작업이 아니라 헬스체크로 처리된다.
+resource "aws_lb_target_group_attachment" "monitoring_v2_attachment" {
+  count            = var.create_monitoring_v2_instance ? 1 : 0
+  target_group_arn = var.monitoring_target_group_arn
+  target_id        = aws_instance.monitoring_v2_instance[0].id
+  port             = 3000
+}
+
+#################################
 # 개발 EC2 인스턴스
 #################################
 
