@@ -219,9 +219,9 @@ variable "monitoring_v2_instance_type" {
   description = <<-EOT
     신 모니터링 노드 타입. 계획서 §0 에 따라 pet 으로 유지한다(ASG 아님).
 
-    ⚠️ t3.small 은 관측 스택 7개(태스크 memory 합계 1,792 MiB)에 여유가 거의 없다.
-       user_data 의 ECS_RESERVED_MEMORY 주석 참조 — 여유가 필요하면 t3.medium 으로
-       올리되 계획서 §2.1 의 "1× t3.small pet" 서술도 함께 고칠 것.
+    2026-08-30 재배분으로 관측 스택 선언 합계가 1,792 → 1,408 MiB 가 되었고,
+    ECS_RESERVED_MEMORY 256 기준 여유가 310 MiB 다. t3.small 로 충분하다.
+    (재배분 전에는 여유가 54 MiB 뿐이라 상향을 검토했었다 — user_data 주석 참조)
   EOT
   type        = string
   default     = "t3.small"

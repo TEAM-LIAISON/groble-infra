@@ -57,27 +57,25 @@ echo "ECS_CLUSTER=${cluster_name}" >> /etc/ecs/ecs.config
 #    구 노드와 값이 같아야 병존 중 드레이닝으로 태스크를 밀어낼 수 있다.
 echo 'ECS_INSTANCE_ATTRIBUTES={"environment":"monitoring","role":"monitor-server"}' >> /etc/ecs/ecs.config
 
-# ⚠️ ECS_RESERVED_MEMORY — 계획서 §2.1 의 512 를 여기에 쓰면 안 된다.
+# ECS_RESERVED_MEMORY — 계획서 §2.1 의 512 는 t3.medium API 노드용이다. 여기 쓰면 안 된다.
 #
-#    512 는 t3.medium API 노드용 값이다. 이 노드는 t3.small 이고 관측 스택이
-#    이미 꽉 차 있다:
+#   리눅스 가용(ECS 기준)        약 1,974 MiB   (구 노드 등록량 1,910 + 당시 reserved 64)
+#   관측 스택 태스크 memory 합계  = 1,408 MiB   (2026-08-30 재배분 후)
+#     prometheus 640 · grafana 288 · loki 192 · otelcol 96 ·
+#     cadvisor 96 · node-exporter 48 · rds-exporter 48
+#   reserved 256 → 등록량 1,718 MiB, 여유 310 MiB
 #
-#      태스크 레벨 memory 합계  = 1,792 MiB
-#        (grafana 256 · prometheus 512 · loki 256 · otelcol 256 ·
-#         node-exporter 128 · cadvisor 256 · rds-exporter 128)
-#      구 노드가 ECS 에 등록한 메모리 = 1,910 MiB (남은 용량 118 MiB)
-#      → 리눅스 가용 ≈ 1,910 + 64(현재 reserved) = 약 1,974 MiB
+# 256 은 실측에 근거한 값이다 — ecs-agent 27 MiB(실측) + dockerd/containerd + OS 를
+# 덮는다. 재배분 전에는 선언 합계가 1,792 라 128 조차 빠듯했으나(여유 54),
+# 지금은 정직한 값을 쓰고도 310 MiB 가 남는다.
 #
-#    reserved 를 512 로 두면 등록량이 1,462 MiB 로 떨어져 **스택이 배치되지
-#    않는다.** 128 이면 1,846 MiB 로 1,792 를 담고 54 MiB 가 남는다.
-#
-#    ⚠️ 즉 이 노드는 원래 과다 예약 상태이며, 정직한 값(256 이상)을 쓰면
-#       스택이 안 뜬다. 여유를 늘리려면 아래 중 하나를 별도로 결정해야 한다:
-#         - cadvisor 256 → 160, rds-exporter 128 → 96 으로 태스크 memory 조이기
-#         - 노드를 t3.medium 으로 (월 ~$15 추가, 계획서 §2.1 의 "t3.small pet" 수정)
-#    구 노드는 NAT·bastion·VPN 까지 겸직하면서 이 값으로 버티고 있었으므로,
-#    그 셋이 빠지는 이 노드는 같은 값에서 실질 여유가 더 크다.
-echo "ECS_RESERVED_MEMORY=128" >> /etc/ecs/ecs.config
+# 재배분 근거 (7일 최대 워킹셋 실측, 2026-08-30):
+#   prometheus 413 · grafana 221 · loki 141 · otelcol 56 ·
+#   cadvisor 34 · node-exporter 18 · rds-exporter 15  (합계 898)
+# 선언이 실제의 2배였고, 남는 쪽이 놀리는 동안 prometheus(81%)·grafana(86%)가
+# 쪼들리고 있었다. prometheus 는 512 하드리밋에서 OOM 으로 죽은 전력이 있어
+# 640 으로 올렸다(여유 99 → 227 MiB).
+echo "ECS_RESERVED_MEMORY=256" >> /etc/ecs/ecs.config
 
 #############################################################################
 # 2. 호스트 볼륨 디렉터리
