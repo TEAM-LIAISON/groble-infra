@@ -12,7 +12,8 @@
 |---|---|---|---|---|
 | [egress-ip-allowlist.md](./egress-ip-allowlist.md) | groble-backend | 2026-08-24 | 🔄 진행 중 | **[Phase 3](../runbook/phase-03-nat-gateway.md) 전환의 차단 조건.** 허용목록 관리가 확인되어 **EIP `15.165.223.110` 을 먼저 확보**했다. 현재 **외부 업체 등록 완료 회신 대기** — 등록 전에 전환하면 지속 장애가 된다 |
 | [http-metrics-5xx-undercount.md](./http-metrics-5xx-undercount.md) | groble-backend | 2026-08-30 | ⏳ 회신 대기 | **A** 앱이 반환한 500 10건 중 **4건만 `http_server_requests` 에 기록**된 원인 — 결제 알람 R1·R3·R4 가 전부 이 지표에 의존한다. **B** 스케줄러 23개 중 **10개가 정체 알람 대상 밖** — 중요도·실행 주기를 받아야 임계를 정할 수 있다. 진행 중인 Phase 를 막지는 않는다 |
-| [rolling-deploy-prerequisites.md](./rolling-deploy-prerequisites.md) | groble-backend | 2026-08-30 | ⏳ 회신 대기 | **A(4건)는 [Phase 5](../runbook/phase-05-deployment-controller.md) 착수 조건** — 롤링에서 구·신 버전이 동시에 실트래픽을 받으므로 expand/contract · readiness 분리 · graceful shutdown · 드레이닝 값이 전제다. **B(2건)는 [Phase 4](../runbook/phase-04-monitoring-node-rebuild.md) F단계 조건** — JVM 이 DNS 를 무기한 캐시하면 OTLP 간접화가 무의미해진다 (2026-08-29 RDS 전환 때 실제로 발생) |
+| [jvm-dns-cache.md](./jvm-dns-cache.md) | groble-backend | 2026-08-30 | ⏳ 회신 대기 | **[Phase 4](../runbook/phase-04-monitoring-node-rebuild.md) F단계의 마지막 차단 조건.** JVM 이 DNS 를 무기한 캐시하면 레코드만 바꿔 노드를 옮기는 구조가 성립하지 않는다. 2026-08-29 RDS 전환 때 실제로 발생해 7~8분간 쓰기가 실패했다 |
+| [rolling-deploy-prerequisites.md](./rolling-deploy-prerequisites.md) | groble-backend | 2026-08-30 | ⏳ 회신 대기 | **[Phase 5](../runbook/phase-05-deployment-controller.md) 착수 조건 4건.** 롤링에서는 구·신 버전이 동시에 실트래픽을 받으므로 expand/contract · readiness 분리 · graceful shutdown · 드레이닝 값 정렬이 전제다 |
 | [payment-alerts-review.md](./payment-alerts-review.md) | groble-backend | 2026-08-20 | ⏳ 부분 회신 대기 | **A(알림 검수)는 회신 완료** → R1~R9 반영·배포됨. **B(지표 3종 노출) 대기** → 나오면 R10~R14 를 건다. [Phase 2](../runbook/phase-02-observability.md) 완료를 막지는 않는다 |
 
 ---

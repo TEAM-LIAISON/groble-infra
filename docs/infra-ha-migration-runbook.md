@@ -69,8 +69,8 @@
 | 대기 | 막고 있는 것 |
 |---|---|
 | [egress IP 허용목록](./handoff/egress-ip-allowlist.md) | **Phase 3 착수 조건** |
-| [JVM DNS 캐시 TTL](./handoff/rolling-deploy-prerequisites.md) (§3, 문항 9·10) | **Phase 4 F단계 조건.** 무기한이면 OTLP 간접화가 무의미해진다. A~E 는 막지 않는다 |
-| 계획서 §3 앱 측 차단 조건 **A~D** (expand/contract · readiness/liveness · graceful shutdown · 드레이닝 값) | **Phase 5 착수 조건.** 요청서 [rolling-deploy-prerequisites.md](./handoff/rolling-deploy-prerequisites.md) §2 |
+| [JVM DNS 캐시 TTL](./handoff/jvm-dns-cache.md) | **Phase 4 F단계 조건.** 무기한이면 OTLP 간접화가 무의미해진다. A~E 는 막지 않는다 |
+| 계획서 §3 앱 측 차단 조건 **A~D** (expand/contract · readiness/liveness · graceful shutdown · 드레이닝 값) | **Phase 5 착수 조건.** 요청서 [rolling-deploy-prerequisites.md](./handoff/rolling-deploy-prerequisites.md) |
 | [결제 지표 3종 노출](./handoff/payment-alerts-review.md) (§6) | 알림 R10~R14. Phase 2 완료는 막지 않는다 |
 | 전환 구간(02:19~02:27) 결제 점검 · 첫 09:00 배치 확인 | [RDS 8.4 업그레이드](./runbook/adhoc/rds-mysql-84-upgrade.md) — 전환은 끝났고 사후 확인만 남았다 |
 

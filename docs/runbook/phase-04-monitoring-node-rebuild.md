@@ -166,7 +166,7 @@ F(레코드 값 변경)는 DNS 를 쓰는 쪽만 따라오므로 구해주지 �
   이 Phase 의 핵심 성과가 사라진다. **2026-08-29 RDS 8.4 스위치오버 때 JVM 이 구 IP 를 붙잡아
   7~8분간 쓰기가 실패한 전력이 있다** ([adhoc 런북 사고 1](./adhoc/rds-mysql-84-upgrade.md)) —
   즉 현재 TTL 은 사실상 무기한으로 봐야 한다.
-  → 요청서: [`handoff/rolling-deploy-prerequisites.md`](../handoff/rolling-deploy-prerequisites.md) §3 (문항 9·10)
+  → 요청서: [`handoff/jvm-dns-cache.md`](../handoff/jvm-dns-cache.md)
 
 ### D. 신 노드 생성
 

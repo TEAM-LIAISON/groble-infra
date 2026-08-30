@@ -7,7 +7,7 @@
 | **상태** | ⬜ 미착수 |
 | **목적** | Blue/Green은 4슬롯 플릿에서 여유가 0이라 유지할 수 없다(계획서 §2.6) |
 | **사용자 영향** | 없음 — 신 서비스가 준비된 뒤 리스너를 스왑한다 |
-| **선행 조건** | 계획서 §3 의 앱 측 4건(expand/contract · readiness/liveness · graceful shutdown · 드레이닝 값)이 모두 완료. **이것이 차단 조건이다** — 요청서 [`handoff/rolling-deploy-prerequisites.md`](../handoff/rolling-deploy-prerequisites.md) §2 (문항 1~8) 발송됨 |
+| **선행 조건** | 계획서 §3 의 앱 측 4건(expand/contract · readiness/liveness · graceful shutdown · 드레이닝 값)이 모두 완료. **이것이 차단 조건이다** — 요청서 [`handoff/rolling-deploy-prerequisites.md`](../handoff/rolling-deploy-prerequisites.md) |
 | **되돌리기** | **리스너 규칙 되돌리기** |
 
 > ⚠️ `deployment_controller`는 변경 시 **리소스 재생성을 강제**한다. 그냥 apply하면 서비스가 destroy → create되어 태스크가 0이 되는 구간이 생긴다. 아래 절차는 그것을 피하기 위한 것이다.
