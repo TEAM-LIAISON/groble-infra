@@ -29,8 +29,8 @@
 | **[1](./runbook/phase-01-alarm-backstop.md)** | CloudWatch 알람 백스톱 + SNS 외부 알림 | ✅ 완료 (2026-08-17) | 없음 | 리소스 삭제 |
 | **[2](./runbook/phase-02-observability.md)** | Prometheus `ec2_sd` 전환 + Grafana as-code | 🔄 진행 중 — 배포·검증 완료, **백엔드 회신 대기 2건** | 없음 | 이전 이미지 태그로 롤백 |
 | **[3](./runbook/phase-03-nat-gateway.md)** | NAT Gateway + S3 Gateway Endpoint, 라우트 전환 | 🔄 진행 중 — 3-a(IP 확보) 완료, **외부 업체 허용목록 등록 대기** | 진행 중이던 아웃바운드 연결 단절 | 스위치 되돌리기 (CLI 한 줄) |
-| **[4](./runbook/phase-04-monitoring-node-rebuild.md)** | 모니터링 노드 재구축 (private 2c, AL2023) + OTLP DNS 간접화 | ⬜ 미착수 — **다음 작업** | 없음 (구 노드 병존). 관측만 수 분 중단 | DNS 레코드 되돌리기 (재배포 없음) |
-| **[5](./runbook/phase-05-deployment-controller.md)** | 배포 컨트롤러 CodeDeploy → ECS rolling | ⬜ 미착수 — **앱 측 차단 조건 4건 대기** | 없음 (리스너 스왑) | **리스너 규칙 되돌리기** |
+| **[4](./runbook/phase-04-monitoring-node-rebuild.md)** | 모니터링 노드 재구축 (private 2c, AL2023) + OTLP DNS 간접화 | ✅ **완료** (2026-08-30) | 없음 (관측만 수 분 중단) | DNS 레코드 되돌리기 (재배포 없음) |
+| **[5](./runbook/phase-05-deployment-controller.md)** | 배포 컨트롤러 CodeDeploy → ECS rolling | ⬜ 미착수 — **다음 작업.** 앱 측 차단 조건 4건 대기 | 없음 (리스너 스왑) | **리스너 규칙 되돌리기** |
 | **[6](./runbook/phase-06-elasticache.md)** | Prod Redis → ElastiCache (**stop-first**, rolling 아님) | ⬜ 미착수 | **진행 중 결제 세션 소실 + 1~2분 순단** ⚠️ | 되돌려도 재소실 |
 | **[7](./runbook/phase-07-prod-asg.md)** | Prod ASG 전환 (구 노드 드레인) | ⬜ 미착수 | 없음 | 구 노드 재활성화 |
 | **[8](./runbook/phase-08-dev-migration.md)** | Dev 전환 (RDS + ElastiCache + ASG) | ⬜ 미착수 | Dev만 | 단계별 |

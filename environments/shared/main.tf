@@ -76,10 +76,15 @@ module "route53" {
   # Phase 4 — 내부 DNS. 앱의 OTLP 엔드포인트를 노드 IP 에서 이름으로 뺀다
   vpc_id = module.vpc.vpc_id
 
-  # ⚠️ Phase 4 F단계에서 이 참조를 신 모니터링 노드 출력으로 바꾼다.
-  #    그 apply 의 plan 은 aws_route53_record.otel_internal 의
-  #    "~ update in-place" 하나여야 한다 — 그 외가 잡히면 중단할 것.
-  otel_target_private_ip = module.ecs_cluster.monitoring_instance_private_ip
+  # 2026-08-30 Phase 4 E단계 — 신 노드로 전환했다.
+  #
+  # ⚠️ 이것만으로는 트래픽이 옮겨가지 않는다. 앱이 keep-alive 로 커넥션을 재사용해
+  #    IP 를 고정하기 때문이다(OkHttp 는 전송 주기 60초라 유휴 5분에 도달하지 못하고,
+  #    loki4j 도 수초 간격 배치를 계속 보낸다). **F단계에서 구 노드를 드레이닝해
+  #    수신을 끊어야** 재연결이 이 레코드를 새로 조회한다.
+  #
+  # 이후 노드를 다시 교체할 때도 이 한 줄을 바꾸고 구 노드 수신을 끊으면 된다.
+  otel_target_private_ip = module.ecs_cluster.monitoring_v2_instance_private_ip
 }
 
 #################################

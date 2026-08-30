@@ -236,18 +236,6 @@ resource "aws_instance" "monitoring_v2_instance" {
   }
 }
 
-# 신 노드도 모니터링 타깃그룹에 붙인다.
-#
-# 병존 중에는 Grafana 태스크가 한 노드에만 있으므로 다른 쪽 타깃은 unhealthy 가 되고,
-# ALB 는 healthy 한 쪽으로만 보낸다. 즉 **스택이 옮겨가면 트래픽도 따라간다** —
-# E단계의 "ALB 타깃그룹 재연결"이 수동 작업이 아니라 헬스체크로 처리된다.
-resource "aws_lb_target_group_attachment" "monitoring_v2_attachment" {
-  count            = var.create_monitoring_v2_instance ? 1 : 0
-  target_group_arn = var.monitoring_target_group_arn
-  target_id        = aws_instance.monitoring_v2_instance[0].id
-  port             = 3000
-}
-
 #################################
 # 개발 EC2 인스턴스
 #################################
@@ -294,14 +282,34 @@ resource "aws_instance" "dev_instance" {
 }
 
 #################################
-# 모니터링 인스턴스 Target Group 연결
+# 모니터링 Target Group — **ECS 가 소유한다. Terraform 은 손대지 않는다**
 #################################
+# 2026-08-30 Phase 4 에서 정적 attachment 2개를 걷어냈다.
+#
+# Grafana ECS 서비스에 `load_balancer` 블록이 있어 **ECS 가 타깃 등록·해제를
+# 직접 관리한다.** 태스크가 신 노드로 옮겨가자 ECS 가 구 노드를 자동으로 뺐고,
+# 그 순간 Terraform 이 "다시 붙여야 한다"고 판단해 충돌이 드러났다.
+#
+# 정적 attachment 는 불필요했다. 스택이 어느 노드로 가든 ECS 가 따라간다 —
+# 이 덕분에 Phase 4 F단계에서 "ALB 타깃그룹 재연결"이 수동 작업이 아니었다.
+#
+# `removed` 블록으로 state 에서만 분리한다. 실제 등록(ECS 가 만든 것)은 그대로 둔다 —
+# destroy 하면 Grafana 가 ALB 에서 빠져 monitor.groble.im 이 죽는다.
 
-resource "aws_lb_target_group_attachment" "monitoring_attachment" {
-  count            = var.create_monitoring_instance ? 1 : 0
-  target_group_arn = var.monitoring_target_group_arn
-  target_id        = aws_instance.monitoring_instance[0].id
-  port             = 3000
+removed {
+  from = aws_lb_target_group_attachment.monitoring_attachment
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = aws_lb_target_group_attachment.monitoring_v2_attachment
+
+  lifecycle {
+    destroy = false
+  }
 }
 
 #################################

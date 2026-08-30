@@ -47,9 +47,13 @@ SSM Session Manager(bastion·WireGuard 폐기) · Terraform state를 S3로
 **Phase 4·5 는 2026-08-30 에 번호를 맞바꿨다** — 원래 4가 배포 컨트롤러 전환, 5가 모니터링 노드
 재구축이었다. 배포 컨트롤러 전환이 앱 측 차단 조건 4건에 막혀 있는 동안 모니터링 노드 재구축은
 진행할 수 있어서다. 근거는 [이관 절차 목차](docs/infra-ha-migration-runbook.md)에 있다.
-**다음 작업은 [Phase 4 — 모니터링 노드 재구축](docs/runbook/phase-04-monitoring-node-rebuild.md)**이며,
-[Phase 5 — 배포 컨트롤러 전환](docs/runbook/phase-05-deployment-controller.md)은 백엔드 회신 대기다.
-Phase 4부터는 모두 미착수다.
+**[Phase 4 — 모니터링 노드 재구축](docs/runbook/phase-04-monitoring-node-rebuild.md)은 2026-08-30 완료했다** —
+관측 스택이 `groble-monitoring-v2-instance`(AL2023, private 2c, t3a.small)로 옮겨갔고,
+앱의 OTLP·Loki 주소가 `otel.internal.groble.im` 으로 간접화되어 **다음 교체부터는
+레코드 값 변경 + 구 노드 수신 중단만으로 끝난다**(앱 재배포 없음).
+구 노드는 `groble-nat-instance` 로 개명해 NAT·bastion·VPN 만 지고 남아 있다.
+**다음 작업은 [Phase 5 — 배포 컨트롤러 전환](docs/runbook/phase-05-deployment-controller.md)**이며
+앱 측 차단 조건 4건 회신 대기다. Phase 5부터는 미착수다.
 Phase와 독립적인 [RDS MySQL 8.4 업그레이드](docs/runbook/adhoc/rds-mysql-84-upgrade.md)는
 **2026-08-29 전환 완료**했다 (확장 지원 과금 $178.56/월 중단).
 구 인스턴스도 같은 날 삭제했고, 최종 스냅샷 `groble-prod-mysql-80-final`(8.0.45)만 남아 있다.

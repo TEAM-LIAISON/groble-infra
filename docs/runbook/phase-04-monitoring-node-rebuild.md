@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **상태** | ⬜ 미착수 |
+| **상태** | ✅ **완료** (2026-08-30) |
 | **목적** | 현재 모니터링 노드는 public 2a에 있고 NAT·bastion·VPN을 겸직한다. private 2c의 AL2023 노드로 옮긴다 |
 | **사용자 영향** | 없음 — 구 노드를 병존시킨 채 전환한다. **단 관측은 스택 이동 중 수 분 끊긴다** |
 | **선행 조건** | [Phase 2](./phase-02-observability.md)(Grafana as-code 프로비저닝) 완료. **[Phase 5](./phase-05-deployment-controller.md)(배포 컨트롤러 전환)와는 무관하다** — 아래 참조 |
@@ -228,9 +228,28 @@ F(레코드 값 변경)는 DNS 를 쓰는 쪽만 따라오므로 구해주지 �
      앱 재배포 불필요**
    - ⚠️ **관측이 수 분 끊긴다.** host mode + desired 1 이라 태스크가 하나씩 옮겨간다
    - 모니터링 타깃그룹은 `deregistration_delay = 30` 이므로(2026-08-30) 이 창이 6분에서 크게 줄어 있다
-3. ALB 모니터링 타깃그룹은 **신·구 노드가 모두 붙어 있어 헬스체크로 자동 전환된다**
-   → `monitor.groble.im` 접속 확인
+3. **ALB 타깃그룹은 손댈 필요가 없다** — Grafana ECS 서비스의 `load_balancer` 블록 때문에
+   **ECS 가 등록·해제를 직접 관리한다.** 태스크가 옮겨가면 구 노드를 빼고 신 노드를 넣는다.
+   → `monitor.groble.im` 접속 확인만 하면 된다
+   > ⚠️ 2026-08-30 에 정적 `aws_lb_target_group_attachment` 2개를 걷어냈다. ECS 가 구 노드를
+   > 빼는 순간 Terraform 이 "다시 붙여야 한다"고 판단해 충돌이 드러났기 때문이다.
+   > `removed` 블록으로 state 에서만 분리했다 — destroy 하면 Grafana 가 ALB 에서 빠진다.
 4. Grafana 로그인 (**비밀번호가 tfvars 값으로 바뀌어 있다**)
+5. **구 노드를 관측으로 되돌린다** — 드레이닝하면 DAEMON 도 함께 빠지는데,
+   **구 노드는 여전히 NAT 를 지고 있어 지표가 없으면 안 된다.**
+   ```bash
+   # 관측 스택이 되돌아오지 못하게 attribute 부터 지운다
+   aws ecs delete-attributes --cluster groble-cluster \
+     --attributes "name=environment,targetId=<old-container-instance-arn>"
+   # 그다음 ACTIVE 로. DAEMON 2종만 돌아온다
+   aws ecs update-container-instances-state --cluster groble-cluster \
+     --container-instances <old-container-instance-arn> --status ACTIVE
+   ```
+   - **순서가 중요하다.** attribute 를 남긴 채 ACTIVE 로 되돌리면, 태스크가 죽어 재배치될 때
+     관측 스택이 구 노드로 다시 흘러갈 수 있다 (양쪽 다 `environment=monitoring` 이므로)
+   - node-exporter·cAdvisor 는 placement constraint 가 없어 attribute 와 무관하게 배치된다
+   - 이걸 건너뛰면 `ec2_sd` 가 구 노드를 계속 발견하는데 스크레이프는 실패해
+     **down 타깃 2개가 영구히 남는다** (실제 장애를 가리는 노이즈가 된다)
 
 ### 전환 직후 공동 확인 (백엔드와 함께)
 
