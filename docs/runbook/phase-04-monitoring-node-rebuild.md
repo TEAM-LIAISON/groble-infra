@@ -128,7 +128,11 @@ AL2023 ECS-optimized 는 ecs-init 이 내장이라 완전히 다른 스크립트
 - **`data "aws_instance" "shared_monitoring_instance"` 를 제거한다** → 위 함정 1번이 여기서 해소된다
 - 재배포 1회 (CodeDeploy Blue/Green 으로 무방)
 - **이 시점에도 트래픽은 여전히 구 노드로 간다 — 동작 변화 없이 간접화만 도입한다**
-- 사전 확인: JVM DNS 캐시 TTL 이 유한한지 (계획서 §3-8, To-Do 12). 무기한이면 F 가 재배포 없이는 반영되지 않는다
+- ⚠️ **사전 확인: JVM DNS 캐시 TTL** (계획서 §3-8, To-Do 12) — 무기한이면 F 가 재배포 없이는 반영되지 않아
+  이 Phase 의 핵심 성과가 사라진다. **2026-08-29 RDS 8.4 스위치오버 때 JVM 이 구 IP 를 붙잡아
+  7~8분간 쓰기가 실패한 전력이 있다** ([adhoc 런북 사고 1](./adhoc/rds-mysql-84-upgrade.md)) —
+  즉 현재 TTL 은 사실상 무기한으로 봐야 한다.
+  → 요청서: [`handoff/rolling-deploy-prerequisites.md`](../handoff/rolling-deploy-prerequisites.md) §3 (문항 9·10)
 
 ### D. 신 노드 생성
 

@@ -7,7 +7,7 @@
 | **상태** | ⬜ 미착수 |
 | **목적** | 비밀값이 Terraform state·태스크 정의 JSON·ECS 콘솔에 평문으로 남는 상태를 해소한다 |
 | **사용자 영향** | 없음 (rolling 재배포) |
-| **시점** | [Phase 5]((./phase-05-deployment-controller.md))의 rolling 배포가 충분히 안정화된 뒤. 태스크 정의를 건드리므로 다른 변경과 겹치지 않게 한다 |
+| **시점** | [Phase 5](./phase-05-deployment-controller.md)의 rolling 배포가 충분히 안정화된 뒤. 태스크 정의를 건드리므로 다른 변경과 겹치지 않게 한다 |
 | **되돌리기** | 이전 태스크 정의 |
 
 ---
