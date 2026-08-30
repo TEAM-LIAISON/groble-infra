@@ -15,6 +15,7 @@
 | 이번 범위 밖으로 미뤄둔 건? | [infra-future-improvements.md](./infra-future-improvements.md) |
 | 백엔드에 뭘 물어놨고 답이 왔나? | [handoff/README.md](./handoff/README.md) |
 | 모니터링 설정은 어디서 바꾸나? | [monitoring-config-baking.md](./monitoring-config-baking.md) — 이 리포가 아니라 `groble-images` |
+| **EC2·RDS 에 어떻게 접속하나?** | [developer-access.md](./developer-access.md) — SSM 으로 VPN 없이. **백엔드 개발자용** |
 
 ---
 
@@ -26,6 +27,7 @@ docs/
   infra-ha-migration-runbook.md     실행 목차 · 공통 원칙 · 부록
   infra-future-improvements.md      백로그 — 이번 범위 밖
   monitoring-config-baking.md       참조 — config baking 구조
+  developer-access.md               참조 — SSM 접속 경로 (백엔드 개발자용)
 
   runbook/          Phase 00~11. 완료된 것도 여기 남는다
     adhoc/          Phase 순서와 무관한 단발 작업 (예: RDS 8.4 업그레이드)

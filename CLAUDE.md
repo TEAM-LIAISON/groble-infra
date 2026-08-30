@@ -328,11 +328,26 @@ All → Grafana (3000) Dashboard
    ⚠️ **Dev Target SG는 없다** — dev는 컨테이너 MySQL을 쓰므로 prod RDS에 붙을 일이 없다.
    ⚠️ **CIDR 인그레스가 하나도 없다** (VPN 서브넷 포함). 아래 접근 경로 참조
 
-**개발자 접근 경로**: WireGuard(51820) → VPN 서브넷 `10.6.0.0/24` → 모니터링 노드 SSH(22) → private 노드.
-SSM Session Manager는 아직 도입되지 않았다.
+**개발자 접근 경로**: **SSM Session Manager 가 기본이다** (2026-08-30, Phase 4). 네 노드 모두
+`AmazonSSMManagedInstanceCore` 로 등록되어 VPN·SSH 키·22번 포트 없이 로컬에서 바로 붙는다.
+RDS 도 노드 경유 포트 포워딩으로 닿는다 — 방법은 [`docs/developer-access.md`](docs/developer-access.md).
 
-⚠️ **RDS는 VPN에서 직접 닿지 않는다.** VPN이 `10.0.0.0/16`을 라우팅하고 RDS 사설 IP까지 ping도 되지만,
-RDS SG에 CIDR 인그레스가 없어 3306이 거부된다. **모니터링 노드를 경유하는 SSH 터널로만 접속된다:**
+기존 경로(WireGuard(51820) → VPN 서브넷 `10.6.0.0/24` → 모니터링 노드 SSH(22) → private 노드)는
+**아직 살아 있다.** 실제 폐기는 [Phase 9](docs/runbook/phase-09-access-path.md) 의 몫이다.
+
+⚠️ **RDS는 VPN에서 직접 닿지 않는다.** RDS SG에 CIDR 인그레스가 없고 SG 참조만 허용하므로
+(`groble-monitor-target-group` · `groble-prod-target-group` · `groble-api-task-sg`)
+**노드를 경유해야 한다. dev 노드는 SG 참조에 없어서 안 된다.**
+
+권장: SSM 포트 포워딩 (모니터링 노드 경유, VPN 불필요) — [`docs/developer-access.md`](docs/developer-access.md)
+
+```bash
+aws ssm start-session --profile groble --target <monitoring-instance-id> \
+  --document-name AWS-StartPortForwardingSessionToRemoteHost \
+  --parameters '{"host":["<rds-endpoint>"],"portNumber":["3306"],"localPortNumber":["13306"]}'
+```
+
+기존 SSH 터널도 아직 동작한다 (Phase 9 까지):
 
 ```bash
 ssh -f -N -L 13306:<rds-endpoint>:3306 -i <key>.pem ubuntu@10.0.1.193
