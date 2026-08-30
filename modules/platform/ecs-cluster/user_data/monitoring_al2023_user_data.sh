@@ -96,10 +96,21 @@ install -d -m 0755 -o 472   -g 472   /opt/grafana/data
 install -d -m 0755 -o 65534 -g 65534 /opt/prometheus/data
 
 #############################################################################
-# 3. 에이전트 기동
+# 3. 에이전트 기동 — **아무것도 하지 않는다**
 #############################################################################
-# AMI 기본값으로도 enable 되어 있으나, 설정을 쓴 뒤 명시적으로 보장한다.
-systemctl enable --now ecs
+# ⛔ `systemctl enable --now ecs` 를 여기에 쓰면 부팅이 교착한다. 실제로 겪었다.
+#
+#    ecs.service 는 `After=cloud-final.service` 다. user_data 는 cloud-final 안에서
+#    실행되므로, 여기서 블로킹 start 를 걸면
+#      user_data → ecs.service 시작 대기 → cloud-final 완료 대기 → user_data 대기
+#    로 순환한다. 노드는 SSM 으로 접속은 되지만 ECS 클러스터에 영원히 등록되지 않는다.
+#
+#    AMI 가 ecs.service 를 이미 enable 해 두었고, cloud-final 이 끝나면 자동으로
+#    기동하면서 위에서 쓴 /etc/ecs/ecs.config 를 읽는다. **설정 파일만 쓰면 된다.**
+#
+#    꼭 명시해야 한다면 블로킹하지 않는 형태여야 한다:
+#      systemctl enable ecs          # --now 없이
+#      systemctl start ecs --no-block
 
 #############################################################################
 # 4. 부트스트랩 결과 기록

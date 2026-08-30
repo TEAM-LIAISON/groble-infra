@@ -275,18 +275,25 @@ variable "create_monitoring_v2_instance" {
   description = <<-EOT
     Phase 4 의 신 모니터링 노드(private 2c, AL2023)를 만들지 여부.
 
-    false — 만들지 않는다 (기본, 현 상태)
+    false — 만들지 않는다
     true  — D단계. 구 노드와 병존하며 사용자 영향이 없다.
             스택 이동은 E단계(구 노드 DRAINING)에서 별도로 한다
+
+    2026-08-30 true 로 전환 (D단계 착수).
   EOT
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "monitoring_v2_instance_type" {
-  description = "신 모니터링 노드 타입. 모듈 변수의 메모리 주의사항 참조"
+  description = <<-EOT
+    신 모니터링 노드 타입. 모듈 변수의 메모리·ENI 주의사항 참조.
+
+    t3a.small 은 t3.small 대비 10% 저렴하고(월 $17.08 vs $18.98) 스펙이 같다.
+    ENI 만 2개(t3.small 은 3개)인데, 모니터링 서비스가 전부 host 모드라 무해하다.
+  EOT
   type        = string
-  default     = "t3.small"
+  default     = "t3a.small"
 }
 
 variable "monitoring_v2_instance_private_ip" {
