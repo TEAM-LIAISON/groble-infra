@@ -59,7 +59,7 @@ data "aws_subnet" "dev_api_subnet" {
   }
 }
 
-# Phase 8-a — DB 서브넷 그룹용. RDS 는 서로 다른 AZ 의 서브넷 2개 이상을 요구하므로
+# Phase 5 — DB 서브넷 그룹용. RDS 는 서로 다른 AZ 의 서브넷 2개 이상을 요구하므로
 # 위 dev_api_subnet(2c 단일)로는 만들 수 없다.
 # 인스턴스 자체는 rds_availability_zone 으로 2c 에 고정한다.
 data "aws_subnets" "shared_private_subnets" {
@@ -149,9 +149,9 @@ module "ecr" {
 }
 
 #################################
-# Phase 8-a — DEV RDS MySQL
+# Phase 5 — DEV RDS MySQL
 #################################
-# docs/runbook/phase-08a-dev-rds.md
+# docs/runbook/phase-05-dev-rds.md
 #
 # prod 와 **같은 모듈**을 쓴다. dev 를 prod 와 같은 형태로 만드는 것이 Phase 8 의 목적이라
 # 모듈을 가르면 §3-5 promote 게이트가 검증하는 것이 줄어든다.
@@ -196,7 +196,7 @@ module "dev_rds_mysql" {
   skip_final_snapshot = var.rds_skip_final_snapshot
 }
 
-# Phase 8-a — Dev RDS 알람
+# Phase 5 — Dev RDS 알람
 # 통지 경로(SNS)는 shared 에서 만든 dev 채널 토픽(#groble-alert-dev)을 쓴다.
 module "rds_alarms" {
   source = "../../modules/observability/rds-alarms"
@@ -268,11 +268,11 @@ module "dev_api_service" {
   
   # Database 설정 (shared 환경의 DEV 인스턴스 IP 참조)
   #
-  # 🔴 Phase 8-a 컷오버(C단계)에서 module.dev_rds_mysql.rds_address 로 바꾼다.
+  # 🔴 Phase 5 컷오버(C단계)에서 module.dev_rds_mysql.rds_address 로 바꾼다.
   #    바꾼 뒤 terraform apply 만 해서는 **배포되지 않는다** — 이 서비스는
   #    lifecycle { ignore_changes = [task_definition] } 라 새 리비전만 생기고
   #    서비스는 옛 리비전을 계속 돈다. CodeDeploy 배포를 별도로 트리거할 것.
-  #    docs/runbook/phase-08a-dev-rds.md
+  #    docs/runbook/phase-05-dev-rds.md
   db_host             = data.aws_instance.shared_dev_instance.private_ip
   mysql_database      = var.mysql_database
   mysql_root_password = var.mysql_root_password
@@ -346,7 +346,7 @@ output "redis_task_definition_arn" {
   value       = module.dev_redis_service.task_definition_arn
 }
 
-# Phase 8-a — RDS outputs
+# Phase 5 — RDS outputs
 output "dev_rds_endpoint" {
   description = "Dev RDS MySQL 엔드포인트 (host:port)"
   value       = module.dev_rds_mysql.rds_endpoint

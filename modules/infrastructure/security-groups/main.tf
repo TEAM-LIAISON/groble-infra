@@ -449,7 +449,7 @@ resource "aws_security_group" "groble_rds_mysql_sg" {
 # Dev RDS MySQL Security Group
 #################################
 #
-# Phase 8-a — dev MySQL 컨테이너를 RDS 로 옮기며 신설한다.
+# Phase 5 — dev MySQL 컨테이너를 RDS 로 옮기며 신설한다.
 # prod 용 groble-rds-mysql-sg 를 재사용하지 않는 이유:
 #   ① 인그레스에 dev 노드(develop_target_group)가 없어 덤프/복원을 할 수 없다
 #   ② prod DB 와 dev DB 의 접근 주체가 같은 SG 로 묶이면 나중에 갈라내기 더 어렵다

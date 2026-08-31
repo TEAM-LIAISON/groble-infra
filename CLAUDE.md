@@ -21,7 +21,7 @@ This is **groble-infra**, a Terraform-based AWS infrastructure project for the G
 | [`docs/README.md`](docs/README.md) | **문서 진입점** — 무엇을 언제 여는가, 폴더·상태 어휘 규칙 |
 | [`docs/infra-ha-improvement-plan.md`](docs/infra-ha-improvement-plan.md) | 무엇을 왜 바꾸는가 (설계·결정 근거) |
 | [`docs/infra-ha-migration-runbook.md`](docs/infra-ha-migration-runbook.md) | 어떤 순서로 이관하는가 — **목차·공통 원칙·부록** |
-| [`docs/runbook/`](docs/runbook/) | Phase 0~11 각각의 상세 절차·검증·롤백 (Phase당 1개 파일). `adhoc/`는 Phase 순서와 무관한 단발 작업 |
+| [`docs/runbook/`](docs/runbook/) | Phase 0~12 각각의 상세 절차·검증·롤백 (Phase당 1개 파일). `adhoc/`는 Phase 순서와 무관한 단발 작업 |
 | [`docs/handoff/README.md`](docs/handoff/README.md) | 백엔드에 보낸 요청·질의와 **회신 대기 현황** (`closed/`는 종결분) |
 | [`docs/infra-future-improvements.md`](docs/infra-future-improvements.md) | 이번 범위 밖 항목 (우선순위·트리거) |
 | [`docs/monitoring-config-baking.md`](docs/monitoring-config-baking.md) | 모니터링 config baking 구조 |
@@ -36,7 +36,7 @@ SSM Session Manager(bastion·WireGuard 폐기) · Terraform state를 S3로
 (`#groble-alert` 긴급 / `#groble-alert-dev`)로 전달된다. 임계치는 실측 기준선으로 확정했다
 (계획서 §2.1 "트래픽·자원 기준선").
 **Phase 2 진행 중** — 2-0(API 워킹셋 측정) · 2-1(Prometheus `ec2_sd_config` 전환) ·
-2-2(Grafana 프로비저닝 as-code) **배포·검증까지 완료**. `memoryReservation` 확정으로 Phase 7 차단이 풀렸다.
+2-2(Grafana 프로비저닝 as-code) **배포·검증까지 완료**. `memoryReservation` 확정으로 Phase 8 차단이 풀렸다.
 남은 것은 ① NoData로 죽어 있는 JVM 힙 알람 수정 ② 백엔드 지표 3종을 받은 뒤 알림 R10~R14. 상세와 이어받기는
 [`docs/runbook/phase-02-observability.md`](docs/runbook/phase-02-observability.md)에 있다.
 **Phase 3 진행 중** — 3-a(EIP `15.165.223.110` 확보 + S3 엔드포인트 생성)까지 apply 했다.
@@ -44,22 +44,21 @@ SSM Session Manager(bastion·WireGuard 폐기) · Terraform state를 S3로
 **[외부 업체 허용목록에 이 IP 를 등록](docs/handoff/egress-ip-allowlist.md)하는 것**이며,
 등록 완료 회신이 오면 스위치를 순서대로 켠다. 상세는
 [`docs/runbook/phase-03-nat-gateway.md`](docs/runbook/phase-03-nat-gateway.md)에 있다.
-**Phase 4·5 는 2026-08-30 에 번호를 맞바꿨다** — 원래 4가 배포 컨트롤러 전환, 5가 모니터링 노드
-재구축이었다. 배포 컨트롤러 전환이 앱 측 차단 조건 4건에 막혀 있는 동안 모니터링 노드 재구축은
-진행할 수 있어서다. 근거는 [이관 절차 목차](docs/infra-ha-migration-runbook.md)에 있다.
+> ⚠️ **Phase 번호는 2026-08-30 과 2026-08-31 두 번 바뀌었다.** 옛 문서·PR 의 번호가 지금과 다를 수 있다 —
+> 대응표는 [이관 절차 목차의 번호 이력](docs/infra-ha-migration-runbook.md#번호-이력--옛-문서pr-의-번호는-다를-수-있다)에 있다.
 **[Phase 4 — 모니터링 노드 재구축](docs/runbook/phase-04-monitoring-node-rebuild.md)은 2026-08-30 완료했다** —
 관측 스택이 `groble-monitoring-v2-instance`(AL2023, private 2c, t3a.small)로 옮겨갔고,
 앱의 OTLP·Loki 주소가 `otel.internal.groble.im` 으로 간접화되어 **다음 교체부터는
 레코드 값 변경 + 구 노드 수신 중단만으로 끝난다**(앱 재배포 없음).
 구 노드는 `groble-nat-instance` 로 개명해 NAT·bastion·VPN 만 지고 남아 있다.
-원래 Phase 8 은 2026-08-31 에 **8-a(RDS) / 8-b(ElastiCache + ASG)** 로 쪼갰고,
-**[Phase 8-a](docs/runbook/phase-08a-dev-rds.md) 를 앞당겨 진행했다** — Phase 3·5 가 모두 회신 대기라
+Dev 전환은 2026-08-31 에 **[5](docs/runbook/phase-05-dev-rds.md)(RDS) / [9](docs/runbook/phase-09-dev-cache-asg.md)(ElastiCache + ASG)** 로 쪼갰고,
+**[Phase 5](docs/runbook/phase-05-dev-rds.md) 를 앞당겨 진행했다** — Phase 3·6 이 모두 회신 대기라
 착수할 수 있는 유일한 Phase 였다. **인프라 몫은 끝났다**: `groble-dev-mysql`
 (RDS MySQL 8.4.11, db.t4g.micro, private 2c) 과 전용 SG·알람 6종을 배포했고 덤프/복원 리허설까지 검증했다.
 **데이터 이관과 `DB_HOST` 전환은 백엔드 소관이다** — 실행 중인 태스크 정의를 등록하는 것이
 Terraform 이 아니라 GitHub Actions 이기 때문이다([요청서](docs/handoff/dev-rds-cutover.md)).
 이관 완료 연락을 받으면 구 MySQL 컨테이너를 제거한다.
-Phase 5·6·7 과 8-b 는 미착수다.
+Phase 6·7·8 과 9 는 미착수다.
 Phase와 독립적인 [RDS MySQL 8.4 업그레이드](docs/runbook/adhoc/rds-mysql-84-upgrade.md)는
 **2026-08-29 전환 완료**했다 (확장 지원 과금 $178.56/월 중단).
 구 인스턴스도 같은 날 삭제했고, 최종 스냅샷 `groble-prod-mysql-80-final`(8.0.45)만 남아 있다.
@@ -92,7 +91,7 @@ terraform show
 - 버킷 정책이 접근 주체를 Terraform 실행 SSO 역할로 한정한다. **ECS Task Role은 `AmazonS3FullAccess`를 갖고 있지만 이 버킷은 거부된다**
 
 ⚠️ **Terraform 1.10+ 가 필요하다** (`use_lockfile` 요건). 리포지토리는 `.terraform-version`으로 **1.15.8**을 고정한다.
-⚠️ **Phase 10 전까지 state에는 DB·Grafana 비밀번호가 평문으로 들어 있다.** 버킷을 시크릿 저장소로 취급할 것.
+⚠️ **Phase 11 전까지 state에는 DB·Grafana 비밀번호가 평문으로 들어 있다.** 버킷을 시크릿 저장소로 취급할 것.
 
 state 버킷·KMS 키·CloudTrail은 **Terraform이 관리하지 않는다** — "state를 담을 버킷의 state를 어디에 둘 것인가"라는 순환을 피하려고 AWS CLI로 만들었다. 정책 원본은 [`bootstrap/`](bootstrap/README.md)에 있다.
 
@@ -299,7 +298,7 @@ All → Grafana (3000) Dashboard
 - **Domains**: `api.groble.im` (prod), `api.dev.groble.im` (dev), `monitor.groble.im` (monitoring)
 - ⚠️ **API 타깃그룹 4개(prod/dev Blue·Green)는 `deregistration_delay`가 미설정이다** (기본 300초).
   ECS `ECS_CONTAINER_STOP_TIMEOUT=30s`와 정렬되지 않아 in-flight 요청이 잘릴 수 있다.
-  **정렬 값 확정은 [Phase 5](docs/runbook/phase-05-deployment-controller.md)의 작업이다**
+  **정렬 값 확정은 [Phase 6](docs/runbook/phase-06-deployment-controller.md)의 작업이다**
   (계획서 §3-3: dereg / stopTimeout / Spring graceful 을 함께 정한다).
   > 300초를 단순히 내리는 것은 정렬이 아니라 **in-flight 보호를 줄이는 것**이다 —
   > 태스크는 `DEACTIVATING` 동안 살아서 요청을 처리하고 SIGTERM 은 그 뒤에 온다.
@@ -339,7 +338,7 @@ All → Grafana (3000) Dashboard
 RDS 도 노드 경유 포트 포워딩으로 닿는다 — 방법은 [`docs/developer-access.md`](docs/developer-access.md).
 
 기존 경로(WireGuard(51820) → VPN 서브넷 `10.6.0.0/24` → 모니터링 노드 SSH(22) → private 노드)는
-**아직 살아 있다.** 실제 폐기는 [Phase 9](docs/runbook/phase-09-access-path.md) 의 몫이다.
+**아직 살아 있다.** 실제 폐기는 [Phase 10](docs/runbook/phase-10-access-path.md) 의 몫이다.
 
 ⚠️ **RDS는 VPN에서 직접 닿지 않는다.** RDS SG에 CIDR 인그레스가 없고 SG 참조만 허용하므로
 (`groble-monitor-target-group` · `groble-prod-target-group` · `groble-api-task-sg`)
@@ -353,7 +352,7 @@ aws ssm start-session --profile groble --target <monitoring-instance-id> \
   --parameters '{"host":["<rds-endpoint>"],"portNumber":["3306"],"localPortNumber":["13306"]}'
 ```
 
-기존 SSH 터널도 아직 동작한다 (Phase 9 까지):
+기존 SSH 터널도 아직 동작한다 (Phase 10 까지):
 
 ```bash
 ssh -f -N -L 13306:<rds-endpoint>:3306 -i <key>.pem ubuntu@10.0.1.193

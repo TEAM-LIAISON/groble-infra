@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **상태** | 🔄 진행 중 — 배포·검증 완료 (2026-08-24), **백엔드 회신 대기 2건**. `memoryReservation` 확정으로 **Phase 7 차단 해제.** 남은 것은 ① 죽은 JVM 힙 알람 수정 ② 백엔드 지표 후 R10~R14 |
+| **상태** | 🔄 진행 중 — 배포·검증 완료 (2026-08-24), **백엔드 회신 대기 2건**. `memoryReservation` 확정으로 **Phase 8 차단 해제.** 남은 것은 ① 죽은 JVM 힙 알람 수정 ② 백엔드 지표 후 R10~R14 |
 | **목적** | ASG 도입 후 새 노드가 **관측 사각지대에 들어가는 것을 막는다.** 순서가 뒤바뀌면 노드가 조용히 사라지고, 하필 그 시점이 마이그레이션 중이라 가장 위험하다 |
 | **사용자 영향** | 없음 |
 | **되돌리기** | 이전 이미지 태그로 롤백 |
@@ -131,9 +131,9 @@ aws sns publish --topic-arn <토픽> --subject "[TEST] 알림 경로 도달 확�
 
 | 건 | 상태 | 필요한 결정 |
 |---|---|---|
-| **prod JVM 힙 수정 배포** | ✅ **완료** (2026-08-20). 힙 상한 2,878 → **900 MiB** 확인 | 남은 것은 **2~3일 뒤 재측정**뿐이다 → Phase 7·8 `memoryReservation` 확정. **Phase 7 차단 조건** |
+| **prod JVM 힙 수정 배포** | ✅ **완료** (2026-08-20). 힙 상한 2,878 → **900 MiB** 확인 | 남은 것은 **2~3일 뒤 재측정**뿐이다 → Phase 8·9 `memoryReservation` 확정. **Phase 8 차단 조건** |
 | **`JVM 힙 상한 > 컨테이너 리밋` 알람** | ✅ **해소.** prod 배포로 900 MiB < 리밋 1,500 MiB 가 되어 조건이 성립하지 않는다 | 없음 |
-| **`컨테이너 메모리 하드리밋 근접` 알람 발화 중** | **dev-mysql 99.1%** (253.8/256 MiB) · prod-api 92.9% | ✅ **결정됨 — 상향하지 않는다.** [Phase 8-b](./phase-08b-dev-cache-asg.md) 에서 dev MySQL 이 RDS 로 이관되며 컨테이너째 사라지므로 그때까지 발화를 감수한다. 조사 결과(재시작 5회 증거 · `ignore_changes` 함정 · 무효한 `MYSQL_INNODB_BUFFER_POOL_SIZE`)는 Phase 8 문서에 기록했다 |
+| **`컨테이너 메모리 하드리밋 근접` 알람 발화 중** | **dev-mysql 99.1%** (253.8/256 MiB) · prod-api 92.9% | ✅ **결정됨 — 상향하지 않는다.** [Phase 9](./phase-09-dev-cache-asg.md) 에서 dev MySQL 이 RDS 로 이관되며 컨테이너째 사라지므로 그때까지 발화를 감수한다. 조사 결과(재시작 5회 증거 · `ignore_changes` 함정 · 무효한 `MYSQL_INNODB_BUFFER_POOL_SIZE`)는 Phase 8 문서에 기록했다 |
 | 신규 구독 가입 감시 | 트래픽이 14일에 20건대라 **통계적으로 감지 불가** | 앱 지표(`groble.payment.attempts`) 없이는 불가. 요청서 §6-3 ③ 에 포함됨 |
 
 ### 백엔드 요청서 2건
@@ -164,13 +164,13 @@ groble-otelcol     0.132.0-57015e3
 | 항목 | 결과 |
 |---|---|
 | **R6~R9 오탐 없음** (배포 후 4일) | ✅ **오탐 0건** — 아래 [배치 규칙 4일 검증](#배치-규칙-4일-검증-2026-08-24) |
-| **prod 재측정** → `memoryReservation` | ✅ **확정** — 아래 [prod 재측정](#prod-재측정-2026-08-24--memoryreservation-확정). 🔓 **[Phase 7](./phase-07-prod-asg.md) 차단 해제** |
+| **prod 재측정** → `memoryReservation` | ✅ **확정** — 아래 [prod 재측정](#prod-재측정-2026-08-24--memoryreservation-확정). 🔓 **[Phase 8](./phase-08-prod-asg.md) 차단 해제** |
 | **R10~R14** (백엔드 지표 3종) | ⏸ 백엔드 대기. Phase 2 완료를 막지 않는다 — [요청서](../handoff/payment-alerts-review.md) §6 |
 
 > 🔴 **다만 검증 중 죽은 알람 1건을 발견했다** — 아래 [JVM 힙 알람이 NoData 로 죽어 있다](#-jvm-힙-알람이-nodata-로-죽어-있다-2026-08-24).
 > Phase 2 를 닫기 전에 고쳐야 한다.
 
-**Phase 3~6 은 지금 시작해도 된다.** Phase 2 의 목적("ASG 도입 전에 관측 사각지대를 없앤다")은
+**Phase 3~7 은 지금 시작해도 된다.** Phase 2 의 목적("ASG 도입 전에 관측 사각지대를 없앤다")은
 노드 스크레이프가 `ec2_sd` 로 바뀌고 알림 14건이 가동되면서 달성됐다.
 
 ---
@@ -222,9 +222,9 @@ GC 최대 정지가 **2,584 ms → 73 ms (35배 개선)**, 스왑이 947 → 64 
 
 | 대상 | 값 | 근거 |
 |---|---|---|
-| [Phase 7](./phase-07-prod-asg.md) prod `memory_reservation` | **1,300 MiB** | RSS p99 1,281 · 최대 1,290 을 덮는 최소값 |
+| [Phase 8](./phase-08-prod-asg.md) prod `memory_reservation` | **1,300 MiB** | RSS p99 1,281 · 최대 1,290 을 덮는 최소값 |
 | prod `memory` (하드리밋) | **1,500 MiB 유지** | 여유 210 MiB. 상향 불필요 |
-| [Phase 8-b](./phase-08b-dev-cache-asg.md) dev `memory_reservation` / `memory` | **prod 와 동일** | dev RSS p99 **1,277** · 최대 **1,287 MiB** — prod 와 사실상 같다 |
+| [Phase 9](./phase-09-dev-cache-asg.md) dev `memory_reservation` / `memory` | **prod 와 동일** | dev RSS p99 **1,277** · 최대 **1,287 MiB** — prod 와 사실상 같다 |
 
 > 📌 **dev 가 prod 보다 작을 것이라던 이전 가정은 폐기한다.** dev live set 은 356 MiB 로
 > prod(210)보다 오히려 크고, RSS 는 양쪽 다 1,280 MiB 대다.
@@ -279,10 +279,10 @@ noDataState: OK        # ← 빈 결과가 조용히 OK 로 처리된다
 - [x] Slack 두 채널 테스트 발화 — **양쪽 도달 확인** (2026-08-20, 아래 「알림 경로 도달 검증」)
 - [ ] 백엔드 지표 3종 배포에 맞춰 **R10~R14** 반영
 - [x] prod JVM 수정 배포 (2026-08-20, 힙 상한 900 MiB 확인)
-- [x] prod 재측정 → **`memory_reservation` = 1,300 MiB 확정** (2026-08-24) — Phase 7 차단 해제
+- [x] prod 재측정 → **`memory_reservation` = 1,300 MiB 확정** (2026-08-24) — Phase 8 차단 해제
 - [ ] 🔴 **JVM 힙 알람 수정** — `id="G1 Old Gen"` 시계열 소멸로 NoData(=OK) 상태. 어떤 오설정에도 안 울린다
-- [x] dev-mysql 메모리 리밋 결정 — **상향하지 않고 [Phase 8-b](./phase-08b-dev-cache-asg.md) 이관에 맡긴다**
-- [ ] `spring-apps` 태스크 단위 스크레이프 (Cloud Map) — **Phase 7 로 이관됨**, `desired_count` 2 이상 전에 필수
+- [x] dev-mysql 메모리 리밋 결정 — **상향하지 않고 [Phase 9](./phase-09-dev-cache-asg.md) 이관에 맡긴다**
+- [ ] `spring-apps` 태스크 단위 스크레이프 (Cloud Map) — **Phase 8 로 이관됨**, `desired_count` 2 이상 전에 필수
 
 ---
 
@@ -374,14 +374,14 @@ Phase 1은 "리밋에 닿아 있으면서 OOM이 없으니 대부분 회수 가�
 |---|---|
 | JVM 힙 상한 | **`-Xms512m -Xmx900m`** (피크 라이브 셋 510 MiB의 1.76배). `-Xms`를 `-Xmx`와 같게 두지 않는다 — 컨테이너 예산 여유가 200 MiB뿐이라 상시 커밋하면 여유가 사라진다 |
 | 컨테이너 하드리밋 1,500 MiB | **유지.** 상향 불필요 → 노드 사이징 재검토로 번지지 않는다 |
-| [Phase 7](./phase-07-prod-asg.md) `memory_reservation` | ✅ **1,300 MiB 확정** (2026-08-24 재측정, RSS p99 1,281 / 최대 1,290) |
-| [Phase 8-b](./phase-08b-dev-cache-asg.md) dev `memory` | ✅ **prod 와 동일** (dev RSS p99 1,277 / 최대 1,287). 둘 다 `-Xmx900m` 이라 RSS 는 라이브 셋이 아니라 힙 상한이 결정한다 |
+| [Phase 8](./phase-08-prod-asg.md) `memory_reservation` | ✅ **1,300 MiB 확정** (2026-08-24 재측정, RSS p99 1,281 / 최대 1,290) |
+| [Phase 9](./phase-09-dev-cache-asg.md) dev `memory` | ✅ **prod 와 동일** (dev RSS p99 1,277 / 최대 1,287). 둘 다 `-Xmx900m` 이라 RSS 는 라이브 셋이 아니라 힙 상한이 결정한다 |
 | t3.medium 노드당 태스크 2개 수용 | 수용 가능할 전망 (2 × ~1,300 MiB + 노드 오버헤드 < 3,837 MiB). 어차피 **ENI 3개 제약으로 노드당 awsvpc 태스크는 최대 2개**가 상한이다 |
 
-### ⚠️ Phase 7 차단 조건
+### ⚠️ Phase 8 차단 조건
 
 **지금 OOM을 막고 있는 스왑파일은 AMI 기능이 아니라 현재 노드의 `user_data`가 만드는 것이다.**
-[Phase 7](./phase-07-prod-asg.md)에서 노드가 ECS-optimized AL2023 AMI + Launch Template으로 교체되면 이 스왑은 사라진다.
+[Phase 8](./phase-08-prod-asg.md)에서 노드가 ECS-optimized AL2023 AMI + Launch Template으로 교체되면 이 스왑은 사라진다.
 
 > **JVM 설정을 그대로 둔 채 노드를 교체하면 새 ASG 노드에서 prod API가 OOM kill로 종료된다.**
 > 하필 마이그레이션 도중이라 원인 판별이 가장 어려운 시점이다.
@@ -502,7 +502,7 @@ prod 배포 직후 RSS 를 우선 확인하고, 1,400 MiB 를 넘어 머물면 �
    - **라벨 호환성**: `environment` / `instance_name` 은 전환 전과 같은 값을 산출한다.
      `port` 지정으로 `__address__`가 `<사설IP>:<port>`가 되어 `instance` 라벨도 동일하다.
    - ⚠️ 단 `node_type` / `instance_id` / `availability_zone` 3개가 **추가되므로 라벨 집합이 바뀌어 전환 시점에 시계열이 한 번 갈라진다.**
-     라벨 매처는 부분 일치라 기존 쿼리·대시보드는 그대로 동작한다. Phase 7에서 필요한 라벨이므로 **사용자 영향이 없는 지금** 끊는 편이 낫다고 판단했다
+     라벨 매처는 부분 일치라 기존 쿼리·대시보드는 그대로 동작한다. Phase 8에서 필요한 라벨이므로 **사용자 영향이 없는 지금** 끊는 편이 낫다고 판단했다
 4. ~~CI에서 `promtool check config` 게이트 추가~~ — ✅ **이미 있었다.** `.github/workflows/build.yml`의 Validate config 스텝
 5. ⏭ **"기대 타깃 수 미달" 알람** → **Grafana 알림으로 결정. [2-2](#2-2-grafana-프로비저닝-as-code)에서 프로비저닝한다**
    (Alertmanager가 배포돼 있지 않고, 2-2가 어차피 Grafana `alerting` 프로비저닝 작업이라 새 운영 구성요소 없이 붙는다)
@@ -540,7 +540,7 @@ prod 배포 직후 RSS 를 우선 확인하고, 1,400 MiB 를 넘어 머물면 �
 | `count(up{job="cadvisor"})` | **3** |
 | `count(up == 1)` | **14** |
 
-⚠️ 이 값들은 **노드 수가 바뀌면 함께 바꿔야 한다** (Phase 7 ASG desired 변경 시).
+⚠️ 이 값들은 **노드 수가 바뀌면 함께 바꿔야 한다** (Phase 8 ASG desired 변경 시).
 
 ### ⚠️ 이 전환이 만드는 새 실패 모드
 
@@ -548,7 +548,7 @@ prod 배포 직후 RSS 를 우선 확인하고, 1,400 MiB 를 넘어 머물면 �
 디스커버리가 통째로 실패하는데, 이때 타깃은 `down`이 아니라 **목록에서 사라져 `up == 0` 알람이 뜨지 않는다.**
 → **"기대 타깃 수 미달" 알람이 없으면 이 고장을 못 잡는다.** 5번이 선택 사항이 아닌 이유다.
 
-**성립 조건 — 태그 전파.** Phase 7의 ASG/Launch Template에서 `Cluster`·`environment`·`Name`·`Type` 태그가
+**성립 조건 — 태그 전파.** Phase 8의 ASG/Launch Template에서 `Cluster`·`environment`·`Name`·`Type` 태그가
 인스턴스로 전파되지 않으면 새 노드는 경고 없이 스크레이프 목록에서 누락된다.
 
 ### 범위 조정 — `spring-apps` 잡은 이 전환으로 해결되지 않는다
@@ -565,7 +565,7 @@ API 태스크는 `awsvpc` 모드라 태스크마다 별도 ENI(고유 사설 IP)
 
 태스크 단위 스크레이프에는 **ECS Service Discovery(Cloud Map) 등록 + `dns_sd_configs`(type A)** 가 필요하며,
 Terraform 변경을 수반한다. **`desired_count`를 올리기 전에 반드시 선행되어야 한다** →
-[Phase 7](./phase-07-prod-asg.md)의 선행 항목으로 이관.
+[Phase 8](./phase-08-prod-asg.md)의 선행 항목으로 이관.
 
 ## 2-2. Grafana 프로비저닝 as-code ✅ **배포 완료**
 
@@ -623,7 +623,7 @@ CloudWatch 알람 19건(Phase 1)이 ALB·RDS 를 이미 덮으므로 **중복하
 | Prometheus 기대 타깃 수 미달 | < 3개, 10분 | critical | `ec2_sd` 고장 시 타깃이 목록에서 **사라져** `up==0` 으로 안 잡힘 |
 | 스크레이프 타깃 다운 | > 0개, 10분 | warning | — |
 | 컨테이너 메모리 하드리밋 근접 | > 90% | warning | ECS `MemoryUtilization` 은 캐시를 합쳐 보여줌 |
-| 노드 스왑 | > 300 MiB | warning | CloudWatch 는 EC2 스왑을 수집 안 함. **Phase 7 차단 조건** |
+| 노드 스왑 | > 300 MiB | warning | CloudWatch 는 EC2 스왑을 수집 안 함. **Phase 8 차단 조건** |
 | JVM 힙 상한 > 컨테이너 리밋 | > 0 MiB | critical | 2026-08 사고의 **원인 자체**를 감시. `labels.scope: fleet` (환경 무관) |
 | **R1 결제 경로 서버 오류(5xx)** | 15분 1건, 즉시 | critical | 60.9시간 175,977 요청 중 5xx **0건** |
 | **R2 결제 활동 부재** | 6시간 0건, 30분 | critical | 완료 + 시도 합계가 시간당 약 12건. V1 검증 최소 **18건** |
@@ -671,7 +671,7 @@ CloudWatch 알람 19건(Phase 1)이 ALB·RDS 를 이미 덮으므로 **중복하
 - [x] PR #7 머지 후 Grafana 재배포 → 알림 **8건** `state=active` · 평가 실패 0건 확인 (rev 47)
 - [x] Grafana 재배포 후 알림 **14건** `state=active` · 평가 실패 0건 확인 (rev 49, `11.6.3-d1ac4d3`)
 - [x] **prod** JVM 수정 배포 (2026-08-20, 힙 상한 900 MiB)
-- [x] (Phase 7 진입 전) prod 재측정 → `memory_reservation` = **1,300 MiB** 확정 (2026-08-24)
+- [x] (Phase 8 진입 전) prod 재측정 → `memory_reservation` = **1,300 MiB** 확정 (2026-08-24)
 
 ### 전환 전 타깃 기준값 (2026-08-18)
 
@@ -687,9 +687,9 @@ CloudWatch 알람 19건(Phase 1)이 ALB·RDS 를 이미 덮으므로 **중복하
 
 이전 이미지 태그로 서비스 되돌리기. IAM 정책은 남겨둬도 무해하다.
 
-> ⚠️ **이 Phase를 건너뛰고 Phase 7로 가지 않는다.** 새 ASG 노드가 스크레이프되지 않는 상태로 마이그레이션을 진행하면, 문제가 생겨도 지표가 없다.
+> ⚠️ **이 Phase를 건너뛰고 Phase 8로 가지 않는다.** 새 ASG 노드가 스크레이프되지 않는 상태로 마이그레이션을 진행하면, 문제가 생겨도 지표가 없다.
 >
-> ⚠️ **JVM 힙 상한 수정 없이 Phase 7로 가지 않는다.** 스왑이 사라지면서 prod API가 OOM kill된다 (2-0 참조).
+> ⚠️ **JVM 힙 상한 수정 없이 Phase 8로 가지 않는다.** 스왑이 사라지면서 prod API가 OOM kill된다 (2-0 참조).
 
 ---
 

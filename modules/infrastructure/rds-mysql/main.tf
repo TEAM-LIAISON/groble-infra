@@ -109,7 +109,7 @@ resource "aws_db_instance" "mysql" {
 #    prod 는 apply 전에 반드시 state mv 를 해야 destroy/create 가 계획되지 않는다:
 #      terraform state mv 'module.rds_mysql.aws_db_parameter_group.mysql_params' \
 #                         'module.rds_mysql.aws_db_parameter_group.mysql_params[0]'
-#    (docs/runbook/phase-08a-dev-rds.md A단계)
+#    (docs/runbook/phase-05-dev-rds.md A단계)
 resource "aws_db_parameter_group" "mysql_params" {
   count = var.create_legacy_80_parameter_group ? 1 : 0
 

@@ -1,11 +1,11 @@
-# Phase 6 — Prod Redis → ElastiCache ⚠️
+# Phase 7 — Prod Redis → ElastiCache ⚠️
 
-> [← Phase 5](./phase-05-deployment-controller.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 7 →](./phase-07-prod-asg.md)
+> [← Phase 6](./phase-06-deployment-controller.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 8 →](./phase-08-prod-asg.md)
 
 | | |
 |---|---|
 | **상태** | ⬜ 미착수 |
-| **목적** | host-mode 싱글턴 컨테이너는 cattle 노드에서 유지할 수 없다. Phase 7(구 노드 드레인)의 **선행 조건**이다 |
+| **목적** | host-mode 싱글턴 컨테이너는 cattle 노드에서 유지할 수 없다. Phase 8(구 노드 드레인)의 **선행 조건**이다 |
 | **사용자 영향** | **진행 중이던 체크아웃 세션·재고 예약·멱등성 키가 전부 소실된다** |
 | **시점** | **저트래픽 시간대 필수.** TTL이 30분이므로 최소 30분의 안정화 창을 확보한다 |
 | **되돌리기** | 되돌려도 재소실 |
@@ -61,4 +61,4 @@
 
 ---
 
-[← Phase 5 — 배포 컨트롤러 전환](./phase-05-deployment-controller.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 7 — Prod ASG 전환 →](./phase-07-prod-asg.md)
+[← Phase 6 — 배포 컨트롤러 전환](./phase-06-deployment-controller.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 8 — Prod ASG 전환 →](./phase-08-prod-asg.md)

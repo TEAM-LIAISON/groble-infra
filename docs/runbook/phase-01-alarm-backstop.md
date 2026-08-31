@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **상태** | ✅ 완료 (2026-08-17). 잔여 항목 1건은 Phase 2로 이관 (워킹셋 측정) |
-| **목적** | 이후 단계에서 문제가 생겼을 때 **자체 호스팅 관측이 죽어도 알림이 도달**해야 한다. Phase 5의 배포 자동 롤백도 이 알람에 의존한다 |
+| **목적** | 이후 단계에서 문제가 생겼을 때 **자체 호스팅 관측이 죽어도 알림이 도달**해야 한다. Phase 6의 배포 자동 롤백도 이 알람에 의존한다 |
 | **사용자 영향** | 없음 |
 | **되돌리기** | 리소스 삭제 |
 
@@ -23,7 +23,7 @@
   ② 임계치 6개를 실측 기준으로 조정·신설했다 ③ 지연 알람을 지속(p99 2초·15분)과 급증(p99 5초·1구간)
   **둘로 분리**했다 ④ dev 채널에는 `ok_actions`를 걸지 않았다(사건당 메시지가 2배가 되는 것을 피함).
 - **다음으로 넘긴 것 1건** — prod API 태스크의 워킹셋 측정 → [Phase 2](./phase-02-observability.md).
-  [Phase 7](./phase-07-prod-asg.md)의 `memory_reservation`이 이 값에 의존한다.
+  [Phase 8](./phase-08-prod-asg.md)의 `memory_reservation`이 이 값에 의존한다.
 - **⚠️ 운영 주의** — Slack 채널 ID는 gitignore 대상인 `terraform.tfvars`에 있다.
   값이 비면 Chatbot 리소스가 `count = 0`으로 빠지면서 **Slack 연동이 조용히 삭제된다.**
 - **롤백** — 리소스 삭제. 단 Chatbot IAM 역할은 Terraform이 지우지 못해 CLI 삭제가 필요할 수 있다.
@@ -106,11 +106,11 @@ Slack 채널 ID는 `terraform.tfvars`에 있고 **이 파일은 gitignore 대상
 **Blue/Green 타깃그룹은 배포마다 활성 쪽이 뒤바뀐다.** 특정 TG에 알람을 고정하면 스왑 직후부터
 유휴 TG를 감시하게 되어 무의미해진다. 서비스에 속한 TG들을 metric math로 집계해 판정한다
 (헬스·5xx는 `SUM`, p99는 백분위수라 더할 수 없으므로 `MAX`).
-[Phase 5](./phase-05-deployment-controller.md)에서 단일 TG로 정리되면 이 구조는 단순해진다.
+[Phase 6](./phase-06-deployment-controller.md)에서 단일 TG로 정리되면 이 구조는 단순해진다.
 
 **Chatbot IAM 역할 삭제 시 권한 부족으로 막힌다.** provider가 삭제 전 `iam:ListInstanceProfilesForRole`을
 호출하는데 SSO 역할에 그 권한이 없다(`iam:DeleteRole`은 있다). AWS CLI로 직접 삭제 후 `terraform state rm`으로 해소했다.
-[Phase 9](./phase-09-access-path.md)에서 권한을 손볼 때 함께 추가하는 것을 검토한다.
+[Phase 10](./phase-10-access-path.md)에서 권한을 손볼 때 함께 추가하는 것을 검토한다.
 
 **제자리 수정(in-place update)은 알림을 보내지 않는다.** CloudWatch는 **상태 전환**에만 통지하므로,
 이미 `OK`인 알람의 설정만 바꾸면 메시지가 오지 않는다. 채널 분리 apply 후 신규 생성된 알람만 통지된 이유다.
@@ -158,7 +158,7 @@ CPUUtilization  4.7~5.0%     CPUCreditBalance  288 (최대치)
 `groble-prod-rds-swap` 알람과 아래 문서 항목이 추적한다.
 
 → 해소 방안과 실측 근거는 [`infra-future-improvements.md`의 High-4](../infra-future-improvements.md#high-4)에 있다.
-**[Phase 6](./phase-06-elasticache.md) 진입 전에 결정한다** — Redis를 ElastiCache로 빼면 결제 경로가 DB에 더 의존한다.
+**[Phase 7](./phase-07-elasticache.md) 진입 전에 결정한다** — Redis를 ElastiCache로 빼면 결제 경로가 DB에 더 의존한다.
 
 ---
 
@@ -258,7 +258,7 @@ R1 이 침묵했다. 그 시계열이 `17:22:00Z` 에 값 2 로 처음 나타나
 42초 p99는 일부 사용자가 42초를 기다렸다는 뜻이므로 놓칠 수 없다.
 5초 임계치면 위 두 사건이 잡히고 7일간 그 외 오탐은 없다.
 
-> ⚠️ `latency-p99-spike`는 [Phase 5](./phase-05-deployment-controller.md)(rolling)·[Phase 7](./phase-07-prod-asg.md)(instance refresh)
+> ⚠️ `latency-p99-spike`는 [Phase 6](./phase-06-deployment-controller.md)(rolling)·[Phase 8](./phase-08-prod-asg.md)(instance refresh)
 > 중에 울릴 수 있다. 전환 작업 중이라면 그 자체가 정보이지만, 오탐으로 느껴지면 작업 창에서만 임계치를 올릴 것.
 
 8/13의 42초 지연에는 **5xx가 없었다** — 실패가 아니라 순수 지연이다.
@@ -277,8 +277,8 @@ RDS 스왑(450 MiB)과 cross-AZ 쿼리가 의심되지만 현재 데이터로 �
 `container_memory_working_set_bytes`로만 보인다 — Prometheus 접근이 필요하다.**
 
 → [Phase 2](./phase-02-observability.md)에서 Prometheus를 손볼 때 함께 측정한다.
-[Phase 7](./phase-07-prod-asg.md)의 `memory_reservation` 결정(계획된 1000은 근거 없는 값)과
-[Phase 8-b](./phase-08b-dev-cache-asg.md)의 dev `memory = 900`이 이 측정에 의존한다.
+[Phase 8](./phase-08-prod-asg.md)의 `memory_reservation` 결정(계획된 1000은 근거 없는 값)과
+[Phase 9](./phase-09-dev-cache-asg.md)의 dev `memory = 900`이 이 측정에 의존한다.
 
 상세는 [계획서 §2.1](../infra-ha-improvement-plan.md)에 있다.
 

@@ -1,33 +1,34 @@
-# Phase 8-a — Dev MySQL → RDS
+# Phase 5 — Dev MySQL → RDS
 
-> [← Phase 7](./phase-07-prod-asg.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 8-b →](./phase-08b-dev-cache-asg.md)
+> [← Phase 8](./phase-08-prod-asg.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 9 →](./phase-09-dev-cache-asg.md)
 
 | | |
 |---|---|
 | **상태** | ⏳ **회신 대기** — 인프라 몫(A·B단계) 완료 (2026-08-31). **C단계 컷오버는 백엔드 소관**이며 이관 완료 연락을 기다린다 |
 | **목적** | Dev 로컬 디스크 MySQL 컨테이너를 RDS 로 옮긴다. dev 엔진 버전을 prod 와 일치시켜 §3-5 promote 게이트의 전제를 만든다 |
-| **선행 조건** | **없다.** Phase 3·5·6·7 어디에도 의존하지 않는다 (아래 [순서 근거](#왜-순서를-앞당기는가)) |
+| **선행 조건** | **없다.** Phase 3·6·7·8 어디에도 의존하지 않는다 (아래 [순서 근거](#왜-순서를-앞당기는가)) |
 | **사용자 영향** | Dev 만. 컷오버 중 **쓰기 차단 1분 미만**(B단계 실측: 덤프 1초 + 복원 15초) + 재배포 시간 |
 | **되돌리기** | 컨테이너 제거 전까지 단계별. 제거 후에는 불가 |
 | **비용** | **+$20/월** (`db.t4g.micro` ~$18 + 스토리지 ~$2) |
 
-> **원래 Phase 8 은 RDS·ElastiCache·ASG 세 가지를 한 문서에 담고 있었다.** 2026-08-31 에
-> **8-a(RDS) / [8-b](./phase-08b-dev-cache-asg.md)(ElastiCache + ASG)** 로 쪼갰다. RDS 이관은 선행 조건이 없어
-> 지금 할 수 있는 반면, ElastiCache·ASG 는 Phase 5·7 의 결과물에 얹히기 때문이다.
-> 근거는 [이관 절차 목차](../infra-ha-migration-runbook.md)에 있다.
+> **이 Phase 는 2026-08-31 이전에 "Phase 8"(Dev 전환) 의 일부였다.** RDS·ElastiCache·ASG 를
+> 한 문서에 담고 있었는데, RDS 이관만 선행 조건이 없어 떼어내 **5번으로 앞당기고** 나머지는
+> **[9](./phase-09-dev-cache-asg.md)(Dev ElastiCache + ASG)** 로 남겼다.
+> 그때 뒤의 Phase 들이 한 칸씩 밀렸다 — 번호 대응표는
+> [이관 절차 목차](../infra-ha-migration-runbook.md#번호-이력--옛-문서pr-의-번호는-다를-수-있다)에 있다.
 
 ---
 
 ## 왜 순서를 앞당기는가
 
-Phase 5·6·7 을 기다릴 이유가 없고, 오히려 **먼저 해야 이득인 것이 세 가지** 있다.
+Phase 6·7·8 을 기다릴 이유가 없고, 오히려 **먼저 해야 이득인 것이 세 가지** 있다.
 
 1. **[Phase 2](./phase-02-observability.md) 부터 계속 발화 중인 `컨테이너 메모리 하드리밋 근접` 알람이 멎는다.**
    "어차피 Dev 전환에서 컨테이너째 사라지니 리밋을 상향하지 않는다"고 결정하며 발화를 감수해 둔 건이다.
    그 "어차피"를 앞당기면 감수 기간이 끝난다.
-2. **dev 노드에서 256 MiB 가 회수된다.** [8-b](./phase-08b-dev-cache-asg.md) 는 dev 노드를
+2. **dev 노드에서 256 MiB 가 회수된다.** [9](./phase-09-dev-cache-asg.md) 는 dev 노드를
    t3.medium(4 GiB) → t3.small(2 GiB) 로 낮추는데, MySQL 컨테이너가 남아 있으면 예산이 성립하지 않는다.
-   **8-a 는 8-b 의 선행 조건이다.**
+   **Phase 5 는 Phase 9 의 선행 조건이다.**
 3. **dev 엔진이 prod 와 같아진다.** 지금 dev 는 컨테이너 **MySQL 8.0.46**, prod 는 **RDS 8.4.11** 이다.
    "동일 이미지를 Dev 에 먼저 배포해 통과하면 Prod 로 승격"(계획서 §3-5)이라는 게이트인데
    **DB 엔진부터 갈라져 있으면 게이트가 검증하는 게 없다.**
@@ -37,9 +38,9 @@ Phase 5·6·7 을 기다릴 이유가 없고, 오히려 **먼저 해야 이득�
 | 걸릴 법한 것 | 실제 |
 |---|---|
 | [Phase 3](./phase-03-nat-gateway.md) (NAT GW) | RDS 는 VPC 내부다. 아웃바운드 경로와 무관 |
-| [Phase 5](./phase-05-deployment-controller.md) (rolling 전환) | 지금의 CodeDeploy Blue/Green 으로 컷오버 가능. 아래 절차가 그것을 전제로 쓰여 있다 |
-| [Phase 6](./phase-06-elasticache.md) (Prod Redis) | 자원이 겹치지 않는다 |
-| [Phase 7](./phase-07-prod-asg.md) (Prod ASG) | prod 노드만 건드린다 |
+| [Phase 6](./phase-06-deployment-controller.md) (rolling 전환) | 지금의 CodeDeploy Blue/Green 으로 컷오버 가능. 아래 절차가 그것을 전제로 쓰여 있다 |
+| [Phase 7](./phase-07-elasticache.md) (Prod Redis) | 자원이 겹치지 않는다 |
+| [Phase 8](./phase-08-prod-asg.md) (Prod ASG) | prod 노드만 건드린다 |
 
 ---
 
@@ -126,7 +127,7 @@ dev 가 그대로 부르면 **쓰지도 않을 `groble-dev-mysql-params` 가 새
 
 ```hcl
 variable "create_legacy_80_parameter_group" {
-  description = "prod 의 8.0 시절 잔재. 신규 환경은 false. 제거는 Phase 11"
+  description = "prod 의 8.0 시절 잔재. 신규 환경은 false. 제거는 Phase 12"
   type        = bool
   default     = true   # prod 무영향
 }
@@ -137,7 +138,7 @@ resource "aws_db_parameter_group" "mysql_params" {
 }
 ```
 
-dev 는 `false`. **prod 의 8.0 그룹 제거 자체는 [Phase 11](./phase-11-cleanup.md) 로 넘긴다.**
+dev 는 `false`. **prod 의 8.0 그룹 제거 자체는 [Phase 12](./phase-12-cleanup.md) 로 넘긴다.**
 
 > 🔴 **`count` 를 붙이면 prod state 주소가 바뀐다.** 확인한 현재 주소는 인덱스가 없다:
 > ```
@@ -460,7 +461,7 @@ groble-dev-task:1188  registeredBy = user/groble-github-actions    ← 실제로
 > **원래 문서에는 이 구간이 없었다.** "덤프→복원" 다음에 바로 "DB_HOST 변경→재배포"가 오는데,
 > 그 사이에 앱은 **여전히 컨테이너에 쓰고 있다.** 게다가 Blue/Green 이라 전환 순간
 > **blue(컨테이너)와 green(RDS)이 서로 다른 DB 를 보며 동시에 살아 있다** —
-> [Phase 6](./phase-06-elasticache.md) 이 Redis 에서 stop-first 를 쓰는 것과 같은 split-brain 이다.
+> [Phase 7](./phase-07-elasticache.md) 이 Redis 에서 stop-first 를 쓰는 것과 같은 split-brain 이다.
 > **DB 레벨에서 쓰기를 얼려** 그 창을 없앤다.
 
 9. **쓰기 동결** — 컨테이너 MySQL 에 `SET GLOBAL read_only = ON`
@@ -497,9 +498,9 @@ RDS 마스터 계정을 **앱이 지금 쓰는 것과 같은 자격증명으로 
 19. `environments/dev/main.tf` 의 `db_host` 를 `module.dev_rds_mysql.rds_address` 로 정리
     (배포 경로가 아니라 기록의 일관성 목적)
 20. dev 노드의 `/opt/mysql-dev-data` 는 **바로 지우지 않는다.** 1주 더 둔 뒤
-    [8-b](./phase-08b-dev-cache-asg.md) 의 노드 교체에서 자연 소멸시킨다
+    [9](./phase-09-dev-cache-asg.md) 의 노드 교체에서 자연 소멸시킨다
 21. `컨테이너 메모리 하드리밋 근접` 알람이 멎었는지 확인
-22. dev 노드 여유 메모리가 ~256 MiB 늘었는지 — [8-b](./phase-08b-dev-cache-asg.md) 예산의 전제
+22. dev 노드 여유 메모리가 ~256 MiB 늘었는지 — [9](./phase-09-dev-cache-asg.md) 예산의 전제
 
 ---
 
@@ -562,7 +563,7 @@ grep MISMATCH /tmp/rowdiff.txt   # 아무것도 안 나와야 한다
 - [ ] 백업창·점검창이 **의도한 KST 시각**인지 콘솔에서 재확인 (UTC 함정)
 - [ ] Dev RDS 알람 4~6종이 `#groble-alert-dev` 로 도달하는지 (하나를 강제 발화시켜 확인)
 - [ ] 구 컨테이너 제거 후 **`컨테이너 메모리 하드리밋 근접` 알람이 멎는지**
-- [ ] dev 노드 여유 메모리가 ~256 MiB 늘었는지 — [8-b](./phase-08b-dev-cache-asg.md) 예산의 전제
+- [ ] dev 노드 여유 메모리가 ~256 MiB 늘었는지 — [9](./phase-09-dev-cache-asg.md) 예산의 전제
 
 ---
 
@@ -648,9 +649,9 @@ rev 40 이 (2026-08-20 부터 8-31 까지) 고정돼 있던 것도 이 때문이
 | dev-api · prod-api | `[task_definition, load_balancer]` | ✅ CodeDeploy 소유. **단 위 11번 단계의 원인이다** |
 | **dev-mysql** | `[task_definition, desired_count]` | ❌ 이 Phase 에서 서비스째 제거되므로 자연 해소 |
 | **prod-redis** | `[task_definition, desired_count]` | ❌ **남는다 — 아래 참조** |
-| dev-redis | 없음 | — [8-b](./phase-08b-dev-cache-asg.md) 에서 제거 |
+| dev-redis | 없음 | — [9](./phase-09-dev-cache-asg.md) 에서 제거 |
 
-> 🔴 **prod-redis 에도 같은 함정이 있다.** [Phase 6](./phase-06-elasticache.md) 에서 ElastiCache 로
+> 🔴 **prod-redis 에도 같은 함정이 있다.** [Phase 7](./phase-07-elasticache.md) 에서 ElastiCache 로
 > 이관하며 서비스가 제거될 때까지, **prod Redis 태스크 정의를 고쳐도 배포되지 않는다.**
 > 급히 고쳐야 할 일이 생기면 `aws ecs update-service --force-new-deployment --task-definition <family>:<rev>`
 > 로 강제 배포해야 한다. Redis 컨테이너 재시작은 결제 멱등성 키·재고 예약 유실로 직결되므로
@@ -658,4 +659,4 @@ rev 40 이 (2026-08-20 부터 8-31 까지) 고정돼 있던 것도 이 때문이
 
 ---
 
-[← Phase 7 — Prod ASG 전환](./phase-07-prod-asg.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 8-b — Dev ElastiCache + ASG →](./phase-08b-dev-cache-asg.md)
+[← Phase 8 — Prod ASG 전환](./phase-08-prod-asg.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 9 — Dev ElastiCache + ASG →](./phase-09-dev-cache-asg.md)

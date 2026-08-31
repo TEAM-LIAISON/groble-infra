@@ -1,13 +1,13 @@
-# Phase 7 — Prod ASG 전환
+# Phase 8 — Prod ASG 전환
 
-> [← Phase 6](./phase-06-elasticache.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 8-a →](./phase-08a-dev-rds.md)
+> [← Phase 7](./phase-07-elasticache.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 5 →](./phase-05-dev-rds.md)
 
 | | |
 |---|---|
 | **상태** | ⬜ 미착수 |
 | **목적** | 이 프로젝트의 본 목표. 무중단 하드웨어 교체가 가능한 구조로 전환한다 |
 | **사용자 영향** | 없음 — 신 노드를 먼저 띄우고 구 노드를 드레인한다 |
-| **선행 조건** | [Phase 2](./phase-02-observability.md)(관측), [Phase 6](./phase-06-elasticache.md)(Redis 외부화) 완료 + **아래 차단 조건 2건** |
+| **선행 조건** | [Phase 2](./phase-02-observability.md)(관측), [Phase 7](./phase-07-elasticache.md)(Redis 외부화) 완료 + **아래 차단 조건 2건** |
 | **되돌리기** | 구 노드 재활성화 |
 
 ---
@@ -70,7 +70,7 @@ API 태스크는 `awsvpc` 모드라 태스크마다 별도 ENI를 갖는데, Pro
    managed_draining = "ENABLED"
    managed_scaling { status = "DISABLED" }   # 고정 크기 ASG
    ```
-   - ⚠️ Phase 5에서 만든 신 서비스에 `capacity_provider_strategy`를 붙이는 변경은 **provider 버전에 따라 서비스 재생성을 강제할 수 있다** (계획서 §2.1). **plan에서 `aws_ecs_service`가 replace로 잡히면 apply하지 않는다.** launch type 서비스도 컨테이너 인스턴스 DRAINING으로 정상 드레인되므로, 이 경우 CP 전략 부착은 미루고 managed draining만으로 진행한다 (10번 리허설에서 실제 드레인 동작으로 확인)
+   - ⚠️ Phase 6에서 만든 신 서비스에 `capacity_provider_strategy`를 붙이는 변경은 **provider 버전에 따라 서비스 재생성을 강제할 수 있다** (계획서 §2.1). **plan에서 `aws_ecs_service`가 replace로 잡히면 apply하지 않는다.** launch type 서비스도 컨테이너 인스턴스 DRAINING으로 정상 드레인되므로, 이 경우 CP 전략 부착은 미루고 managed draining만으로 진행한다 (10번 리허설에서 실제 드레인 동작으로 확인)
 4. **신 노드 검증** (구 노드와 병존 상태)
    - [ ] ECS 클러스터에 컨테이너 인스턴스로 등록되었는지
    - [ ] `environment=production` 속성이 붙었는지
@@ -87,7 +87,7 @@ API 태스크는 `awsvpc` 모드라 태스크마다 별도 ENI를 갖는데, Pro
 7. 태스크가 신 노드로 이동 완료되는지 확인 (ALB healthy host 수 유지 확인)
 8. 구 `aws_instance.prod_instance` 제거
 9. **`api_desired_count`를 1 → 2로 증설**
-   - **동시에 `deployment_maximum_percent` 를 [Phase 5](./phase-05-deployment-controller.md) 의 임시값 `200` → To-Be `150` 으로 되돌린다.**
+   - **동시에 `deployment_maximum_percent` 를 [Phase 6](./phase-06-deployment-controller.md) 의 임시값 `200` → To-Be `150` 으로 되돌린다.**
      desired 2 에서 200% 는 피크 4태스크라 4슬롯 플릿의 여유가 0이 된다(계획서 §2.6). `150` 이면 피크 3, 여유 1이다.
      `min/max` 는 in-place 변경이라 서비스 재생성이 없다 — plan 에 replace 가 없는지만 확인한다
 10. **instance refresh 리허설** — 실제로 1회 수행해 무중단 교체가 동작하는지 확인 ⭐
@@ -109,4 +109,4 @@ API 태스크는 `awsvpc` 모드라 태스크마다 별도 ENI를 갖는데, Pro
 
 ---
 
-[← Phase 6 — Prod Redis → ElastiCache](./phase-06-elasticache.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 8-a — Dev MySQL → RDS →](./phase-08a-dev-rds.md)
+[← Phase 7 — Prod Redis → ElastiCache](./phase-07-elasticache.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 5 — Dev MySQL → RDS →](./phase-05-dev-rds.md)

@@ -1,13 +1,13 @@
 # Phase 4 — 모니터링 노드 재구축
 
-> [← Phase 3](./phase-03-nat-gateway.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 5 →](./phase-05-deployment-controller.md)
+> [← Phase 3](./phase-03-nat-gateway.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 6 →](./phase-06-deployment-controller.md)
 
 | | |
 |---|---|
 | **상태** | ✅ **완료** (2026-08-30) |
 | **목적** | 현재 모니터링 노드는 public 2a에 있고 NAT·bastion·VPN을 겸직한다. private 2c의 AL2023 노드로 옮긴다 |
 | **사용자 영향** | 없음 — 구 노드를 병존시킨 채 전환한다. **단 관측은 스택 이동 중 수 분 끊긴다** |
-| **선행 조건** | [Phase 2](./phase-02-observability.md)(Grafana as-code 프로비저닝) 완료. **[Phase 5](./phase-05-deployment-controller.md)(배포 컨트롤러 전환)와는 무관하다** — 아래 참조 |
+| **선행 조건** | [Phase 2](./phase-02-observability.md)(Grafana as-code 프로비저닝) 완료. **[Phase 6](./phase-06-deployment-controller.md)(배포 컨트롤러 전환)와는 무관하다** — 아래 참조 |
 | **산출물 범위** | **관측 스택 이전까지.** 구 노드는 NAT·bastion·VPN 을 지고 계속 살아 있다 |
 | **되돌리기** | DNS 레코드 되돌리기 (재배포 없음) |
 
@@ -15,11 +15,11 @@
 
 ---
 
-## 배포 컨트롤러 전환(Phase 5)과 순서를 맞바꾼 Phase 다
+## 배포 컨트롤러 전환(Phase 6)과 순서를 맞바꾼 Phase 다
 
-**원래 이것이 Phase 5, 배포 컨트롤러 전환이 Phase 4 였다.** 배포 컨트롤러 전환이
+**원래 이것이 Phase 6, 배포 컨트롤러 전환이 Phase 4 였다.** 배포 컨트롤러 전환이
 앱 측 차단 조건 4건(계획서 §3)에 막혀 있는 동안 이 Phase 는 진행할 수 있어서, 2026-08-30 에
-번호를 맞바꿨다. 근거는 [이관 절차 목차](../infra-ha-migration-runbook.md#4↔5-를-맞바꾼-이유-2026-08-30) 에 있다.
+번호를 맞바꿨다. 근거는 [이관 절차 목차](../infra-ha-migration-runbook.md#번호-이력--옛-문서pr-의-번호는-다를-수-있다) 에 있다.
 
 **둘 사이에 의존이 없다.** 아래 C 단계의 재배포는 **CodeDeploy Blue/Green 으로 해도 무방**하다
 (원래 문구는 "rolling 을 활용"이었으나 기능적 의존이 아니다).
@@ -79,7 +79,7 @@ additive 라 무영향이지만 **shared 환경 변경**이므로 모든 노드�
 (`modules/services/monitoring/*/main.tf`). 신 노드에 같은 attribute 를 주면 ECS 가
 두 노드 중 **어디에 놓을지 결정론적이지 않다.** host mode + desired 1 이라 "복제"가 아니라 "이동"이다.
 
-→ **구 노드를 `DRAINING` 으로 전환해 밀어낸다** ([Phase 7](./phase-07-prod-asg.md) 6번과 같은 기법).
+→ **구 노드를 `DRAINING` 으로 전환해 밀어낸다** ([Phase 8](./phase-08-prod-asg.md) 6번과 같은 기법).
    attribute 는 양쪽 노드에 다 두고, 배치는 드레이닝으로 강제한다.
 
 ### 4. AL2023 용 user_data 가 아직 없다
@@ -217,7 +217,7 @@ F(레코드 값 변경)는 DNS 를 쓰는 쪽만 따라오므로 구해주지 �
 ### F. SSM 확인 → 스택 이동 (커넥션이 끊기며 전환이 일어난다)
 
 1. **SSM 접속 확인** — `aws ssm start-session --target <new-instance-id>`
-   - 실패하면 여기서 멈춘다. 구 노드 폐기(Phase 9·11)의 선행 조건이다
+   - 실패하면 여기서 멈춘다. 구 노드 폐기(Phase 10·12)의 선행 조건이다
 2. **구 노드를 `DRAINING` 으로 전환** — 모니터링 태스크가 신 노드로 밀려난다 (함정 3)
    ```bash
    aws ecs update-container-instances-state --cluster groble-cluster \
@@ -263,7 +263,7 @@ F(레코드 값 변경)는 DNS 를 쓰는 쪽만 따라오므로 구해주지 �
 ### G. 구 노드 정리 — 이번엔 여기까지만
 
 - 구 노드는 `DRAINING` 인 채로 둔다. **NAT/bastion/WireGuard 는 살아 있다**
-- 인스턴스 제거는 [Phase 3](./phase-03-nat-gateway.md)(NAT) → [Phase 9](./phase-09-access-path.md)(접근 경로) → [Phase 11](./phase-11-cleanup.md)(정리) 로 넘어간다
+- 인스턴스 제거는 [Phase 3](./phase-03-nat-gateway.md)(NAT) → [Phase 10](./phase-10-access-path.md)(접근 경로) → [Phase 12](./phase-12-cleanup.md)(정리) 로 넘어간다
 - 그동안 EC2 가 3대 → **4대**가 된다 (t3.small 월 ~$15 추가)
 
 ## 검증
@@ -304,4 +304,4 @@ F(레코드 값 변경)는 DNS 를 쓰는 쪽만 따라오므로 구해주지 �
 
 ---
 
-[← Phase 3 — NAT Gateway 전환](./phase-03-nat-gateway.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 5 — 배포 컨트롤러 전환 →](./phase-05-deployment-controller.md)
+[← Phase 3 — NAT Gateway 전환](./phase-03-nat-gateway.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 6 — 배포 컨트롤러 전환 →](./phase-06-deployment-controller.md)

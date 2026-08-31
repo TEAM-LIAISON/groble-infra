@@ -49,6 +49,6 @@ output "all_security_group_ids" {
 }
 
 output "rds_mysql_dev_sg_id" {
-  description = "ID of the Dev RDS MySQL security group (Phase 8-a)"
+  description = "ID of the Dev RDS MySQL security group (Phase 5)"
   value       = aws_security_group.groble_rds_mysql_dev_sg.id
 }

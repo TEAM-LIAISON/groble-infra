@@ -398,7 +398,7 @@ module "alb_alarms" {
     # ⚠️ 모니터링 노드는 dev가 아니라 prod 채널로 보낸다.
     #    이 노드가 private 서브넷의 NAT을 겸직하고 있어, 죽으면 prod의
     #    아웃바운드와 ECR pull이 함께 끊긴다. 지금은 prod-critical이다.
-    #    Phase 3(NAT Gateway)·Phase 5(노드 재구축) 이후 dev 채널로 내린다.
+    #    Phase 3(NAT Gateway)·Phase 6(노드 재구축) 이후 dev 채널로 내린다.
     #
     #    사용자 트래픽을 받지 않으므로 5xx·지연 알람은 만들지 않는다.
     monitoring = {

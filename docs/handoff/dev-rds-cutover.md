@@ -6,7 +6,7 @@
 | **요청자** | 인프라 (groble-infra) |
 | **작성일** | 2026-08-31 |
 | **상태** | ⏳ **회신 대기** — RDS 는 만들어 두었습니다. **전환 작업과 완료 연락**을 부탁드립니다 |
-| **관련** | [Phase 8-a 런북](../runbook/phase-08a-dev-rds.md) · [SSM 접속 가이드](../developer-access.md) |
+| **관련** | [Phase 5 런북](../runbook/phase-05-dev-rds.md) · [SSM 접속 가이드](../developer-access.md) |
 
 ---
 

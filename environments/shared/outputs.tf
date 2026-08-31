@@ -79,7 +79,7 @@ output "rds_mysql_security_group_id" {
 }
 
 output "rds_mysql_dev_security_group_id" {
-  description = "ID of the Dev RDS MySQL security group (Phase 8-a). dev 환경이 참조한다"
+  description = "ID of the Dev RDS MySQL security group (Phase 5). dev 환경이 참조한다"
   value       = module.security_groups.rds_mysql_dev_sg_id
 }
 

@@ -389,9 +389,9 @@ variable "auto_rollback_events" {
 }
 
 #################################
-# Phase 8-a — Dev RDS MySQL
+# Phase 5 — Dev RDS MySQL
 #################################
-# docs/runbook/phase-08a-dev-rds.md
+# docs/runbook/phase-05-dev-rds.md
 #
 # 값을 여기 default 로 박아 두는 이유: environments/dev/terraform.tfvars 는
 # .gitignore 대상이라 git 이력에 남지 않는다. 시크릿이 아닌 설정값은 코드에 둔다.

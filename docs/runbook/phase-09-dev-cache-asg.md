@@ -1,17 +1,18 @@
-# Phase 8-b — Dev ElastiCache + ASG 전환
+# Phase 9 — Dev ElastiCache + ASG 전환
 
-> [← Phase 8-a](./phase-08a-dev-rds.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 9 →](./phase-09-access-path.md)
+> [← Phase 5](./phase-05-dev-rds.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 10 →](./phase-10-access-path.md)
 
 | | |
 |---|---|
 | **상태** | ⬜ 미착수 |
 | **목적** | Dev 를 Prod 와 같은 형태로 만들어 §3-5 의 promote 게이트가 실제로 의미를 갖게 한다 |
-| **선행 조건** | **[8-a](./phase-08a-dev-rds.md)**(노드 메모리 확보) · **[Phase 5](./phase-05-deployment-controller.md)**(rolling) · **[Phase 7](./phase-07-prod-asg.md)**(ASG 절차) |
+| **선행 조건** | **[5](./phase-05-dev-rds.md)**(노드 메모리 확보) · **[Phase 6](./phase-06-deployment-controller.md)**(rolling) · **[Phase 8](./phase-08-prod-asg.md)**(ASG 절차) |
 | **사용자 영향** | Dev 만. 개발 작업이 없는 시간대 권장 |
 | **되돌리기** | 단계별 |
 | **비용** | **+$15/월** (ElastiCache `cache.t4g.micro`). 컴퓨트는 t3.medium → t3.small ×2 로 상쇄 |
 
-> 원래 Phase 8 의 3·6·7 단계다. RDS 이관([8-a](./phase-08a-dev-rds.md))은 선행 조건이 없어 분리했다.
+> **이 Phase 는 2026-08-31 이전에 "Phase 8"(Dev 전환) 의 일부였다.** RDS 이관 부분은 선행 조건이 없어
+> **[5](./phase-05-dev-rds.md) 로 앞당겨 분리**했고, 여기에는 ElastiCache·ASG 만 남았다.
 
 ---
 
@@ -58,16 +59,16 @@ max(container_spec_memory_limit_bytes{container_label_com_amazonaws_ecs_containe
 **함께 확인할 것**: 앱의 실제 `-Xmx`. Phase 2 는 "dev·prod 둘 다 `-Xmx900m` 이라 RSS 는
 라이브 셋이 아니라 힙 상한이 결정한다"고 적어 뒀다. 힙 상한이 그대로라면 컨테이너 리밋은
 **힙 + 메타스페이스 + 스레드 스택 + 네이티브** 를 덮어야 한다.
-[Phase 7](./phase-07-prod-asg.md) 의 "JVM 힙 상한 수정" 과 같은 문제다.
+[Phase 8](./phase-08-prod-asg.md) 의 "JVM 힙 상한 수정" 과 같은 문제다.
 
 ---
 
-## t3.small 예산이 성립하는지 — 8-a 가 선행 조건인 이유
+## t3.small 예산이 성립하는지 — Phase 5 가 선행 조건인 이유
 
 dev 노드를 t3.medium(4 GiB) → **t3.small(2 GiB)** 로 낮추는 것이 이 Phase 의 전제다(계획서 §2.1).
 2 GiB 에서 OS·ECS 에이전트 오버헤드(~400–500 MiB)를 빼면 태스크 예산이 **~1,000–1,300 MiB** 다.
 
-| | 8-a 이전 | 8-a 이후 |
+| | Phase 5 이전 | Phase 5 이후 |
 |---|---|---|
 | dev-mysql | **256 MiB** | **0** (RDS) |
 | dev-redis | 128 MiB | **0** (ElastiCache) |
@@ -76,7 +77,7 @@ dev 노드를 t3.medium(4 GiB) → **t3.small(2 GiB)** 로 낮추는 것이 이 
 | dev API | **≥ 838** | ≥ 838 |
 | **합계** | **1,366+** | **982+** |
 
-**8-a·이 Phase 의 상태 외부화 없이는 t3.small 에 들어가지 않는다.**
+**Phase 5·이 Phase 의 상태 외부화 없이는 t3.small 에 들어가지 않는다.**
 그래도 여유가 크지 않으므로, 부족하면 **cAdvisor 를 256 → 160 MiB 로 조여 100 MiB 를 확보**한다
 (계획서 §4 To-Do 4). 실측상 cAdvisor 사용량은 23.6 MiB 라 여유가 있다.
 
@@ -96,16 +97,16 @@ dev 노드를 t3.medium(4 GiB) → **t3.small(2 GiB)** 로 낮추는 것이 이 
    - 앱은 `primary_endpoint_address` 를 본다
    - **Prod 노드와 공유하지 않는다**
    - 유지보수 창을 명시 지정한다. ⚠️ **기본값은 무작위이며 값은 UTC 다** —
-     [8-a](./phase-08a-dev-rds.md) 의 RDS 창과 같은 함정이다. `sun:18:00-sun:19:00` UTC (KST 월 03~04시)
+     [5](./phase-05-dev-rds.md) 의 RDS 창과 같은 함정이다. `sun:18:00-sun:19:00` UTC (KST 월 03~04시)
    - SG: API 태스크 SG 로부터 6379
 2. `REDIS_HOST` 를 ElastiCache 엔드포인트로 → 재배포
-   > **Prod 와 달리 stop-first 가 필요 없다.** [Phase 6](./phase-06-elasticache.md) 이 stop-first 를
+   > **Prod 와 달리 stop-first 가 필요 없다.** [Phase 7](./phase-07-elasticache.md) 이 stop-first 를
    > 쓰는 이유는 결제 멱등성 키·재고 예약이 갈라지는 것을 막기 위함인데, dev 에는 지킬 결제 상태가 없다.
 3. 구 dev Redis 컨테이너 서비스 제거
 
 ### B. Dev ASG 전환
 
-4. [Phase 7](./phase-07-prod-asg.md) 과 동일한 절차 (Launch Template, ASG, capacity provider)
+4. [Phase 8](./phase-08-prod-asg.md) 과 동일한 절차 (Launch Template, ASG, capacity provider)
 
    Dev 는 t3.small 이라 **노드당 API 태스크가 1개**뿐이다. Prod 의 surge 방식을 쓸 수 없으므로
    축소 우선 방식으로 설정한다 (계획서 §2.1):
@@ -120,7 +121,7 @@ dev 노드를 t3.medium(4 GiB) → **t3.small(2 GiB)** 로 낮추는 것이 이 
    deployment_maximum_percent         = 100   # 최대 2태스크 (노드당 1개)
    ```
 
-   > **[Phase 5](./phase-05-deployment-controller.md) 의 임시값 `100/200` 을 여기서 To-Be 값으로 되돌린다.**
+   > **[Phase 6](./phase-06-deployment-controller.md) 의 임시값 `100/200` 을 여기서 To-Be 값으로 되돌린다.**
    > 임시값을 쓴 이유는 desired 1 에서 `50/100` 이 `min=ceil(0.5)=1` · `max=floor(1.0)=1` 로
    > 교착이기 때문이다. desired 2 가 되면서 그 제약이 사라진다.
 
@@ -130,7 +131,7 @@ dev 노드를 t3.medium(4 GiB) → **t3.small(2 GiB)** 로 낮추는 것이 이 
    > 반드시 50 으로 낮춘다.
 
 5. 구 Dev 노드 드레인 → 종료
-   - `/opt/mysql-dev-data`(8-a 의 잔재)가 이 노드와 함께 사라진다
+   - `/opt/mysql-dev-data`(Phase 5 의 잔재)가 이 노드와 함께 사라진다
 
 ---
 
@@ -142,7 +143,7 @@ dev 노드를 t3.medium(4 GiB) → **t3.small(2 GiB)** 로 낮추는 것이 이 
 - [ ] 배포 중 `1:1`(구/신 공존) 구간이 실제로 관측되는지 — 버전 공존 검증
 - [ ] 신 노드에 `Cluster = groble-cluster` 태그가 붙어 Prometheus `ec2_sd` 에 잡히는지
       (⚠️ 누락되면 **경고 없이** 스크레이프 목록에서 빠진다)
-- [ ] 신 노드에 SSM 접속이 되는지 — [Phase 9](./phase-09-access-path.md) 의 선행 조건
+- [ ] 신 노드에 SSM 접속이 되는지 — [Phase 10](./phase-10-access-path.md) 의 선행 조건
 - [ ] t3.small 예산 실측 — 부족하면 cAdvisor 256 → 160 MiB
 - [ ] ElastiCache 자동 스냅샷·유지보수 창이 **의도한 KST 시각**인지 (UTC 함정)
 
@@ -153,11 +154,11 @@ dev 노드를 t3.medium(4 GiB) → **t3.small(2 GiB)** 로 낮추는 것이 이 
 | 시점 | 되돌리기 |
 |---|---|
 | A (ElastiCache) | `REDIS_HOST` 를 노드 IP 로 되돌려 재배포. 컨테이너를 지우기 전까지 가능 |
-| B (ASG) | 구 Dev 노드 재활성화 — [Phase 7](./phase-07-prod-asg.md) 과 동일 |
+| B (ASG) | 구 Dev 노드 재활성화 — [Phase 8](./phase-08-prod-asg.md) 과 동일 |
 
 > 되돌릴 수 없게 되는 시점: **구 Dev 노드 종료.** 그 전에 신 노드에서 태스크 정상 기동 ·
 > Prometheus 타깃 등록 · SSM 접속이 확인되어 있어야 한다.
 
 ---
 
-[← Phase 8-a — Dev MySQL → RDS](./phase-08a-dev-rds.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 9 — 접근 경로 정리 →](./phase-09-access-path.md)
+[← Phase 5 — Dev MySQL → RDS](./phase-05-dev-rds.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 10 — 접근 경로 정리 →](./phase-10-access-path.md)

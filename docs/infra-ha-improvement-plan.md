@@ -120,7 +120,7 @@ v1은 노드당 2태스크의 근거를 메모리로 설명했으나, 실제 상
 | **노드 1대 상실** | 2 / 2 | **0** |
 | 노드 1대 상실 + 배포 시도 | 3 필요 / 2 가능 | **배포 불가** ⚠️ |
 
-> **알려진 제약(수용)**: 노드 1대를 잃은 상태에서는 배포할 수 없다. ASG가 새 노드를 띄울 때까지 대기한다. **이 창은 실측 전 추정으로 3~5분 이상**이다 — EC2 헬스체크 실패 감지(기본 유예 포함) → 종료 → 기동 → ECS 에이전트 등록 → 태스크 배치까지의 합이며, "인스턴스 부팅 시간"만으로 산정하면 과소평가된다. ECS-optimized AMI 채택으로 부팅 구간은 v1 대비 크게 줄었지만 감지·등록 구간은 그대로다. 런북 Phase 7에서 실측한 뒤 이 값을 갱신한다. 필요해지면 `desired`를 3으로 올려 N+1을 확보한다 — ASG이므로 값 하나만 바꾸면 된다.
+> **알려진 제약(수용)**: 노드 1대를 잃은 상태에서는 배포할 수 없다. ASG가 새 노드를 띄울 때까지 대기한다. **이 창은 실측 전 추정으로 3~5분 이상**이다 — EC2 헬스체크 실패 감지(기본 유예 포함) → 종료 → 기동 → ECS 에이전트 등록 → 태스크 배치까지의 합이며, "인스턴스 부팅 시간"만으로 산정하면 과소평가된다. ECS-optimized AMI 채택으로 부팅 구간은 v1 대비 크게 줄었지만 감지·등록 구간은 그대로다. 런북 Phase 8에서 실측한 뒤 이 값을 갱신한다. 필요해지면 `desired`를 3으로 올려 N+1을 확보한다 — ASG이므로 값 하나만 바꾸면 된다.
 
 **메모리 설정**
 
@@ -163,7 +163,7 @@ t3.small(2GiB)은 API 태스크를 **노드당 1개**만 담을 수 있다. 따�
 | readiness 헬스체크 | |
 | 서킷 브레이커 롤백 | |
 
-배포 안전성의 핵심은 그대로 검증된다. surge 배치는 Prod 전환 시 instance refresh 리허설에서 실측한다(런북 Phase 7). Dev를 t3.medium으로 올리면 Prod와 동일 전략을 쓸 수 있으나 월 $38가 추가되며, 그 예산은 Prod의 N+1 노드나 ElastiCache replica에 쓰는 편이 낫다고 판단했다.
+배포 안전성의 핵심은 그대로 검증된다. surge 배치는 Prod 전환 시 instance refresh 리허설에서 실측한다(런북 Phase 8). Dev를 t3.medium으로 올리면 Prod와 동일 전략을 쓸 수 있으나 월 $38가 추가되며, 그 예산은 Prod의 N+1 노드나 ElastiCache replica에 쓰는 편이 낫다고 판단했다.
 
 > `dev_api_memory_limit = 900`은 **Prod 실측(1200)에서 유추한 값이며 Dev 프로파일의 실사용량은 아직 측정되지 않았다.** 전환 후 실측하여 조정한다. 여유가 부족하면 cAdvisor task memory를 256 → 160으로 조여 100 MiB를 확보할 수 있다.
 
@@ -181,8 +181,8 @@ t3.small(2GiB)은 API 태스크를 **노드당 1개**만 담을 수 있다. 따�
 현재 코드에는 capacity provider가 전혀 없다(`capacity_provider_strategy: []`). 신규 도입 항목이다.
 
 > ⚠️ **순서 의존성 — 서비스에 CP를 나중에 붙이는 변경은 Terraform 함정이 될 수 있다.**
-> 배포 컨트롤러 전환(§2.6, 런북 Phase 5)에서 만드는 신 ECS 서비스는 CP가 아직 없으므로 launch type으로 생성된다. 이후 Phase 7에서 이 서비스에 `capacity_provider_strategy`를 추가하는 변경은 **AWS provider 버전에 따라 서비스 재생성(destroy → create)을 강제할 수 있다.** §2.6의 `deployment_controller`와 같은 종류의 함정이다.
-> - Phase 7에서 이 변경을 apply하기 전 **plan에 서비스 replace가 없는지 육안 확인**한다.
+> 배포 컨트롤러 전환(§2.6, 런북 Phase 6)에서 만드는 신 ECS 서비스는 CP가 아직 없으므로 launch type으로 생성된다. 이후 Phase 8에서 이 서비스에 `capacity_provider_strategy`를 추가하는 변경은 **AWS provider 버전에 따라 서비스 재생성(destroy → create)을 강제할 수 있다.** §2.6의 `deployment_controller`와 같은 종류의 함정이다.
+> - Phase 8에서 이 변경을 apply하기 전 **plan에 서비스 replace가 없는지 육안 확인**한다.
 > - CP 전략을 붙이지 않은(launch type) 서비스의 태스크도 컨테이너 인스턴스가 DRAINING이 되면 정상적으로 옮겨진다. 따라서 CP 전략 부착이 재생성을 요구하면 **부착을 미루고 managed draining만으로 운용**해도 무중단 교체 목표는 달성된다. 이 경우 CP 전략 부착은 다음 서비스 재생성 기회로 이관한다.
 > - 리허설(Phase 7-10)에서 실제 드레인 동작을 확인하는 항목이 이 판단의 근거가 된다.
 
@@ -249,14 +249,14 @@ ECS는 이 값으로 노드에 태스크를 배치할지 판단하는데, 실제
 즉 **Prometheus 접근이 필요하다.**
 
 → **[Phase 2](./runbook/phase-02-observability.md)에서 Prometheus를 손볼 때 이 값을 함께 측정한다.**
-Phase 7의 `memory_reservation` 결정([아래 Phase 7 절차 5번](./runbook/phase-07-prod-asg.md))은 그 측정 결과를 기다린다.
+Phase 8의 `memory_reservation` 결정([아래 Phase 8 절차 5번](./runbook/phase-08-prod-asg.md))은 그 측정 결과를 기다린다.
 현재 계획된 1000은 근거 없는 값이므로 그대로 적용하지 않는다.
 
 **참고 계산** (실사용 1,370 MiB이 전부 필요하다는 최악 가정):
 t3.medium(4 GiB)에 태스크 2개면 ~2.7 GiB + ECS 오버헤드(~0.5) + Redis(0.128) ≈ **3.3 GiB**로 여유가 크지 않다.
 워킹셋이 이보다 작다면 여유는 늘어난다 — 그래서 측정이 필요하다.
 
-[Phase 8-b](./runbook/phase-08b-dev-cache-asg.md)이 dev 태스크를 `memory = 900`으로 낮추려는 계획도 같은 측정에 의존한다.
+[Phase 9](./runbook/phase-09-dev-cache-asg.md)이 dev 태스크를 `memory = 900`으로 낮추려는 계획도 같은 측정에 의존한다.
 
 **결론 — `desired = 2`는 충분하다.** 피크가 1.77 req/s이고 피크/평균 비율이 1.89배에 불과해
 트래픽 변동이 작다. 병목은 요청 처리량이 아니라 **태스크당 메모리**다.
@@ -459,7 +459,7 @@ v1 §2.5는 "기존 WireGuard 재활용"이라고 적었으나, WireGuard 종단
 
 ECS-optimized AL2023에는 SSM Agent가 기본 탑재되어 있어, 실제 작업은 IAM 정책 부착뿐이다. cattle 구조와도 잘 맞는다 — 노드가 교체돼도 접근 방법이 그대로다.
 
-**선행 즉시 조치 — WireGuard 51820 소스 축소.** WireGuard 폐기는 마이그레이션 후반(런북 Phase 9, 착수 후 6~8주)이다. 그때까지 `0.0.0.0/0`으로 열린 UDP 포트를 유지할 이유가 없다. **마이그레이션 착수 전에** SG 규칙의 소스를 팀 구성원 IP 대역(또는 사무실/고정 IP)으로 좁힌다. 5분짜리 변경이고 롤백은 규칙 하나 되돌리는 것이다. 유동 IP인 팀원이 있으면 `trusted_ips` 변수에 추가하는 절차만 안내한다 — 어차피 Phase 9에서 변수 자체가 사라진다.
+**선행 즉시 조치 — WireGuard 51820 소스 축소.** WireGuard 폐기는 마이그레이션 후반(런북 Phase 10, 착수 후 6~8주)이다. 그때까지 `0.0.0.0/0`으로 열린 UDP 포트를 유지할 이유가 없다. **마이그레이션 착수 전에** SG 규칙의 소스를 팀 구성원 IP 대역(또는 사무실/고정 IP)으로 좁힌다. 5분짜리 변경이고 롤백은 규칙 하나 되돌리는 것이다. 유동 IP인 팀원이 있으면 `trusted_ips` 변수에 추가하는 절차만 안내한다 — 어차피 Phase 10에서 변수 자체가 사라진다.
 
 ---
 
@@ -498,7 +498,7 @@ ECS-optimized AL2023에는 SSM Agent가 기본 탑재되어 있어, 실제 작�
 
 **롤백은 리스너 규칙을 되돌리는 것**이며, 구 서비스가 그대로 살아 있다. 이번 마이그레이션에서 가장 깔끔한 되돌리기 지점이다. 슬롯 부족은 현재 `desired_count = 1`인 상태에서 전환해 회피한다(슬롯 2개만 사용).
 
-상세 절차는 [`runbook/phase-05-deployment-controller.md`](./runbook/phase-05-deployment-controller.md)를 따른다.
+상세 절차는 [`runbook/phase-06-deployment-controller.md`](./runbook/phase-06-deployment-controller.md)를 따른다.
 
 **트레이드오프(수용함)**: 프로덕션 전 검증(테스트 리스너 9443) 상실, 롤백이 분 단위, **버전 혼재** 발생.
 → §3 릴리스 안정성 요건으로 보완한다.
@@ -519,7 +519,7 @@ ECS-optimized AL2023에는 SSM Agent가 기본 탑재되어 있어, 실제 작�
 
 **Secrets 전환 시 규율**: 파라미터 값을 Terraform으로 생성하면 state에 평문이 다시 들어간다. **값은 AWS CLI로 별도 생성하고 Terraform은 `data` 참조만** 한다. 태스크 정의를 건드리는 변경이므로 배포 컨트롤러 전환(§2.6)이 안정화된 뒤 별도 단계로 수행한다.
 
-**state 버킷은 시크릿 저장소로 취급한다.** Secrets 전환(런북 Phase 10)은 마지막 단계지만 state 이전(Phase 0)은 첫 단계다. 그 사이 수 주 동안 **DB 비밀번호·Grafana admin 비밀번호가 평문으로 담긴 state가 S3에 존재한다.** 암호화만으로는 부족하며 접근 통제가 함께 있어야 한다:
+**state 버킷은 시크릿 저장소로 취급한다.** Secrets 전환(런북 Phase 11)은 마지막 단계지만 state 이전(Phase 0)은 첫 단계다. 그 사이 수 주 동안 **DB 비밀번호·Grafana admin 비밀번호가 평문으로 담긴 state가 S3에 존재한다.** 암호화만으로는 부족하며 접근 통제가 함께 있어야 한다:
 
 - Block Public Access 4항목 전부 ON
 - 버킷 정책으로 접근 주체를 Terraform 실행 role/SSO 권한 세트로 한정 (`aws:PrincipalArn` 조건), 그 외 `Deny`
@@ -527,7 +527,7 @@ ECS-optimized AL2023에는 SSM Agent가 기본 탑재되어 있어, 실제 작�
 - 서버 측 암호화는 SSE-KMS로, 키 정책도 같은 주체로 한정 (SSE-S3보다 감사 추적이 남는다)
 - CloudTrail S3 데이터 이벤트로 state 객체 read를 기록 (누가 언제 state를 내려받았는지)
 
-Phase 10이 끝나 state에서 평문이 사라진 뒤에도 이 통제는 유지한다 — state에는 리소스 ID·엔드포인트·SG 구성 등 정찰 가치가 있는 정보가 계속 남는다.
+Phase 11이 끝나 state에서 평문이 사라진 뒤에도 이 통제는 유지한다 — state에는 리소스 ID·엔드포인트·SG 구성 등 정찰 가치가 있는 정보가 계속 남는다.
 
 ---
 
@@ -603,7 +603,7 @@ rolling에서는 구/신 버전이 **동시에 실트래픽**을 받으므로 �
 
 ### rolling 전환의 차단 조건 — 앱 측 작업 (groble-backend)
 
-위 항목 중 일부는 rolling 전환 **후에** 튜닝하는 것이 아니라, rolling이 안전하려면 **전에** 존재해야 하는 것들이다. 인프라 리포지토리 문서라 앱 의존성이 흐릿해지기 쉬우므로 여기 명시한다. **아래 4개가 모두 완료되기 전에는 런북 Phase 5(배포 컨트롤러 전환)에 진입하지 않는다.**
+위 항목 중 일부는 rolling 전환 **후에** 튜닝하는 것이 아니라, rolling이 안전하려면 **전에** 존재해야 하는 것들이다. 인프라 리포지토리 문서라 앱 의존성이 흐릿해지기 쉬우므로 여기 명시한다. **아래 4개가 모두 완료되기 전에는 런북 Phase 6(배포 컨트롤러 전환)에 진입하지 않는다.**
 
 | # | 앱 작업 | 확인 방법 | 추적 |
 |---|---|---|---|
@@ -620,7 +620,7 @@ rolling에서는 구/신 버전이 **동시에 실트래픽**을 받으므로 �
 
 | # | 항목 | 상태 |
 |---|---|---|
-| 1 | **rolling 전환의 앱 측 차단 조건 4건** — expand/contract 합의 · readiness/liveness 분리 · graceful shutdown · 드레이닝 값 정렬 (§3 표) | 진행 예정 — **런북 Phase 5의 차단 조건**. groble-backend 이슈와 연결 |
+| 1 | **rolling 전환의 앱 측 차단 조건 4건** — expand/contract 합의 · readiness/liveness 분리 · graceful shutdown · 드레이닝 값 정렬 (§3 표) | 진행 예정 — **런북 Phase 6의 차단 조건**. groble-backend 이슈와 연결 |
 | 2 | ~~드레이닝 파라미터 구체 값~~ → 1번 D항목으로 통합 | — |
 | 3 | **서킷 브레이커·알람 임계치 실제 값** | 구현 시 확정 |
 | 4 | **Dev API 실사용 메모리 실측** | 한도는 900으로 확정(§2.1)했으나 Prod 실측값에서 유추한 값이다. Dev 전환 후 실측하여 조정 |
@@ -629,7 +629,7 @@ rolling에서는 구/신 버전이 **동시에 실트래픽**을 받으므로 �
 | 7 | ~~CLAUDE.md의 IAM 서술 정정~~ | ✅ 완료. **다만 방향이 반대였다** — Task Role에 `ec2:Describe*`가 "없다"는 서술이 틀렸고, 인라인 `prometheus-access`로 이미 부여되어 있다. 누락돼 있던 `AmazonSSMReadOnlyAccess`·`monitoring-*` 인라인 정책도 함께 반영했다 |
 | 8 | 온보딩/히스토리 문서화 | 별도 트랙 — §2.7(state)·§2.4(Grafana as-code)로 일부 해소 |
 | 9 | **트래픽 기준선 수집** — 계획서 전체에 트래픽 수치가 없고 desired 2의 근거가 메모리 실측뿐이다 | 런북 Phase 1의 1주 알람 기준선 관측 때 함께 기록: ALB `RequestCountPerTarget`·`TargetResponseTime` p99·피크 시간대·피크/평균 비율·태스크 CPU/메모리. 용량 결정의 근거이자 동적 스케일링(향후 개선 Low-3) 트리거의 데이터원 |
-| 10 | **ASG 노드 복구 시간 실측** | 런북 Phase 7 노드 강제 종료 테스트에서 측정 → §2.1의 "3~5분 추정" 갱신 |
+| 10 | **ASG 노드 복구 시간 실측** | 런북 Phase 8 노드 강제 종료 테스트에서 측정 → §2.1의 "3~5분 추정" 갱신 |
 | 11 | **WireGuard 51820 소스 축소** (§2.5 선행 즉시 조치) | 마이그레이션 착수 전 |
 | 12 | **JVM DNS 캐시 TTL 확인** (§3-8) | OTLP DNS 간접화 전 |
 | 13 | **RDS 사양 재확인** — Prod RDS는 `db.t3.micro`(메모리 1GiB) / `20GB→100GB`다. 문서가 `db.t3.medium` / `100GB→1000GB`로 잘못 적고 있었다 | CLAUDE.md는 정정 완료. **용량 판단이 이 값에 의존하므로 Phase 1 트래픽 기준선 수집 때 RDS 지표도 함께 볼 것** |
@@ -773,7 +773,7 @@ graph TB
 - ✅ **mixed instances policy** (t3 / t3a) — 용량 확보 실패 대비
 - ✅ **노드당 태스크 상한은 ENI로 2개** — 총 4슬롯, desired 2, 롤링 피크 3
 - ✅ `memory_reservation` 500 → **1000**, `ECS_RESERVED_MEMORY` 64 → **512**
-- ⚠️ **알려진 제약**: 노드 1대 상실 중에는 배포 불가 (ASG 복구까지 **실측 전 추정 3~5분+**, Phase 7에서 실측)
+- ⚠️ **알려진 제약**: 노드 1대 상실 중에는 배포 불가 (ASG 복구까지 **실측 전 추정 3~5분+**, Phase 8에서 실측)
 - ⚠️ 서비스에 CP 전략을 후속 부착하는 변경은 **재생성을 강제할 수 있음** — plan 육안 확인, 필요 시 managed draining만으로 운용
 
 ### 네트워크
@@ -801,7 +801,7 @@ graph TB
 
 ### 배포
 - ✅ **ECS rolling** — Prod: desired 2, `100% / 150%`(surge) / Dev: desired 2, `50% / 100%`(축소 우선), 서킷 브레이커 롤백
-- ✅ **Phase 5 진입 차단 조건 = 앱 측 4건** (expand/contract · readiness/liveness · graceful shutdown · 드레이닝 값) — §3 표, groble-backend 이슈와 연결
+- ✅ **Phase 6 진입 차단 조건 = 앱 측 4건** (expand/contract · readiness/liveness · graceful shutdown · 드레이닝 값) — §3 표, groble-backend 이슈와 연결
 - ✅ Dev 메모리: `reservation 800 / limit 900` (t3.small 예산 ~1000MiB 기준)
 - ✅ 컷오버는 **Green TG 재활용 + 리스너 스왑** (서비스 재생성으로 인한 다운타임 회피)
 - ✅ **배포 주체는 CI** — Terraform은 `ignore_changes = [task_definition]` 유지

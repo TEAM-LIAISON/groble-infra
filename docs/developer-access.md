@@ -21,7 +21,7 @@
 | 인바운드 포트 | 22 · 51820 개방 필요 | **열지 않는다** — 노드가 SSM 으로 아웃바운드 연결을 맺는다 |
 | 감사 | 없음 | **CloudTrail 에 누가·언제·어느 노드가 남는다** |
 
-> WireGuard·bastion·22번 포트의 실제 폐기는 [Phase 9](./runbook/phase-09-access-path.md) 에서 한다.
+> WireGuard·bastion·22번 포트의 실제 폐기는 [Phase 10](./runbook/phase-10-access-path.md) 에서 한다.
 > 그때까지는 두 경로가 병존한다.
 
 ---
@@ -231,7 +231,7 @@ CI 나 스크립트에서 쓰기 좋다.
   `enableExecuteCommand` 가 꺼져 있고 Task Role 에 SSM 채널 권한이 없다.
   필요하면 인프라에 요청할 것 — 노드에서 `docker exec` 로 우회할 수는 있다
 - **아직 WireGuard 가 필요한 경우는 없다.** EC2 셸·RDS·모니터링 UI 세 가지가 모두 SSM 으로 덮인다.
-  그래도 [Phase 9](./runbook/phase-09-access-path.md) 까지는 기존 경로를 남겨 둔다
+  그래도 [Phase 10](./runbook/phase-10-access-path.md) 까지는 기존 경로를 남겨 둔다
 
 ## 안 될 때
 

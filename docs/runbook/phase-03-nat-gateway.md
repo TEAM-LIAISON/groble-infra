@@ -266,25 +266,25 @@ private route table 의 `0.0.0.0/0` 만 바뀌므로 **VPC 내부 통신은 전�
 private route table 이 **하나뿐**이라 2a(prod)·2c(dev)가 같은 경로를 쓴다. NAT Gateway 는
 2c 에 있으므로 **prod 노드(2a)의 아웃바운드가 전환 후 cross-AZ 가 된다** (양방향 $0.01/GB).
 
-의도한 것이다 — 계획서 §2.2 의 "전 구성요소 2c 정렬"을 미리 맞춘 것이고, **Phase 7 에서
+의도한 것이다 — 계획서 §2.2 의 "전 구성요소 2c 정렬"을 미리 맞춘 것이고, **Phase 8 에서
 prod 가 2c 로 넘어가면 해소된다.** 계획서가 "2c 정렬로 비용이 준다"고 말하는 것은 완료
-상태 기준이며, Phase 3~7 사이 몇 주는 예외다.
+상태 기준이며, Phase 3~8 사이 몇 주는 예외다.
 
 ### 모니터링 노드 알람은 아직 prod 채널이다
 
 [`environments/shared/main.tf`](../../environments/shared/main.tf) 의 알람 채널 주석이
-"Phase 3·5 이후 dev 로 내린다"고 적고 있으나, **Phase 3 만으로는 내리지 않는다.** NAT 겸직이
+"Phase 3·6 이후 dev 로 내린다"고 적고 있으나, **Phase 3 만으로는 내리지 않는다.** NAT 겸직이
 빠져도 관측·bastion·VPN 은 그대로라 여전히 prod-critical 이다. **Phase 4 이후에 조정한다.**
 
 ### 이번에 건드리지 않는 것
 
-롤백 여지를 남기려고 그대로 둔다. 전부 Phase 4·9 의 몫이다.
+롤백 여지를 남기려고 그대로 둔다. 전부 Phase 4·10 의 몫이다.
 
 - 모니터링 노드의 `source_dest_check = false`
 - 노드 안의 iptables MASQUERADE
 - 모니터링 SG 의 NAT 용 all TCP/UDP 허용 규칙
 - 라우트 리소스가 `platform/ecs-cluster` 모듈에 있는 것 (원래 `infrastructure/vpc` 가 맞다).
-  옮기면 destroy → create 가 되어 egress 가 비는 순간이 생기므로 **Phase 11 로 미룬다**
+  옮기면 destroy → create 가 되어 egress 가 비는 순간이 생기므로 **Phase 12 로 미룬다**
 
 ---
 

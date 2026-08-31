@@ -39,7 +39,7 @@ resource "aws_iam_role_policy_attachment" "ecs_instance_ecr_policy" {
 # SSM Session Manager (Phase 4 — 모니터링 노드 재구축)
 #
 # private 서브넷의 신 모니터링 노드는 public IP 가 없어 SSM 없이는 진입 경로가
-# WireGuard 하나뿐이다. 계획서 §2.5 의 bastion·WireGuard 폐기(Phase 9)도 이 정책 위에 선다.
+# WireGuard 하나뿐이다. 계획서 §2.5 의 bastion·WireGuard 폐기(Phase 10)도 이 정책 위에 선다.
 #
 # ⚠️ 인스턴스 프로파일을 prod·dev·monitoring 노드가 공유하므로 이 정책은 세 노드 모두에 붙는다.
 #    접근 경로가 하나 늘어나는 변경이다 — 다만 인바운드 포트를 열지는 않으며,
