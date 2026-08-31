@@ -1,13 +1,13 @@
 # Phase 9 — 접근 경로 정리
 
-> [← Phase 8](./phase-08-dev-migration.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 10 →](./phase-10-secrets-ssm.md)
+> [← Phase 8-b](./phase-08b-dev-cache-asg.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 10 →](./phase-10-secrets-ssm.md)
 
 | | |
 |---|---|
 | **상태** | ⬜ 미착수 |
 | **목적** | bastion·WireGuard·SSH를 폐기하고 SSM으로 일원화한다 |
 | **사용자 영향** | 없음 (개발자 워크플로는 변경됨) |
-| **선행 조건** | [Phase 4](./phase-04-monitoring-node-rebuild.md)·[7](./phase-07-prod-asg.md)·[8](./phase-08-dev-migration.md)에서 **SSM 접속이 실제로 검증되어 있어야 한다** |
+| **선행 조건** | [Phase 4](./phase-04-monitoring-node-rebuild.md)·[7](./phase-07-prod-asg.md)·[8-b](./phase-08b-dev-cache-asg.md)에서 **SSM 접속이 실제로 검증되어 있어야 한다** |
 | **되돌리기** | SG 규칙 복원 |
 
 ---
@@ -43,4 +43,4 @@ SG 규칙 복원. 단 구 VPN 노드를 종료한 뒤라면 재구축이 필요�
 
 ---
 
-[← Phase 8 — Dev 전환](./phase-08-dev-migration.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 10 — Secrets를 SSM Parameter Store로 →](./phase-10-secrets-ssm.md)
+[← Phase 8-b — Dev ElastiCache + ASG 전환](./phase-08b-dev-cache-asg.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 10 — Secrets를 SSM Parameter Store로 →](./phase-10-secrets-ssm.md)

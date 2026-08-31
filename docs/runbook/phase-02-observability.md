@@ -133,7 +133,7 @@ aws sns publish --topic-arn <토픽> --subject "[TEST] 알림 경로 도달 확�
 |---|---|---|
 | **prod JVM 힙 수정 배포** | ✅ **완료** (2026-08-20). 힙 상한 2,878 → **900 MiB** 확인 | 남은 것은 **2~3일 뒤 재측정**뿐이다 → Phase 7·8 `memoryReservation` 확정. **Phase 7 차단 조건** |
 | **`JVM 힙 상한 > 컨테이너 리밋` 알람** | ✅ **해소.** prod 배포로 900 MiB < 리밋 1,500 MiB 가 되어 조건이 성립하지 않는다 | 없음 |
-| **`컨테이너 메모리 하드리밋 근접` 알람 발화 중** | **dev-mysql 99.1%** (253.8/256 MiB) · prod-api 92.9% | ✅ **결정됨 — 상향하지 않는다.** [Phase 8](./phase-08-dev-migration.md) 에서 dev MySQL 이 RDS 로 이관되며 컨테이너째 사라지므로 그때까지 발화를 감수한다. 조사 결과(재시작 5회 증거 · `ignore_changes` 함정 · 무효한 `MYSQL_INNODB_BUFFER_POOL_SIZE`)는 Phase 8 문서에 기록했다 |
+| **`컨테이너 메모리 하드리밋 근접` 알람 발화 중** | **dev-mysql 99.1%** (253.8/256 MiB) · prod-api 92.9% | ✅ **결정됨 — 상향하지 않는다.** [Phase 8-b](./phase-08b-dev-cache-asg.md) 에서 dev MySQL 이 RDS 로 이관되며 컨테이너째 사라지므로 그때까지 발화를 감수한다. 조사 결과(재시작 5회 증거 · `ignore_changes` 함정 · 무효한 `MYSQL_INNODB_BUFFER_POOL_SIZE`)는 Phase 8 문서에 기록했다 |
 | 신규 구독 가입 감시 | 트래픽이 14일에 20건대라 **통계적으로 감지 불가** | 앱 지표(`groble.payment.attempts`) 없이는 불가. 요청서 §6-3 ③ 에 포함됨 |
 
 ### 백엔드 요청서 2건
@@ -224,7 +224,7 @@ GC 최대 정지가 **2,584 ms → 73 ms (35배 개선)**, 스왑이 947 → 64 
 |---|---|---|
 | [Phase 7](./phase-07-prod-asg.md) prod `memory_reservation` | **1,300 MiB** | RSS p99 1,281 · 최대 1,290 을 덮는 최소값 |
 | prod `memory` (하드리밋) | **1,500 MiB 유지** | 여유 210 MiB. 상향 불필요 |
-| [Phase 8](./phase-08-dev-migration.md) dev `memory_reservation` / `memory` | **prod 와 동일** | dev RSS p99 **1,277** · 최대 **1,287 MiB** — prod 와 사실상 같다 |
+| [Phase 8-b](./phase-08b-dev-cache-asg.md) dev `memory_reservation` / `memory` | **prod 와 동일** | dev RSS p99 **1,277** · 최대 **1,287 MiB** — prod 와 사실상 같다 |
 
 > 📌 **dev 가 prod 보다 작을 것이라던 이전 가정은 폐기한다.** dev live set 은 356 MiB 로
 > prod(210)보다 오히려 크고, RSS 는 양쪽 다 1,280 MiB 대다.
@@ -281,7 +281,7 @@ noDataState: OK        # ← 빈 결과가 조용히 OK 로 처리된다
 - [x] prod JVM 수정 배포 (2026-08-20, 힙 상한 900 MiB 확인)
 - [x] prod 재측정 → **`memory_reservation` = 1,300 MiB 확정** (2026-08-24) — Phase 7 차단 해제
 - [ ] 🔴 **JVM 힙 알람 수정** — `id="G1 Old Gen"` 시계열 소멸로 NoData(=OK) 상태. 어떤 오설정에도 안 울린다
-- [x] dev-mysql 메모리 리밋 결정 — **상향하지 않고 [Phase 8](./phase-08-dev-migration.md) 이관에 맡긴다**
+- [x] dev-mysql 메모리 리밋 결정 — **상향하지 않고 [Phase 8-b](./phase-08b-dev-cache-asg.md) 이관에 맡긴다**
 - [ ] `spring-apps` 태스크 단위 스크레이프 (Cloud Map) — **Phase 7 로 이관됨**, `desired_count` 2 이상 전에 필수
 
 ---
@@ -375,7 +375,7 @@ Phase 1은 "리밋에 닿아 있으면서 OOM이 없으니 대부분 회수 가�
 | JVM 힙 상한 | **`-Xms512m -Xmx900m`** (피크 라이브 셋 510 MiB의 1.76배). `-Xms`를 `-Xmx`와 같게 두지 않는다 — 컨테이너 예산 여유가 200 MiB뿐이라 상시 커밋하면 여유가 사라진다 |
 | 컨테이너 하드리밋 1,500 MiB | **유지.** 상향 불필요 → 노드 사이징 재검토로 번지지 않는다 |
 | [Phase 7](./phase-07-prod-asg.md) `memory_reservation` | ✅ **1,300 MiB 확정** (2026-08-24 재측정, RSS p99 1,281 / 최대 1,290) |
-| [Phase 8](./phase-08-dev-migration.md) dev `memory` | ✅ **prod 와 동일** (dev RSS p99 1,277 / 최대 1,287). 둘 다 `-Xmx900m` 이라 RSS 는 라이브 셋이 아니라 힙 상한이 결정한다 |
+| [Phase 8-b](./phase-08b-dev-cache-asg.md) dev `memory` | ✅ **prod 와 동일** (dev RSS p99 1,277 / 최대 1,287). 둘 다 `-Xmx900m` 이라 RSS 는 라이브 셋이 아니라 힙 상한이 결정한다 |
 | t3.medium 노드당 태스크 2개 수용 | 수용 가능할 전망 (2 × ~1,300 MiB + 노드 오버헤드 < 3,837 MiB). 어차피 **ENI 3개 제약으로 노드당 awsvpc 태스크는 최대 2개**가 상한이다 |
 
 ### ⚠️ Phase 7 차단 조건

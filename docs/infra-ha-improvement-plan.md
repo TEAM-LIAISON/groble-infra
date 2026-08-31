@@ -256,7 +256,7 @@ Phase 7의 `memory_reservation` 결정([아래 Phase 7 절차 5번](./runbook/ph
 t3.medium(4 GiB)에 태스크 2개면 ~2.7 GiB + ECS 오버헤드(~0.5) + Redis(0.128) ≈ **3.3 GiB**로 여유가 크지 않다.
 워킹셋이 이보다 작다면 여유는 늘어난다 — 그래서 측정이 필요하다.
 
-[Phase 8](./runbook/phase-08-dev-migration.md)이 dev 태스크를 `memory = 900`으로 낮추려는 계획도 같은 측정에 의존한다.
+[Phase 8-b](./runbook/phase-08b-dev-cache-asg.md)이 dev 태스크를 `memory = 900`으로 낮추려는 계획도 같은 측정에 의존한다.
 
 **결론 — `desired = 2`는 충분하다.** 피크가 1.77 req/s이고 피크/평균 비율이 1.89배에 불과해
 트래픽 변동이 작다. 병목은 요청 처리량이 아니라 **태스크당 메모리**다.

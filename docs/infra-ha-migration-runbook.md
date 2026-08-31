@@ -33,7 +33,8 @@
 | **[5](./runbook/phase-05-deployment-controller.md)** | 배포 컨트롤러 CodeDeploy → ECS rolling | ⬜ 미착수 — **다음 작업.** 앱 측 차단 조건 4건 대기 | 없음 (리스너 스왑) | **리스너 규칙 되돌리기** |
 | **[6](./runbook/phase-06-elasticache.md)** | Prod Redis → ElastiCache (**stop-first**, rolling 아님) | ⬜ 미착수 | **진행 중 결제 세션 소실 + 1~2분 순단** ⚠️ | 되돌려도 재소실 |
 | **[7](./runbook/phase-07-prod-asg.md)** | Prod ASG 전환 (구 노드 드레인) | ⬜ 미착수 | 없음 | 구 노드 재활성화 |
-| **[8](./runbook/phase-08-dev-migration.md)** | Dev 전환 (RDS + ElastiCache + ASG) | ⬜ 미착수 | Dev만 | 단계별 |
+| **[8-a](./runbook/phase-08a-dev-rds.md)** | Dev MySQL → RDS | ⬜ 미착수 — **선행 조건 없음. 순서를 앞당겨 진행한다** | Dev만 (쓰기 차단 5~10분) | 컨테이너 제거 전까지 단계별 |
+| **[8-b](./runbook/phase-08b-dev-cache-asg.md)** | Dev ElastiCache + ASG 전환 | ⬜ 미착수 — 8-a·5·7 대기 | Dev만 | 단계별 |
 | **[9](./runbook/phase-09-access-path.md)** | 접근 경로 정리 (WireGuard/bastion/22 폐기) | ⬜ 미착수 | 없음 | SG 규칙 복원 |
 | **[10](./runbook/phase-10-secrets-ssm.md)** | Secrets → SSM Parameter Store | ⬜ 미착수 | 없음 (rolling 재배포) | 이전 태스크 정의 |
 | **[11](./runbook/phase-11-cleanup.md)** | 잔재 정리 및 문서 갱신 | ⬜ 미착수 | 없음 | — |
@@ -43,6 +44,33 @@
 시작해 촉발된 별건이며, Phase 6·7 과 자원이 겹치지 않아 언제든 끼워 넣을 수 있다.
 
 **Phase 6 이전까지는 사용자 영향이 사실상 0이다.** 그 지점까지 최대한 검증을 쌓고 진입한다.
+
+### Phase 8 을 8-a / 8-b 로 쪼갠 이유 (2026-08-31)
+
+**원래 Phase 8 은 Dev RDS · Dev ElastiCache · Dev ASG 세 가지를 한 문서에 담고 있었다.**
+성격이 갈려서 쪼갰다.
+
+- **[8-a](./runbook/phase-08a-dev-rds.md)(RDS)는 선행 조건이 하나도 없다.** RDS 는 VPC 내부라
+  Phase 3(NAT)와 무관하고, 컷오버는 지금의 CodeDeploy Blue/Green 으로 가능하다.
+  Phase 5·6·7 과 자원이 겹치지 않는다
+- **[8-b](./runbook/phase-08b-dev-cache-asg.md)(ElastiCache + ASG)는 Phase 5·7 의 결과물에 얹힌다.**
+  배포 설정(`50/100`)은 Phase 5 가 만든 rolling 위에서만 의미가 있고, ASG 절차는 Phase 7 의 복제다
+- **8-a 는 8-b 의 선행 조건이기도 하다.** 8-b 가 dev 노드를 t3.medium → t3.small 로 낮추는데,
+  MySQL 컨테이너(256 MiB)가 남아 있으면 예산이 성립하지 않는다
+
+**8-a 를 앞당기는 실익이 세 가지 있다.**
+
+1. Phase 2 부터 계속 발화 중인 `컨테이너 메모리 하드리밋 근접` 알람이 멎는다 —
+   "어차피 Dev 전환에서 사라지니 상향하지 않는다"고 감수해 둔 건이다
+2. dev 노드에서 256 MiB 가 회수된다 (8-b 예산의 전제)
+3. **dev 엔진이 prod 와 같아진다** — 지금 dev 는 컨테이너 MySQL 8.0.46, prod 는 RDS 8.4.11 이다.
+   "동일 이미지를 Dev 에 먼저 배포해 통과하면 Prod 승격"(계획서 §3-5) 게이트인데
+   DB 엔진부터 갈라져 있으면 게이트가 검증하는 것이 없다
+
+> 번호를 쪼갰을 뿐 **각 단계의 내용·차단 조건·되돌리기는 그대로다.** 이 날 이전에 작성된
+> 문서·PR 에는 통합 `Phase 8` 표기가 남아 있을 수 있다.
+
+---
 
 ### 4↔5 를 맞바꾼 이유 (2026-08-30)
 
@@ -72,6 +100,8 @@
 | 계획서 §3 앱 측 차단 조건 **A~D** (expand/contract · readiness/liveness · graceful shutdown · 드레이닝 값) | **Phase 5 착수 조건.** 요청서 [rolling-deploy-prerequisites.md](./handoff/rolling-deploy-prerequisites.md) |
 | [결제 지표 3종 노출](./handoff/payment-alerts-review.md) (§6) | 알림 R10~R14. Phase 2 완료는 막지 않는다 |
 | 전환 구간(02:19~02:27) 결제 점검 · 첫 09:00 배치 확인 | [RDS 8.4 업그레이드](./runbook/adhoc/rds-mysql-84-upgrade.md) — 전환은 끝났고 사후 확인만 남았다 |
+
+**막혀 있지 않은 것**: [Phase 8-a](./runbook/phase-08a-dev-rds.md)(Dev MySQL → RDS)는 회신 대기가 없다. 세 건이 모두 백엔드를 기다리는 동안 진행할 수 있는 유일한 Phase 다.
 
 ---
 
@@ -112,7 +142,8 @@
 | 5 | 반나절 | 2~3일 |
 | 6 | 1~2시간 | **1주** (결제 지표 확인) |
 | 7 | 1일 | **1주** (instance refresh 검증 포함) |
-| 8 | 1일 | 2~3일 |
+| 8-a | 반나절 (RDS 기동 ~10분 + 컷오버) | **2~3일** — 컨테이너를 지우기 전 관찰 |
+| 8-b | 1일 | 2~3일 |
 | 9 | 전환 기간 1~2주 | — |
 | 10 | 반나절 | 2~3일 |
 | 11 | 1일 | — |
@@ -128,7 +159,8 @@
 | [4](./runbook/phase-05-deployment-controller.md) | 구 CodeDeploy 서비스 제거 | rolling 배포 1회 이상 성공, 서킷 브레이커 동작 |
 | [6](./runbook/phase-06-elasticache.md) | ElastiCache로 전환한 순간 | 저트래픽 시간대인지, 결제 지표 기준선 기록 |
 | [7](./runbook/phase-07-prod-asg.md) | 구 Prod 인스턴스 종료 | 신 노드에서 태스크 정상 기동, Prometheus 타깃 등록, SSM 접속. **+ JVM 힙 상한 수정 완료** — 신 노드엔 스왑이 없어 미수정 시 prod API가 OOM으로 죽는다 ([Phase 2-0](./runbook/phase-02-observability.md)) |
-| [8](./runbook/phase-08-dev-migration.md) | 구 Dev MySQL 컨테이너 제거 | RDS로 데이터 복원 완료 및 검증 |
+| [8-a](./runbook/phase-08a-dev-rds.md) | 구 Dev MySQL 컨테이너 서비스 제거 | **행 수 대조 통과**(110개 테이블) · 2~3일 관찰 · RDS 자동 백업 1회 생성 확인 |
+| [8-b](./runbook/phase-08b-dev-cache-asg.md) | 구 Dev 노드 종료 | 신 노드 태스크 기동 · Prometheus 타깃 등록 · SSM 접속 |
 | [9](./runbook/phase-09-access-path.md) | 구 VPN 노드 종료 | **팀 전원의 SSM 전환 완료** |
 
 ---

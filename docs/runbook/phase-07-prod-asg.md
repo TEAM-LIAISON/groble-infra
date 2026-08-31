@@ -1,6 +1,6 @@
 # Phase 7 — Prod ASG 전환
 
-> [← Phase 6](./phase-06-elasticache.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 8 →](./phase-08-dev-migration.md)
+> [← Phase 6](./phase-06-elasticache.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 8-a →](./phase-08a-dev-rds.md)
 
 | | |
 |---|---|
@@ -109,4 +109,4 @@ API 태스크는 `awsvpc` 모드라 태스크마다 별도 ENI를 갖는데, Pro
 
 ---
 
-[← Phase 6 — Prod Redis → ElastiCache](./phase-06-elasticache.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 8 — Dev 전환 →](./phase-08-dev-migration.md)
+[← Phase 6 — Prod Redis → ElastiCache](./phase-06-elasticache.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 8-a — Dev MySQL → RDS →](./phase-08a-dev-rds.md)

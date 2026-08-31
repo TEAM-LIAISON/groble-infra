@@ -278,7 +278,7 @@ RDS 스왑(450 MiB)과 cross-AZ 쿼리가 의심되지만 현재 데이터로 �
 
 → [Phase 2](./phase-02-observability.md)에서 Prometheus를 손볼 때 함께 측정한다.
 [Phase 7](./phase-07-prod-asg.md)의 `memory_reservation` 결정(계획된 1000은 근거 없는 값)과
-[Phase 8](./phase-08-dev-migration.md)의 dev `memory = 900`이 이 측정에 의존한다.
+[Phase 8-b](./phase-08b-dev-cache-asg.md)의 dev `memory = 900`이 이 측정에 의존한다.
 
 상세는 [계획서 §2.1](../infra-ha-improvement-plan.md)에 있다.
 

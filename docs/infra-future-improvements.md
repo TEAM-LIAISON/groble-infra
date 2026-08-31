@@ -25,6 +25,8 @@
 | 🟡 Medium | [가중 타깃그룹 기반 카나리 배포](#medium-3) | $0 | 배포 사고 1회 발생 시 |
 | 🟡 Medium | [VPC Interface Endpoint](#medium-4) | 조건부 절감 | NAT 데이터 요금 확인 후 |
 | 🟡 Medium | [관측 평면 HA](#medium-5) | +$16/월 | 관측 단절이 실제 장애 대응을 방해했을 때 |
+| 🟡 Medium | [API 태스크 SG 의 prod/dev 분리](#medium-6) | $0 | **Phase 8-a 에서 확인됨** — dev·prod 가 서로의 DB 에 네트워크상 닿는다 |
+| 🔵 Low | [dev DB 콜레이션 분열 정리](#low-6) | $0 (앱 작업) | 콜레이션 불일치로 인한 조인 성능·정렬 문제가 실제로 드러날 때 |
 | 🔵 Low | [ENI trunking](#low-1) | $0 | 노드당 3태스크 이상이 필요해질 때 |
 | 🔵 Low | [멀티 AZ / AZ 장애 생존](#low-2) | 상당 | 사업 요구사항이 SLA를 요구할 때 |
 | 🔵 Low | [동적 오토스케일링](#low-3) | 변동 | 트래픽 변동이 실측으로 확인될 때 |
@@ -324,6 +326,36 @@ OTEL_TRACES_SAMPLER_ARG = 0.1          ← 10%
 
 ---
 
+### Medium-6. API 태스크 SG 의 prod/dev 분리 {#medium-6}
+
+**배경**: `groble-api-task-sg` **하나를 dev 와 prod API 태스크가 공유한다**
+(`environments/dev/main.tf` · `environments/prod/main.tf` 가 같은 SG 를 data 로 참조).
+RDS SG 들은 이 SG 를 참조해 3306 을 여는데, 참조가 환경을 구분하지 못한다.
+
+**결과 — 지금 이미 그렇다**:
+- **dev API 태스크가 prod RDS 에 네트워크상 닿는다.** `groble-rds-mysql-sg` 의
+  "MySQL access from API tasks" 인그레스가 dev 태스크에도 적용된다
+- [Phase 8-a](./runbook/phase-08a-dev-rds.md) 에서 만들 dev RDS SG 도 같은 이유로
+  **prod 태스크에 열린다**
+
+자격증명이 갈라져 있어 실제 접근은 막히지만, **네트워크 계층의 격리는 없다.**
+방어선이 한 겹뿐이라는 뜻이다.
+
+**해결안**: `groble-api-task-sg` 를 `groble-prod-api-task-sg` / `groble-dev-api-task-sg` 로 쪼개고
+각 RDS SG 가 해당하는 쪽만 참조하게 한다.
+
+- 순수 추가 → 전환 → 제거 순서로 하면 무중단이다 (새 SG 생성 → 양쪽 RDS SG 에 인그레스 추가 →
+  각 환경 태스크의 `security_group_ids` 교체 → 구 SG 인그레스 제거)
+- 태스크 정의 변경이므로 **재배포가 필요하다.** 8-a·Phase 6 등 어차피 재배포하는 작업에 묶는 것이 싸다
+
+**왜 이번 범위 밖인가**: 마이그레이션의 목표는 가용성 구조 전환이고, 이 항목은 심층 방어다.
+[Phase 8-a](./runbook/phase-08a-dev-rds.md) 를 하며 발견했으나 **그 Phase 안에서 고치면
+"한 번에 한 가지만 바꾼다"는 원칙이 깨진다.**
+
+**트리거**: 환경 간 오접속이 실제로 발생했을 때, 또는 [Phase 11](./runbook/phase-11-cleanup.md) 정리 시.
+
+---
+
 ## 🔵 Low / 조건부
 
 ### Low-1. ENI trunking (`awsvpcTrunking`) {#low-1}
@@ -406,6 +438,35 @@ t3.medium(4GiB)에서 API 태스크가 ~1200MB를 쓰므로 **메모리가 먼�
 **현재 대응**: surge 배치는 Prod 전환 시 instance refresh 리허설과 노드 강제 종료 테스트에서 실측한다(런북 Phase 7).
 
 **트리거**: surge 배치와 관련된 배포 사고(피크 태스크 배치 실패, 노드 메모리 압박으로 인한 OOM 등)가 Prod에서 발생했을 때. 또는 Dev의 실사용 메모리가 900MiB를 넘어 t3.small이 한계에 도달했을 때.
+
+---
+
+### Low-6. dev DB 콜레이션 분열 정리 {#low-6}
+
+**배경** (2026-08-31 [Phase 8-a](./runbook/phase-08a-dev-rds.md) 사전 실측):
+`groble_develop_database` 의 110개 테이블이 **두 콜레이션으로 갈려 있다.**
+
+| 콜레이션 | 테이블 수 |
+|---|---|
+| `utf8mb4_0900_ai_ci` (DB 기본값) | 52 |
+| `utf8mb4_unicode_ci` | 58 |
+
+MySQL 8 로 오며 서버 기본값이 `utf8mb4_general_ci` → `utf8mb4_0900_ai_ci` 로 바뀐 흔적으로 보인다.
+이후 생긴 테이블은 기본값을 받고, 그 전 테이블은 `unicode_ci` 를 유지한 것이다.
+
+**왜 문제인가**: 서로 다른 콜레이션의 컬럼을 조인하면 MySQL 이 한쪽을 변환하는데,
+**그 순간 인덱스를 쓰지 못한다.** 조용히 느려지는 종류의 문제다.
+
+**RDS 이관과는 무관하다.** 덤프의 `CREATE TABLE` 이 콜레이션을 명시적으로 들고 가므로
+분포가 그대로 보존된다 — 이관이 문제를 만들지도, 고치지도 않는다.
+
+**prod 도 같은지 확인하지 않았다.** 같은 스키마 이력을 가졌을 가능성이 높다.
+
+**해결안**: 한쪽으로 통일(`utf8mb4_0900_ai_ci` 권장 — 8.4 기본값)하는 `ALTER TABLE ... CONVERT TO`.
+테이블 재작성이므로 크기와 잠금을 봐야 한다 (dev 는 21 MB 라 즉시 끝난다).
+**스키마 변경이므로 앱(JPA/Flyway) 쪽 작업이다.**
+
+**트리거**: 콜레이션 불일치로 인한 조인 성능·정렬 순서 문제가 실제로 드러날 때.
 
 ---
 

@@ -17,7 +17,7 @@
 ## 절차
 
 **현재 `api_desired_count = 1`인 상태에서 수행한다.** desired 를 올리지 않는다 —
-증설은 노드가 2대가 되는 [Phase 7](./phase-07-prod-asg.md)(prod) · [Phase 8](./phase-08-dev-migration.md)(dev) 의 작업이다.
+증설은 노드가 2대가 되는 [Phase 7](./phase-07-prod-asg.md)(prod) · [Phase 8-b](./phase-08b-dev-cache-asg.md)(dev) 의 작업이다.
 
 ### ⚠️ desired = 1 구간에는 계획서의 To-Be 비율을 쓸 수 없다
 
