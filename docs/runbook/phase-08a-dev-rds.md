@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **상태** | ⬜ 미착수 |
+| **상태** | 🔄 진행 중 — **A단계(준비) 완료** (2026-08-31). 다음은 B단계 리허설 |
 | **목적** | Dev 로컬 디스크 MySQL 컨테이너를 RDS 로 옮긴다. dev 엔진 버전을 prod 와 일치시켜 §3-5 promote 게이트의 전제를 만든다 |
 | **선행 조건** | **없다.** Phase 3·5·6·7 어디에도 의존하지 않는다 (아래 [순서 근거](#왜-순서를-앞당기는가)) |
 | **사용자 영향** | Dev 만. 컷오버 중 **쓰기 차단 5~10분** |
@@ -265,6 +265,58 @@ rds_skip_final_snapshot     = false
 
 ---
 
+## A단계 완료 기록 (2026-08-31)
+
+**배포된 것**
+
+| | 값 |
+|---|---|
+| prod state 이동 | `mysql_params` → `mysql_params[0]`. 이동 후 `terraform plan` **No changes** 확인 |
+| shared apply | `1 to add, 0 to change, 0 to destroy` — `groble-rds-mysql-dev-sg` = **`sg-07cc30a39fbb7be30`** |
+| dev apply | `9 to add, 0 to change, 0 to destroy` — **기존 리소스 변경 0건** |
+| RDS 엔드포인트 | `groble-dev-mysql.cloukwy4oscs.ap-northeast-2.rds.amazonaws.com:3306` |
+| 생성 소요 | 9분 42초 |
+
+**실물 확인 (`describe-db-instances`)** — 전부 의도한 값이다.
+
+| 항목 | 값 |
+|---|---|
+| 엔진 / 상태 | **8.4.11** / `available` |
+| 클래스 / AZ | `db.t4g.micro` / **ap-northeast-2c** |
+| 백업창 / 점검창 | **`17:00-18:00`** / **`sun:18:00-sun:19:00`** (UTC → KST 02~03시, 월 03~04시) |
+| 보존 / 스토리지 | 7일 / 20 → 100 GB, 암호화 O |
+| 서브넷 그룹 | `groble-dev-mysql-subnet-group` (2a + 2c) |
+| 파라미터 그룹 | `groble-dev-mysql-84-params` (**8.0 그룹은 생성되지 않았다**) |
+| SG / 공개 / 삭제보호 | `sg-07cc30a39fbb7be30` / false / true |
+
+**dev 노드 컨테이너에서 접속 확인** — 파라미터가 실제로 먹었고 prod 와 일치한다.
+
+| 항목 | 값 | |
+|---|---|---|
+| `VERSION()` | 8.4.11 | 접속 성공 |
+| `innodb_buffer_pool_size` | **256 MiB** | prod 와 동일 |
+| `innodb_dedicated_server` | 0 | 명시값이 먹는 조건 |
+| `max_connections` / `binlog_format` / `log_output` | 200 / ROW / TABLE | prod 와 동일 |
+| `innodb_redo_log_capacity` | 2048 MiB | prod 와 동일 |
+| DB 문자셋 | `utf8mb4` / `utf8mb4_0900_ai_ci` | 컨테이너 DB 기본값과 일치 |
+| `groble_root` 플러그인 | `caching_sha2_password` | 예상대로 |
+| `@@read_only` | 0 | |
+
+### 🟢 예상과 달랐던 것 — RDS 연결은 TLS 다
+
+컨테이너 MySQL 로의 연결은 평문(`TCP/IP`)이었는데, **RDS 로의 연결은 `TLS_AES_256_GCM_SHA384` 로 붙었다.**
+RDS 가 인증서를 제시하고 MySQL 8 클라이언트 기본값이 `--ssl-mode=PREFERRED` 라 자동으로 협상된다.
+
+- **이관의 부수 효과로 dev DB 구간이 암호화된다.** 의도한 것은 아니지만 개선이다
+- `caching_sha2_password` 우려가 한 겹 더 사라진다 — TLS 위에서는 공개키 교환이 필요 없다
+- ⚠️ **다만 앱(Connector/J)이 같은 선택을 하는지는 아직 확인하지 않았다.**
+  Connector/J 8.x 도 `sslMode=PREFERRED` 가 기본이라 TLS 로 붙을 가능성이 높지만,
+  **검증은 컷오버(C단계 12번) 때 한다.** 위 결과는 mysql CLI 의 동작일 뿐이다
+
+**확인하지 못한 것**: 앱의 실제 연결. 자동 백업 1회 생성(첫 백업창은 KST 익일 02시).
+
+---
+
 ## 절차
 
 ### A. 준비 — 무영향, 앱은 그대로 컨테이너를 본다
@@ -494,8 +546,13 @@ grep MISMATCH /tmp/rowdiff.txt   # 아무것도 안 나와야 한다
 
 **RDS 사이징 결론**: 컨테이너 RSS 222 MiB · 버퍼풀 128 MiB · **실데이터 21.4 MB**.
 `db.t4g.micro`(1 GiB)로 충분하다. 모듈의 8.4 파라미터 그룹이 `innodb_dedicated_server = 0` 과
-`innodb_buffer_pool_size = {DBInstanceClassMemory*3/4}` 를 명시하므로 버퍼풀은 약 750 MiB —
-**컨테이너 시절보다 6배 늘어난다.** 리밋에 눌려 있던 상태가 해소된다.
+`innodb_buffer_pool_size = {DBInstanceClassMemory*3/4}` 를 명시한다.
+**실측 결과 버퍼풀은 256 MiB 다** — 컨테이너 시절(128 MiB)의 2배이고, **prod 와 정확히 같다.**
+
+> ⚠️ `{DBInstanceClassMemory*3/4}` 를 "인스턴스 메모리 1 GiB × 3/4 = 750 MiB" 로 읽으면 안 된다.
+> `DBInstanceClassMemory` 는 물리 메모리가 아니라 **RDS 가 OS·관리 프로세스 몫을 뺀 값**이다.
+> db.t4g.micro 에서 이 수식은 256 MiB 로 떨어진다 (db.t3.micro 인 prod 와 같은 값).
+> 데이터가 21 MB 라 전량이 버퍼풀에 올라간다.
 
 ---
 

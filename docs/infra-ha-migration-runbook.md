@@ -33,7 +33,7 @@
 | **[5](./runbook/phase-05-deployment-controller.md)** | 배포 컨트롤러 CodeDeploy → ECS rolling | ⬜ 미착수 — **다음 작업.** 앱 측 차단 조건 4건 대기 | 없음 (리스너 스왑) | **리스너 규칙 되돌리기** |
 | **[6](./runbook/phase-06-elasticache.md)** | Prod Redis → ElastiCache (**stop-first**, rolling 아님) | ⬜ 미착수 | **진행 중 결제 세션 소실 + 1~2분 순단** ⚠️ | 되돌려도 재소실 |
 | **[7](./runbook/phase-07-prod-asg.md)** | Prod ASG 전환 (구 노드 드레인) | ⬜ 미착수 | 없음 | 구 노드 재활성화 |
-| **[8-a](./runbook/phase-08a-dev-rds.md)** | Dev MySQL → RDS | ⬜ 미착수 — **선행 조건 없음. 순서를 앞당겨 진행한다** | Dev만 (쓰기 차단 5~10분) | 컨테이너 제거 전까지 단계별 |
+| **[8-a](./runbook/phase-08a-dev-rds.md)** | Dev MySQL → RDS | 🔄 **진행 중** — A단계(준비) 완료 (2026-08-31). 다음은 B단계 리허설 | Dev만 (쓰기 차단 5~10분) | 컨테이너 제거 전까지 단계별 |
 | **[8-b](./runbook/phase-08b-dev-cache-asg.md)** | Dev ElastiCache + ASG 전환 | ⬜ 미착수 — 8-a·5·7 대기 | Dev만 | 단계별 |
 | **[9](./runbook/phase-09-access-path.md)** | 접근 경로 정리 (WireGuard/bastion/22 폐기) | ⬜ 미착수 | 없음 | SG 규칙 복원 |
 | **[10](./runbook/phase-10-secrets-ssm.md)** | Secrets → SSM Parameter Store | ⬜ 미착수 | 없음 (rolling 재배포) | 이전 태스크 정의 |
