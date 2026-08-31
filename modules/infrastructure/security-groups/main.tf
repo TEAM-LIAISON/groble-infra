@@ -444,3 +444,59 @@ resource "aws_security_group" "groble_rds_mysql_sg" {
     Type = "database-security-group"
   }
 }
+
+#################################
+# Dev RDS MySQL Security Group
+#################################
+#
+# Phase 8-a — dev MySQL 컨테이너를 RDS 로 옮기며 신설한다.
+# prod 용 groble-rds-mysql-sg 를 재사용하지 않는 이유:
+#   ① 인그레스에 dev 노드(develop_target_group)가 없어 덤프/복원을 할 수 없다
+#   ② prod DB 와 dev DB 의 접근 주체가 같은 SG 로 묶이면 나중에 갈라내기 더 어렵다
+#
+# ⚠️ **이 SG 로 prod/dev 가 갈리지는 않는다.** groble-api-task-sg 하나를
+#    dev·prod API 태스크가 공유하기 때문에, 아래 인그레스는 prod 태스크에도 열린다
+#    (반대로 지금도 dev 태스크는 prod RDS 에 네트워크상 닿는다).
+#    자격증명이 갈라져 있어 실제 접근은 막히지만 네트워크 격리는 없다.
+#    SG 분리는 이번 범위 밖 — docs/infra-future-improvements.md#medium-6
+resource "aws_security_group" "groble_rds_mysql_dev_sg" {
+  name        = "${var.project_name}-rds-mysql-dev-sg"
+  description = "Security group for Dev RDS MySQL instance"
+  vpc_id      = var.vpc_id
+
+  # dev 노드 — 덤프/복원 작업용.
+  # MySQL 컨테이너가 host 네트워크 모드라 컨테이너의 egress 가 곧 이 SG 다.
+  # 덕분에 노드에 mysql 클라이언트를 설치하지 않고 컨테이너 것으로 복원할 수 있다.
+  ingress {
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.groble_develop_target_group.id]
+    description     = "MySQL access from dev instance for dump/restore"
+  }
+
+  # dev API 태스크 (awsvpc)
+  ingress {
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.groble_api_task_sg.id]
+    description     = "MySQL access from API tasks"
+  }
+
+  # 모니터링 노드 — SSM 포트 포워딩 경유지 (docs/developer-access.md).
+  # prod RDS SG 와 동일하게 열어 개발자 접근 경로를 같은 모양으로 유지한다.
+  ingress {
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.groble_monitor_target_group.id]
+    description     = "MySQL access from monitoring instance for SSM port forwarding"
+  }
+
+  tags = {
+    Name        = "${var.project_name}-rds-mysql-dev-sg"
+    Environment = "development"
+    Type        = "database-security-group"
+  }
+}

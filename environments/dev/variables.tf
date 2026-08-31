@@ -387,3 +387,107 @@ variable "auto_rollback_events" {
     error_message = "Auto rollback events must be valid deployment events."
   }
 }
+
+#################################
+# Phase 8-a — Dev RDS MySQL
+#################################
+# docs/runbook/phase-08a-dev-rds.md
+#
+# 값을 여기 default 로 박아 두는 이유: environments/dev/terraform.tfvars 는
+# .gitignore 대상이라 git 이력에 남지 않는다. 시크릿이 아닌 설정값은 코드에 둔다.
+
+variable "rds_instance_class" {
+  description = "Dev RDS 인스턴스 클래스. 실데이터 21.4 MB / 110 테이블 (2026-08-31 실측)"
+  type        = string
+  default     = "db.t4g.micro"
+}
+
+variable "rds_allocated_storage" {
+  description = "초기 할당 스토리지(GB). 20 은 RDS 최소값이며 실데이터 대비 충분하다"
+  type        = number
+  default     = 20
+
+  validation {
+    condition     = var.rds_allocated_storage >= 20
+    error_message = "RDS allocated storage must be at least 20 GB."
+  }
+}
+
+variable "rds_max_allocated_storage" {
+  description = "스토리지 자동 확장 상한(GB)"
+  type        = number
+  default     = 100
+}
+
+variable "rds_backup_retention_period" {
+  description = <<-EOT
+    자동 백업 보존 기간(일). prod 와 동일하게 7 로 둔다.
+
+    할당량(20 GB) 이내의 백업 스토리지는 무료이고 실데이터가 21 MB 라 비용이 사실상 0 이다.
+    짧게 잡아 아낄 것이 없고, 값이 갈리면 "dev 는 prod 와 같은 형태"라는 명분이 흐려진다.
+  EOT
+  type        = number
+  default     = 7
+}
+
+variable "rds_backup_window" {
+  description = "Dev RDS 백업창 (UTC). 17:00-18:00 UTC = KST 02:00~03:00"
+  type        = string
+
+  # ⚠️ 값은 UTC 다. 모듈 기본값 "03:00-04:00" 은 UTC 새벽처럼 보이지만
+  #    실제로는 한국 점심시간(12~13시)이다. prod 가 2026-08-28 에 같은 함정을 밟았다.
+  #
+  # 배치 근거 세 가지:
+  #   ① 점검창과 인접시키되 겹치지 않게 둔다 — RDS 는 두 창이 중첩하면 수정을 거부한다
+  #   ② prod(18:00-19:00 UTC)보다 한 시간 앞에 둬 동시에 돌지 않게 한다
+  #   ③ KST 새벽 2~3시로 개발 작업 시간대를 피한다
+  default = "17:00-18:00"
+
+  validation {
+    condition     = can(regex("^([0-1]?[0-9]|2[0-3]):[0-5][0-9]-([0-1]?[0-9]|2[0-3]):[0-5][0-9]$", var.rds_backup_window))
+    error_message = "RDS backup window must be in format 'HH:MM-HH:MM'."
+  }
+}
+
+variable "rds_maintenance_window" {
+  description = "Dev RDS 점검창 (UTC). sun:18:00-sun:19:00 UTC = KST 월요일 03:00~04:00"
+  type        = string
+
+  # ⚠️ 값은 UTC 다. 모듈 기본값 "sun:04:00-sun:05:00" 은 한국 시간으로 일요일 13~14시다.
+  #    prod(sun:19:00-sun:20:00 UTC)보다 한 시간 앞에 둔다.
+  default = "sun:18:00-sun:19:00"
+
+  validation {
+    condition     = can(regex("^(mon|tue|wed|thu|fri|sat|sun):[0-2][0-9]:[0-5][0-9]-(mon|tue|wed|thu|fri|sat|sun):[0-2][0-9]:[0-5][0-9]$", var.rds_maintenance_window))
+    error_message = "RDS maintenance window must be in format 'ddd:HH:MM-ddd:HH:MM'."
+  }
+}
+
+variable "rds_multi_az" {
+  description = "Multi-AZ 배포 여부. dev 는 단일 AZ"
+  type        = bool
+  default     = false
+}
+
+variable "rds_availability_zone" {
+  description = <<-EOT
+    Dev RDS 를 둘 AZ. dev 노드(2c)와 정렬해 cross-AZ 트래픽을 없앤다.
+
+    prod RDS 는 이 값이 비어 있어 재생성 시 AZ 가 바뀔 수 있는 상태다(계획서 §2.2).
+    dev 는 처음부터 코드에 고정한다.
+  EOT
+  type        = string
+  default     = "ap-northeast-2c"
+}
+
+variable "rds_deletion_protection" {
+  description = "삭제 보호. dev 라도 켜 둔다 — 컨테이너 제거 후에는 유일한 데이터 사본이다"
+  type        = bool
+  default     = true
+}
+
+variable "rds_skip_final_snapshot" {
+  description = "삭제 시 최종 스냅샷 생략 여부"
+  type        = bool
+  default     = false
+}

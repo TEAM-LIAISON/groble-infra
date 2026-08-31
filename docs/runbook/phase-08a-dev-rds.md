@@ -137,8 +137,22 @@ resource "aws_db_parameter_group" "mysql_params" {
 }
 ```
 
-dev 는 `false`. **prod 의 8.0 그룹 제거 자체는 [Phase 11](./phase-11-cleanup.md) 로 넘긴다** —
-이 Phase 에서 prod state 를 건드리지 않는다.
+dev 는 `false`. **prod 의 8.0 그룹 제거 자체는 [Phase 11](./phase-11-cleanup.md) 로 넘긴다.**
+
+> 🔴 **`count` 를 붙이면 prod state 주소가 바뀐다.** 확인한 현재 주소는 인덱스가 없다:
+> ```
+> module.rds_mysql.aws_db_parameter_group.mysql_params        ← 현재
+> module.rds_mysql.aws_db_parameter_group.mysql_params[0]     ← count 추가 후
+> ```
+> Terraform 은 이 둘을 **다른 리소스로 보고 destroy + create 를 계획한다.**
+> 중단 기준의 "예상하지 못한 삭제/재생성" 에 해당한다.
+>
+> **모듈은 prod 와 dev 가 공유하므로 이 처리를 미룰 수 없다.** dev 만 apply 하고 넘어가면
+> 나중에 누군가 다른 이유로 prod 를 apply 할 때 그 사람이 이 계획을 만나게 된다.
+> A단계에서 **AWS 를 건드리지 않는 state 이동**으로 끝낸다 (아래 절차 2번).
+>
+> 서브넷 그룹은 `count` 가 아니라 `coalesce` 라 **주소도 이름도 그대로다** —
+> prod 는 diff 가 생기지 않는다.
 
 ### ③ ⚠️ `prevent_destroy = true` 는 변수로 뺄 수 없다
 
@@ -255,12 +269,39 @@ rds_skip_final_snapshot     = false
 
 ### A. 준비 — 무영향, 앱은 그대로 컨테이너를 본다
 
-1. 위 **코드 변경 ①②③** + dev RDS SG 를 `environments/shared` 에 apply
-2. `environments/dev` 에 `module "dev_rds_mysql"` + `module "rds_alarms"` apply
-   - ⚠️ **`terraform plan` 을 육안 확인한다.** prod 서브넷 그룹·파라미터 그룹에
-     replace 가 잡히면 ① 이 잘못된 것이다. **삭제/재생성이 하나라도 보이면 중단한다**
-3. RDS 기동 확인 (~10분) · 엔진 버전이 **8.4.11** 인지 · AZ 가 **2c** 인지
-4. dev 노드에서 접속 확인:
+1. **모듈·SG 코드 변경** (①②③ + dev RDS SG). 아직 apply 하지 않는다
+   ```bash
+   terraform -chdir=environments/dev    validate
+   terraform -chdir=environments/shared validate
+   terraform -chdir=environments/prod   validate
+   ```
+2. 🔴 **prod state 이동 먼저** — `count` 로 바뀐 주소를 맞춘다. **AWS 를 호출하지 않는다**
+   ```bash
+   cd environments/prod
+   terraform state list | grep mysql_params          # 인덱스 없는 주소 확인
+   terraform state mv 'module.rds_mysql.aws_db_parameter_group.mysql_params' \
+                      'module.rds_mysql.aws_db_parameter_group.mysql_params[0]'
+   terraform plan                                    # ✅ **No changes** 여야 한다
+   ```
+   > `plan` 에 파라미터 그룹 destroy/create 가 남아 있으면 이동이 안 된 것이다. 여기서 멈춘다.
+   > state 는 S3 versioning 으로 이력이 남으므로 되돌릴 수 있다.
+3. **`environments/shared` apply** — dev RDS SG 추가
+   - ⚠️ plan 에 **기존 SG 의 변경이 하나도 없어야 한다.** 순수 추가다
+4. **`environments/dev` apply** — `module "dev_rds_mysql"` + `module "rds_alarms"`
+   - ⚠️ **plan 을 육안 확인한다.** 기존 ECS 서비스·태스크 정의에 변경이 잡히면 안 된다.
+     **삭제/재생성이 하나라도 보이면 중단한다**
+   - `db_host` 는 아직 컨테이너를 가리킨다 — 이 단계에서 앱은 아무것도 바뀌지 않는다
+5. RDS 기동 확인 (~10분)
+   ```bash
+   aws rds describe-db-instances --db-instance-identifier groble-dev-mysql \
+     --profile groble-terraform --query \
+     'DBInstances[0].{Ver:EngineVersion,AZ:AvailabilityZone,Class:DBInstanceClass,
+                      Backup:PreferredBackupWindow,Maint:PreferredMaintenanceWindow,
+                      Retention:BackupRetentionPeriod,SG:VpcSecurityGroups[].VpcSecurityGroupId}'
+   ```
+   - 엔진 **8.4.11** · AZ **ap-northeast-2c** · 클래스 **db.t4g.micro**
+   - 백업창 **17:00-18:00** · 점검창 **sun:18:00-sun:19:00** (⚠️ UTC 표기 그대로 나온다)
+6. dev 노드에서 접속 확인:
    ```bash
    docker exec $(docker ps -q --filter name=groble-dev-mysql) \
      sh -c 'mysql -h <rds-endpoint> -u groble_root -p"$MYSQL_ROOT_PASSWORD" -e "SELECT VERSION();"'
@@ -268,7 +309,7 @@ rds_skip_final_snapshot     = false
 
 ### B. 리허설 — 데이터는 버린다
 
-5. **앱을 켜 둔 채로** 덤프→복원을 한 번 돌려 본다. 스키마·문자셋·소요시간을 확인하는 게 목적이다.
+7. **앱을 켜 둔 채로** 덤프→복원을 한 번 돌려 본다. 스키마·문자셋·소요시간을 확인하는 게 목적이다.
    여기서 나온 데이터는 C 에서 덮어쓴다.
    ```bash
    C=$(docker ps -q --filter name=groble-dev-mysql)
@@ -282,7 +323,7 @@ rds_skip_final_snapshot     = false
    - `--routines --triggers --events` 는 실측상 0건이지만, 나중에 생겼을 때 조용히 빠지는 것보다 낫다
    - **`mysql` 스키마는 절대 덤프하지 않는다.** RDS 마스터 유저를 덮어써 접속이 끊긴다
    - 클라이언트는 **컨테이너 안의 것을 쓴다** — 노드에 아무것도 설치하지 않는다
-6. 검증 쿼리(아래 [검증](#검증))가 통과하는지 확인
+8. 검증 쿼리(아래 [검증](#검증))가 통과하는지 확인
 
 ### C. 컷오버 — 🔴 여기가 쓰기 유실 구간이다
 

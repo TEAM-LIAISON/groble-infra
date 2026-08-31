@@ -3,12 +3,20 @@
 #################################
 
 # DB Subnet Group
+# ⚠️ 이름에 environment 가 들어가지 않는다 — 파라미터 그룹과 다르다.
+# prod 가 이미 "groble-mysql-subnet-group" 을 쓰고 있어 기본값을 바꿀 수 없다
+# (이름은 force-new 속성이라 replace → 붙어 있는 RDS 수정까지 딸려 온다).
+# 신규 환경은 var.db_subnet_group_name 으로 다른 이름을 넘긴다.
+locals {
+  db_subnet_group_name = coalesce(var.db_subnet_group_name, "${var.project_name}-mysql-subnet-group")
+}
+
 resource "aws_db_subnet_group" "mysql_subnet_group" {
-  name       = "${var.project_name}-mysql-subnet-group"
+  name       = local.db_subnet_group_name
   subnet_ids = var.private_subnet_ids
   
   tags = {
-    Name        = "${var.project_name}-mysql-subnet-group"
+    Name        = local.db_subnet_group_name
     Environment = var.environment
   }
 }
@@ -92,7 +100,19 @@ resource "aws_db_instance" "mysql" {
 }
 
 # DB Parameter Group for MySQL 8.0
+#
+# prod 가 8.4 로 올라간 뒤로 아무도 참조하지 않는 잔재다 (인스턴스는 mysql_params_84 를 쓴다).
+# state 에 남아 있어 지우지 못하고 있을 뿐이므로 신규 환경은 count = 0 으로 건너뛴다.
+# 실제 제거는 Phase 11.
+#
+# ⚠️ count 를 붙이면서 state 주소가 `...mysql_params` → `...mysql_params[0]` 로 바뀐다.
+#    prod 는 apply 전에 반드시 state mv 를 해야 destroy/create 가 계획되지 않는다:
+#      terraform state mv 'module.rds_mysql.aws_db_parameter_group.mysql_params' \
+#                         'module.rds_mysql.aws_db_parameter_group.mysql_params[0]'
+#    (docs/runbook/phase-08a-dev-rds.md A단계)
 resource "aws_db_parameter_group" "mysql_params" {
+  count = var.create_legacy_80_parameter_group ? 1 : 0
+
   family = "mysql8.0"
   name   = "${var.project_name}-${var.environment}-mysql-params"
   
