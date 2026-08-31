@@ -4,10 +4,10 @@
 
 | | |
 |---|---|
-| **상태** | 🔄 진행 중 — **A·B단계 완료** (2026-08-31). 다음은 **C단계 컷오버** |
+| **상태** | ⏳ **회신 대기** — 인프라 몫(A·B단계) 완료 (2026-08-31). **C단계 컷오버는 백엔드 소관**이며 이관 완료 연락을 기다린다 |
 | **목적** | Dev 로컬 디스크 MySQL 컨테이너를 RDS 로 옮긴다. dev 엔진 버전을 prod 와 일치시켜 §3-5 promote 게이트의 전제를 만든다 |
 | **선행 조건** | **없다.** Phase 3·5·6·7 어디에도 의존하지 않는다 (아래 [순서 근거](#왜-순서를-앞당기는가)) |
-| **사용자 영향** | Dev 만. 컷오버 중 **쓰기 차단 5~10분** |
+| **사용자 영향** | Dev 만. 컷오버 중 **쓰기 차단 1분 미만**(B단계 실측: 덤프 1초 + 복원 15초) + 재배포 시간 |
 | **되돌리기** | 컨테이너 제거 전까지 단계별. 제거 후에는 불가 |
 | **비용** | **+$20/월** (`db.t4g.micro` ~$18 + 스토리지 ~$2) |
 
@@ -364,6 +364,34 @@ RDS API 의 `DBName` 은 **생성 시점의 메타데이터**라 스키마를 �
 
 ---
 
+## 역할 분담 — 인프라는 RDS 제공까지다
+
+| 단계 | 담당 | 상태 |
+|---|---|---|
+| **A. RDS·SG·알람 생성** | 인프라 | ✅ 완료 (2026-08-31) |
+| **B. 덤프/복원 리허설** | 인프라 | ✅ 완료 (2026-08-31) |
+| **C. 컷오버** (데이터 이관 + `DB_HOST` 전환 + 배포) | **groble-backend** | ⏳ 진행 요청 — [요청서](../handoff/dev-rds-cutover.md) |
+| **D. 관찰** | 백엔드 | ⏳ |
+| **E. 자원 정리** (컨테이너 서비스 제거) | 인프라 | ⬜ **이관 완료 연락을 받으면 착수** |
+
+### 왜 C단계가 백엔드 소관인가 — 배포 경로가 이 리포에 없다
+
+**실행 중인 태스크 정의를 이 리포지토리가 만들지 않는다.**
+
+```
+groble-dev-task:1181  registeredBy = .../groble-terraform          ← Terraform. 아무도 실행하지 않는다
+groble-dev-task:1188  registeredBy = user/groble-github-actions    ← 실제로 서비스가 돌리는 것
+```
+
+`aws_ecs_service.api_service` 에 `lifecycle { ignore_changes = [task_definition] }` 가 걸려 있어
+**Terraform 이 만든 리비전은 배포되지 않는다.** 즉 `DB_HOST` 의 실효값은 **백엔드의 GitHub Actions
+파이프라인이 정한다.** 인프라가 이 리포에서 `db_host` 를 바꿔 apply 해도 쓰이지 않는 리비전만 하나 더 생긴다.
+
+> 이 리포의 `environments/dev/main.tf` 의 `db_host` 도 **일관성을 위해 함께 바꾼다.**
+> 다만 그것은 기록일 뿐 배포 경로가 아니다 — E단계에서 정리한다.
+
+---
+
 ## 절차
 
 ### A. 준비 — 무영향, 앱은 그대로 컨테이너를 본다
@@ -424,60 +452,54 @@ RDS API 의 `DBName` 은 **생성 시점의 메타데이터**라 스키마를 �
    - 클라이언트는 **컨테이너 안의 것을 쓴다** — 노드에 아무것도 설치하지 않는다
 8. 검증 쿼리(아래 [검증](#검증))가 통과하는지 확인
 
-### C. 컷오버 — 🔴 여기가 쓰기 유실 구간이다
+### C. 컷오버 — **백엔드 소관** 🔴 쓰기 유실 구간이다
+
+> **절차 전문과 접속 정보는 요청서에 있다 → [`handoff/dev-rds-cutover.md`](../handoff/dev-rds-cutover.md)**
+> 아래는 인프라 쪽 요약이다.
 
 > **원래 문서에는 이 구간이 없었다.** "덤프→복원" 다음에 바로 "DB_HOST 변경→재배포"가 오는데,
 > 그 사이에 앱은 **여전히 컨테이너에 쓰고 있다.** 게다가 Blue/Green 이라 전환 순간
 > **blue(컨테이너)와 green(RDS)이 서로 다른 DB 를 보며 동시에 살아 있다** —
 > [Phase 6](./phase-06-elasticache.md) 이 Redis 에서 stop-first 를 쓰는 것과 같은 split-brain 이다.
-> 아래는 **DB 레벨에서 쓰기를 얼려** 그 창을 없앤다.
+> **DB 레벨에서 쓰기를 얼려** 그 창을 없앤다.
 
-7. **쓰기 동결.** 개발자에게 공지하고:
-   ```bash
-   docker exec "$C" sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e "SET GLOBAL read_only = ON;"'
-   ```
-   - `groble_root` 에 SUPER 가 없으므로(실측) **앱의 쓰기가 실제로 막힌다.** 읽기는 계속된다
-   - 되돌리기는 `read_only = OFF` 한 줄이다
-   - ⚠️ 컨테이너가 재시작하면 `OFF` 로 돌아간다. 컷오버 중에는 컨테이너 상태를 지켜본다
-     (이 컨테이너는 14일에 5회 재시작한 이력이 있다)
-8. **최종 덤프 → 복원** (5번과 동일한 명령, 파일명만 `dev-final.sql`).
-   복원 전에 대상 DB 를 비운다 — 리허설 데이터가 남아 있다:
-   ```bash
-   docker exec "$C" sh -c 'mysql -h <rds> -u groble_root -p"$MYSQL_ROOT_PASSWORD" \
-     -e "DROP DATABASE groble_develop_database; CREATE DATABASE groble_develop_database
-         CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"'
-   ```
-9. **행 수 대조** — 아래 [검증](#검증)의 대조 스크립트. **여기서 어긋나면 진행하지 않는다**
-10. `terraform apply` — `DB_HOST` 가 RDS 주소로 바뀐 **새 태스크 정의 리비전**이 생긴다
-11. 🟠 **CodeDeploy 배포를 별도로 트리거한다.**
-    ```bash
-    # 새 리비전 번호 확인
-    aws ecs describe-task-definition --task-definition groble-dev-task \
-      --profile groble-terraform --query 'taskDefinition.revision'
-    # appspec 으로 CodeDeploy 배포 생성
-    aws deploy create-deployment --application-name <dev-app> \
-      --deployment-group-name <dev-dg> --revision file://appspec-dev.json \
-      --profile groble-terraform
-    ```
-    > **`terraform apply` 만으로는 절대 배포되지 않는다.** `aws_ecs_service.api_service` 에
-    > `lifecycle { ignore_changes = [task_definition, load_balancer] }` 가 걸려 있어
-    > **새 리비전만 만들어지고 서비스는 옛 리비전을 계속 돈다.** plan 은 성공하는데 실물이 안 바뀐다.
-    > 원래 문서는 이 함정을 dev-mysql·prod-redis 에 대해서만 적어 뒀는데, **dev-api 에도 똑같이 적용된다.**
-12. green 태스크가 healthy · RDS 에 연결됨을 확인한 뒤 트래픽 전환
-13. **쓰기 동결 해제** — 컨테이너의 `read_only` 는 **켜 둔 채로 남긴다.** 롤백용 데이터가
-    더 갈라지지 않게 하기 위함이다. 앱은 이미 RDS 를 보므로 영향이 없다
+9. **쓰기 동결** — 컨테이너 MySQL 에 `SET GLOBAL read_only = ON`
+   - `groble_root` 에 SUPER 가 없으므로(실측) 앱의 쓰기가 실제로 막힌다. 읽기는 계속된다
+   - ⚠️ 컨테이너가 재시작하면 `OFF` 로 돌아간다. 14일에 5회 재시작한 이력이 있다
+10. **최종 덤프 → 복원** (B단계와 동일. 실측 소요 **16초**)
+11. **행 수 대조** — [검증](#검증)의 스크립트. **어긋나면 진행하지 않는다**
+12. **`DB_HOST` 를 RDS 주소로 바꿔 평소대로 배포** — GitHub Actions 파이프라인에서.
+    **`DB_PORT`·`DB_NAME`·`DB_USERNAME`·`DB_PASSWORD` 는 바꾸지 않는다** (아래 참조)
+13. green 태스크 healthy · RDS 에 실제로 붙었는지 확인 후 트래픽 전환
+14. 컨테이너의 `read_only` 는 **켜 둔 채로 남긴다** — 롤백 자산이 더 갈라지지 않게
+
+### 🟢 바꿀 값이 `DB_HOST` 하나뿐인 이유
+
+RDS 마스터 계정을 **앱이 지금 쓰는 것과 같은 자격증명으로 만들었다.** 확인했다:
+
+| 환경변수 | 컨테이너 | RDS | 바꾸나 |
+|---|---|---|---|
+| `DB_HOST` | `10.0.12.215` | `groble-dev-mysql.cloukwy4oscs.ap-northeast-2.rds.amazonaws.com` | **✅ 이것만** |
+| `DB_PORT` | 3306 | 3306 | ❌ |
+| `DB_NAME` | `groble_develop_database` | 동일 | ❌ |
+| `DB_USERNAME` | `groble_root` | 동일 | ❌ |
+| `DB_PASSWORD` | (tfvars 값) | **동일** — sha256 대조로 확인 | ❌ |
 
 ### D. 관찰 — 컨테이너를 아직 지우지 않는다
 
-14. **2~3일 관찰.** 컨테이너 MySQL 서비스는 `read_only=ON` 상태로 그대로 둔다 (롤백 자산)
-15. dev 스모크 테스트 · 알람 정상 · RDS 자동 백업 1회 이상 생성 확인
+15. **2~3일 관찰.** 컨테이너 MySQL 서비스는 `read_only=ON` 상태로 그대로 둔다 (롤백 자산)
+16. dev 스모크 테스트 · 알람 정상 · RDS 자동 백업 1회 이상 생성 확인
+17. **인프라에 이관 완료를 알린다** → E단계 착수 조건
 
-### E. 정리 — 🔴 되돌릴 수 없는 지점
+### E. 정리 — **인프라 소관** 🔴 되돌릴 수 없는 지점
 
-16. `module "dev_mysql_service"` 제거 → apply
-17. dev 노드의 `/opt/mysql-dev-data` 는 **바로 지우지 않는다.** 1주 더 둔 뒤
+18. `module "dev_mysql_service"` 제거 → apply
+19. `environments/dev/main.tf` 의 `db_host` 를 `module.dev_rds_mysql.rds_address` 로 정리
+    (배포 경로가 아니라 기록의 일관성 목적)
+20. dev 노드의 `/opt/mysql-dev-data` 는 **바로 지우지 않는다.** 1주 더 둔 뒤
     [8-b](./phase-08b-dev-cache-asg.md) 의 노드 교체에서 자연 소멸시킨다
-18. `컨테이너 메모리 하드리밋 근접` 알람이 멎었는지 확인
+21. `컨테이너 메모리 하드리밋 근접` 알람이 멎었는지 확인
+22. dev 노드 여유 메모리가 ~256 MiB 늘었는지 — [8-b](./phase-08b-dev-cache-asg.md) 예산의 전제
 
 ---
 

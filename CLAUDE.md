@@ -52,10 +52,13 @@ SSM Session Manager(bastion·WireGuard 폐기) · Terraform state를 S3로
 앱의 OTLP·Loki 주소가 `otel.internal.groble.im` 으로 간접화되어 **다음 교체부터는
 레코드 값 변경 + 구 노드 수신 중단만으로 끝난다**(앱 재배포 없음).
 구 노드는 `groble-nat-instance` 로 개명해 NAT·bastion·VPN 만 지고 남아 있다.
-**Phase 5(배포 컨트롤러 전환)는 앱 측 차단 조건 4건 회신 대기**이고, Phase 3 도 외부 업체 회신 대기다.
-그래서 **다음 작업은 순서를 앞당긴 [Phase 8-a — Dev MySQL → RDS](docs/runbook/phase-08a-dev-rds.md)** 다 —
-회신 대기가 없는 유일한 Phase 이고, dev 노드의 256 MiB 회수와 dev 엔진의 prod 일치(8.0.46 → 8.4.11)를
-같이 얻는다. 원래 Phase 8 은 2026-08-31 에 **8-a(RDS) / 8-b(ElastiCache + ASG)** 로 쪼갰다.
+원래 Phase 8 은 2026-08-31 에 **8-a(RDS) / 8-b(ElastiCache + ASG)** 로 쪼갰고,
+**[Phase 8-a](docs/runbook/phase-08a-dev-rds.md) 를 앞당겨 진행했다** — Phase 3·5 가 모두 회신 대기라
+착수할 수 있는 유일한 Phase 였다. **인프라 몫은 끝났다**: `groble-dev-mysql`
+(RDS MySQL 8.4.11, db.t4g.micro, private 2c) 과 전용 SG·알람 6종을 배포했고 덤프/복원 리허설까지 검증했다.
+**데이터 이관과 `DB_HOST` 전환은 백엔드 소관이다** — 실행 중인 태스크 정의를 등록하는 것이
+Terraform 이 아니라 GitHub Actions 이기 때문이다([요청서](docs/handoff/dev-rds-cutover.md)).
+이관 완료 연락을 받으면 구 MySQL 컨테이너를 제거한다.
 Phase 5·6·7 과 8-b 는 미착수다.
 Phase와 독립적인 [RDS MySQL 8.4 업그레이드](docs/runbook/adhoc/rds-mysql-84-upgrade.md)는
 **2026-08-29 전환 완료**했다 (확장 지원 과금 $178.56/월 중단).

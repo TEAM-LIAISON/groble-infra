@@ -33,7 +33,7 @@
 | **[5](./runbook/phase-05-deployment-controller.md)** | 배포 컨트롤러 CodeDeploy → ECS rolling | ⬜ 미착수 — **다음 작업.** 앱 측 차단 조건 4건 대기 | 없음 (리스너 스왑) | **리스너 규칙 되돌리기** |
 | **[6](./runbook/phase-06-elasticache.md)** | Prod Redis → ElastiCache (**stop-first**, rolling 아님) | ⬜ 미착수 | **진행 중 결제 세션 소실 + 1~2분 순단** ⚠️ | 되돌려도 재소실 |
 | **[7](./runbook/phase-07-prod-asg.md)** | Prod ASG 전환 (구 노드 드레인) | ⬜ 미착수 | 없음 | 구 노드 재활성화 |
-| **[8-a](./runbook/phase-08a-dev-rds.md)** | Dev MySQL → RDS | 🔄 **진행 중** — A·B단계 완료 (2026-08-31). 다음은 **C단계 컷오버** | Dev만 (쓰기 차단 5~10분) | 컨테이너 제거 전까지 단계별 |
+| **[8-a](./runbook/phase-08a-dev-rds.md)** | Dev MySQL → RDS | ⏳ **회신 대기** — RDS 생성·리허설 완료 (2026-08-31). **컷오버는 백엔드 소관**, 이관 완료 연락 대기 | Dev만 (쓰기 차단 5~10분) | 컨테이너 제거 전까지 단계별 |
 | **[8-b](./runbook/phase-08b-dev-cache-asg.md)** | Dev ElastiCache + ASG 전환 | ⬜ 미착수 — 8-a·5·7 대기 | Dev만 | 단계별 |
 | **[9](./runbook/phase-09-access-path.md)** | 접근 경로 정리 (WireGuard/bastion/22 폐기) | ⬜ 미착수 | 없음 | SG 규칙 복원 |
 | **[10](./runbook/phase-10-secrets-ssm.md)** | Secrets → SSM Parameter Store | ⬜ 미착수 | 없음 (rolling 재배포) | 이전 태스크 정의 |
@@ -97,11 +97,12 @@
 | 대기 | 막고 있는 것 |
 |---|---|
 | [egress IP 허용목록](./handoff/egress-ip-allowlist.md) | **Phase 3 착수 조건** |
+| [Dev RDS 컷오버](./handoff/dev-rds-cutover.md) | **Phase 8-a E단계(자원 정리) 착수 조건.** RDS 는 만들어 뒀고 이관·전환은 백엔드 파이프라인 몫이다 |
 | 계획서 §3 앱 측 차단 조건 **A~D** (expand/contract · readiness/liveness · graceful shutdown · 드레이닝 값) | **Phase 5 착수 조건.** 요청서 [rolling-deploy-prerequisites.md](./handoff/rolling-deploy-prerequisites.md) |
 | [결제 지표 3종 노출](./handoff/payment-alerts-review.md) (§6) | 알림 R10~R14. Phase 2 완료는 막지 않는다 |
 | 전환 구간(02:19~02:27) 결제 점검 · 첫 09:00 배치 확인 | [RDS 8.4 업그레이드](./runbook/adhoc/rds-mysql-84-upgrade.md) — 전환은 끝났고 사후 확인만 남았다 |
 
-**막혀 있지 않은 것**: [Phase 8-a](./runbook/phase-08a-dev-rds.md)(Dev MySQL → RDS)는 회신 대기가 없다. 세 건이 모두 백엔드를 기다리는 동안 진행할 수 있는 유일한 Phase 다.
+[Phase 8-a](./runbook/phase-08a-dev-rds.md) 는 인프라 몫(RDS 생성·리허설)을 2026-08-31 에 마쳤고, 이제 백엔드의 이관 완료 연락을 기다린다.
 
 ---
 
