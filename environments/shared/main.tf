@@ -59,7 +59,10 @@ module "load_balancer" {
   load_balancer_sg_id            = module.security_groups.load_balancer_sg_id
   project_name                   = var.project_name
   enable_deletion_protection     = var.enable_deletion_protection
-  health_check_path              = var.health_check_path
+  prod_health_check_path         = var.prod_health_check_path
+  dev_health_check_path          = var.dev_health_check_path
+  prod_deregistration_delay      = var.prod_deregistration_delay
+  dev_deregistration_delay       = var.dev_deregistration_delay
   ssl_certificate_arn            = var.ssl_certificate_arn
   additional_ssl_certificate_arn = aws_acm_certificate_validation.dev_wildcard.certificate_arn
   extra_ssl_certificate_arns     = [aws_acm_certificate_validation.mcp_dev.certificate_arn]

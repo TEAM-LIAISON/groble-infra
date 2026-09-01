@@ -31,12 +31,14 @@ resource "aws_lb_target_group" "groble_prod_blue_tg" {
   vpc_id      = var.vpc_id
   target_type = "ip"  # awsvpc mode support
 
+  deregistration_delay = var.prod_deregistration_delay
+
   health_check {
     enabled             = true
     healthy_threshold   = 2
     interval            = 30
     matcher             = "200-399"
-    path                = var.health_check_path
+    path                = var.prod_health_check_path
     port                = "traffic-port"
     protocol            = "HTTP"
     timeout             = 5
@@ -59,12 +61,14 @@ resource "aws_lb_target_group" "groble_prod_green_tg" {
   vpc_id      = var.vpc_id
   target_type = "ip"  # awsvpc mode support
 
+  deregistration_delay = var.prod_deregistration_delay
+
   health_check {
     enabled             = true
     healthy_threshold   = 2
     interval            = 30
     matcher             = "200-399"
-    path                = var.health_check_path
+    path                = var.prod_health_check_path
     port                = "traffic-port"
     protocol            = "HTTP"
     timeout             = 5
@@ -91,12 +95,14 @@ resource "aws_lb_target_group" "groble_dev_blue_tg" {
   vpc_id      = var.vpc_id
   target_type = "ip"  # awsvpc mode support
 
+  deregistration_delay = var.dev_deregistration_delay
+
   health_check {
     enabled             = true
     healthy_threshold   = 2
     interval            = 30
     matcher             = "200-399"
-    path                = var.health_check_path
+    path                = var.dev_health_check_path
     port                = "traffic-port"
     protocol            = "HTTP"
     timeout             = 8
@@ -119,12 +125,14 @@ resource "aws_lb_target_group" "groble_dev_green_tg" {
   vpc_id      = var.vpc_id
   target_type = "ip"  # awsvpc mode support
 
+  deregistration_delay = var.dev_deregistration_delay
+
   health_check {
     enabled             = true
     healthy_threshold   = 2
     interval            = 30
     matcher             = "200-399"
-    path                = var.health_check_path
+    path                = var.dev_health_check_path
     port                = "traffic-port"
     protocol            = "HTTP"
     timeout             = 8
@@ -157,9 +165,9 @@ resource "aws_lb_target_group" "groble_monitoring_tg" {
   #    (00:41:26~00:47:33) 내려가 있었다.
   #    사용자 트래픽을 받지 않으므로 길게 드레이닝할 이유가 없다.
   #
-  #    ⚠️ API 타깃그룹에는 손대지 않았다. 그쪽의 300초는 낭비가 아니라 실제
-  #       in-flight 드레이닝 시간이다(태스크는 DEACTIVATING 동안 살아 있다).
-  #       prod 는 단일 요청 최대 16.7초가 실측되므로 별도 판단이 필요하다.
+  #    ⚠️ API 타깃그룹은 prod_/dev_deregistration_delay 로 따로 잡는다. 그쪽의 300초는
+  #       낭비가 아니라 실제 in-flight 드레이닝 시간이다(태스크는 DEACTIVATING 동안
+  #       살아 있다). Phase 6 에서 결제 승인 상한 30초를 근거로 60초까지만 내린다.
   deregistration_delay = var.monitoring_deregistration_delay
 
   health_check {
