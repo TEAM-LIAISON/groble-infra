@@ -1,6 +1,15 @@
+# 이름은 한 곳에서 만든다 — task definition family · ECS 서비스 이름 · 태그가 같이 움직인다.
+#
+# 호출부가 dev·prod 양쪽 모두 environment = "monitoring" 을 넘긴다. exporter 가 도는
+# 곳이 모니터링 노드이지 감시 대상 환경이 아니기 때문이다. 그래서 두 인스턴스를
+# 가르는 것은 environment 가 아니라 name_suffix 다.
+locals {
+  name = "${var.environment}-rds-exporter${var.name_suffix}"
+}
+
 # Task Definition for RDS Exporter
 resource "aws_ecs_task_definition" "rds_exporter" {
-  family                   = "${var.environment}-rds-exporter"
+  family                   = local.name
   network_mode             = "host"
   requires_compatibilities = ["EC2"]
   cpu                      = var.cpu
@@ -17,14 +26,14 @@ resource "aws_ecs_task_definition" "rds_exporter" {
       command = [
         "--mysqld.address=${var.rds_endpoint}:3306",
         "--mysqld.username=${var.database_username}",
-        "--web.listen-address=:9104"
+        "--web.listen-address=:${var.exporter_port}"
       ]
 
-      # Host networking - exposes on port 9104
+      # Host networking - 노드에서 이 포트가 유일해야 한다 (dev·prod exporter 공존)
       portMappings = [
         {
-          containerPort = 9104
-          hostPort      = 9104
+          containerPort = var.exporter_port
+          hostPort      = var.exporter_port
           protocol      = "tcp"
         }
       ]
@@ -55,7 +64,7 @@ resource "aws_ecs_task_definition" "rds_exporter" {
       healthCheck = {
         command = [
           "CMD-SHELL",
-          "wget --no-verbose --tries=1 --spider http://localhost:9104/metrics || exit 1"
+          "wget --no-verbose --tries=1 --spider http://localhost:${var.exporter_port}/metrics || exit 1"
         ]
         interval    = 30
         timeout     = 5
@@ -66,7 +75,7 @@ resource "aws_ecs_task_definition" "rds_exporter" {
   ])
 
   tags = {
-    Name        = "${var.environment}-rds-exporter-task"
+    Name        = "${local.name}-task"
     Environment = var.environment
     Service     = "monitoring"
     Component   = "rds-exporter"
@@ -75,7 +84,7 @@ resource "aws_ecs_task_definition" "rds_exporter" {
 
 # ECS Service for RDS Exporter (single instance on monitoring)
 resource "aws_ecs_service" "rds_exporter" {
-  name            = "${var.environment}-rds-exporter"
+  name            = local.name
   cluster         = var.ecs_cluster_id
   task_definition = aws_ecs_task_definition.rds_exporter.arn
   desired_count   = 1
@@ -91,7 +100,7 @@ resource "aws_ecs_service" "rds_exporter" {
   deployment_minimum_healthy_percent = 0
 
   tags = {
-    Name        = "${var.environment}-rds-exporter-service"
+    Name        = "${local.name}-service"
     Environment = var.environment
     Service     = "monitoring"
     Component   = "rds-exporter"

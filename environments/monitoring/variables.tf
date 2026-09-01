@@ -263,6 +263,46 @@ variable "rds_database_password" {
   default     = ""
 }
 
+# Dev RDS exporter
+#
+# Phase 5 로 dev DB 가 컨테이너 MySQL 에서 RDS 로 옮겨가면서 감시 대상이 하나 늘었다.
+# exporter 는 **prod 와 같은 모니터링 노드**에 뜬다 — Prometheus 의 rds-exporter job 이
+# localhost 를 긁기 때문이다(groble-images prometheus.yml). 따라서 두 exporter 를
+# 가르는 것은 노드가 아니라 포트(9104 / 9105)와 이름 접미사다.
+#
+# 네트워크 경로는 이미 열려 있다 — groble-rds-mysql-dev-sg 의 3306 이
+# groble-monitor-target-group 을 SG 참조로 허용한다 (Phase 5 에서 만들었다).
+variable "rds_dev_endpoint" {
+  description = "Dev RDS endpoint address. 비우면 dev exporter 를 만들지 않는다"
+  type        = string
+  default     = ""
+}
+
+variable "rds_dev_database_username" {
+  description = "Dev RDS database username for exporter"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "rds_dev_database_password" {
+  description = "Dev RDS database password for exporter"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "rds_dev_exporter_port" {
+  description = <<-EOT
+    dev exporter 의 host 포트. prod 가 9104 를 쓰므로 겹치면 안 된다.
+
+    ⚠️ 이 값을 바꾸면 groble-images 의 prometheus.yml 에 같은 포트를 보는
+    rds-exporter-dev job 도 함께 고쳐야 한다. 안 하면 조용히 스크레이프되지 않는다.
+  EOT
+  type        = number
+  default     = 9105
+}
+
 
 #################################
 # Exporter 자원 (Phase 4 재배분으로 노출)

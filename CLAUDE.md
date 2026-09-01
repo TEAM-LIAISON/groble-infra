@@ -247,7 +247,8 @@ RDS는 `multi_az = false`이고 db_subnet_group이 2a/2c를 모두 포함해 **A
 | OpenTelemetry | **`groble-otelcol:0.132.0-*` (ECR, config baked)** | 4317(gRPC), 4318(HTTP) | 256/256MB |
 | Node Exporter | prom/node-exporter:latest | 9100 | DAEMON, task memory 128MB |
 | cAdvisor | gcr.io/cadvisor/cadvisor:latest | 8081 | DAEMON, task memory 256MB |
-| RDS Exporter | prometheuscommunity/mysqld_exporter:latest | 9104 | -/128MB |
+| RDS Exporter (prod) | prom/mysqld-exporter:v0.15.1 | **9104** | -/48MB |
+| RDS Exporter (dev) | prom/mysqld-exporter:v0.15.1 | **9105** | -/48MB |
 
 **Grafana·Prometheus·Loki·otelcol 전부 `groble-images` CI가 설정을 구워 ECR에 push한 이미지를 쓴다.**
 설정 변경은 이 리포지토리가 아니라 `groble-images`에서 하고, `terraform.tfvars`의 이미지 태그를 올린다.
@@ -273,9 +274,25 @@ RDS는 `multi_az = false`이고 db_subnet_group이 2a/2c를 모두 포함해 **A
 앱 메트릭·트레이스 → OTLP (4318) → OpenTelemetry Collector → Prometheus
 앱 로그          → Loki (3100) 직접 전송 (loki4j)      ← otelcol 을 거치지 않는다
 Node Exporter (9100) + cAdvisor (8081) → Prometheus scrape
-RDS Exporter (9104) → Prometheus scrape
+RDS Exporter prod(9104) · dev(9105) → Prometheus scrape
 All → Grafana (3000) Dashboard
 ```
+
+⚠️ **RDS exporter 는 감시 대상이 dev 든 prod 든 모니터링 노드에 뜬다.** Prometheus 의
+`rds-exporter` job 이 `static_configs: localhost` 라 스크레이프가 로컬 고정이기 때문이다
+(노드 타깃인 node-exporter·cAdvisor 가 `ec2_sd_config` 인 것과 다르다).
+그래서 두 exporter 를 가르는 것은 노드가 아니라 **포트**이며, 이 값이 두 리포에 걸쳐 있다:
+
+| | 포트를 정하는 곳 | 포트를 보는 곳 |
+|---|---|---|
+| prod | 이 리포 `rds-exporter` 모듈 기본값 | groble-images `prometheus.yml` 의 `rds-exporter` job |
+| dev | 이 리포 `rds_dev_exporter_port` (9105) | groble-images `prometheus.yml` 의 `rds-exporter-dev` job |
+
+**한쪽만 바꾸면 오류 없이 스크레이프가 멈춘다.**
+
+> dev 지표는 수집되지만 **대시보드에는 아직 나오지 않는다.** `groble-database` 의 쿼리 54곳이
+> `job="rds-exporter"` 로 고정돼 있어, dev 를 같은 화면에서 보려면 groble-images 쪽에
+> job 변수를 두는 작업이 필요하다.
 
 ⚠️ **앱은 목적지를 둘 가지며, 로그는 otelcol 을 거치지 않는다.** 이전 문서가
 "Applications → OTLP → otelcol → Prometheus + Loki"로 잘못 적고 있었다.
