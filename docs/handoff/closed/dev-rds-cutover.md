@@ -1,12 +1,18 @@
-# [요청] Dev DB 를 컨테이너 MySQL → RDS 로 전환해 주세요
+# [요청·종결] Dev DB 를 컨테이너 MySQL → RDS 로 전환해 주세요
+
+> 📦 **종결된 요청서다.** 2026-09-01 이관이 끝났고 구 MySQL 컨테이너까지 제거했다.
+> 아래 절차는 실제로 수행된 것의 기록이며, 진행 중 계획과 달랐던 점은
+> [Phase 5 런북의 완료 요약](../../runbook/phase-05-dev-rds.md)에 있다.
+> **접속 정보는 지금도 유효하다** — dev DB 는 `groble-dev-mysql` 이다.
 
 | | |
 |---|---|
 | **요청 대상** | groble-backend |
 | **요청자** | 인프라 (groble-infra) |
 | **작성일** | 2026-08-31 |
-| **상태** | ⏳ **회신 대기** — RDS 는 만들어 두었습니다. **전환 작업과 완료 연락**을 부탁드립니다 |
-| **관련** | [Phase 5 런북](../runbook/phase-05-dev-rds.md) · [SSM 접속 가이드](../developer-access.md) |
+| **상태** | 📦 **종결** (2026-09-01) — 이관 완료. 구 MySQL 컨테이너까지 제거했습니다 |
+| **종결일** | 2026-09-01 |
+| **관련** | [Phase 5 런북](../../runbook/phase-05-dev-rds.md) · [SSM 접속 가이드](../../developer-access.md) |
 
 ---
 
@@ -37,7 +43,7 @@
 전환 후에는 자동 백업(7일)이 붙고, 버퍼풀이 128 → **256 MiB** 로 늘고, **엔진이 prod 와 같아집니다.**
 
 > **8.4 호환성은 이미 확인된 사항입니다.** 2026-08-29 prod 를 8.0 → 8.4 로 올릴 때
-> 검토해 주셨던 그 건입니다 ([당시 요청서](./closed/rds-mysql-84-compatibility.md)).
+> 검토해 주셨던 그 건입니다 ([당시 요청서](./rds-mysql-84-compatibility.md)).
 > Dev 도 같은 8.4.11 을 씁니다.
 
 ---
@@ -74,7 +80,7 @@ RDS 마스터 계정을 **앱이 지금 쓰는 것과 같은 자격증명으로*
 `describe-task-definition --task-definition <family>`(리비전 미지정 = 최신 ACTIVE)로 가져와
 **이미지만 갈아끼우는** 구조이기 때문입니다.
 
-[Phase 4](../runbook/phase-04-monitoring-node-rebuild.md) 의 OTLP 주소 변경 때 실제로 그렇게 동작했습니다:
+[Phase 4](../../runbook/phase-04-monitoring-node-rebuild.md) 의 OTLP 주소 변경 때 실제로 그렇게 동작했습니다:
 
 | rev | 등록자 | `OTEL_EXPORTER_OTLP_ENDPOINT` |
 |---|---|---|
@@ -86,7 +92,7 @@ RDS 마스터 계정을 **앱이 지금 쓰는 것과 같은 자격증명으로*
 
 ### 접속 확인하는 법
 
-**개발 노드에서** (SSM, VPN 불필요 — [접속 가이드](../developer-access.md)):
+**개발 노드에서** (SSM, VPN 불필요 — [접속 가이드](../../developer-access.md)):
 
 ```bash
 aws ssm start-session --profile groble --target i-0c8870fff57255a76
@@ -255,7 +261,7 @@ MySQL 8 클라이언트 기본값이 `--ssl-mode=PREFERRED` 라 자동으로 협
 **④ 콜레이션이 두 가지로 갈려 있습니다** — `utf8mb4_0900_ai_ci` 52개 / `utf8mb4_unicode_ci` 58개.
 **이관이 이것을 바꾸지도 고치지도 않습니다**(덤프가 테이블별 콜레이션을 그대로 들고 갑니다).
 다만 서로 다른 콜레이션 컬럼을 조인하면 인덱스를 못 쓰므로, 언젠가 정리하실 만합니다
-([향후 개선 Low-6](../infra-future-improvements.md#low-6)). **이번 작업과는 무관합니다.**
+([향후 개선 Low-6](../../infra-future-improvements.md#low-6)). **이번 작업과는 무관합니다.**
 
 **⑤ 백업·점검 시간** — 자동 백업 KST **02:00~03:00**, 점검창 **월요일 03:00~04:00**. 보존 7일.
 

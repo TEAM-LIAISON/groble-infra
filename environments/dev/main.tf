@@ -217,20 +217,10 @@ module "rds_alarms" {
 # DEV Service Layer
 #################################
 
-# Development MySQL Service
-module "dev_mysql_service" {
-  source = "../../modules/services/development/mysql-service"
-  
-  project_name                 = var.project_name
-  ecs_cluster_id              = data.aws_ecs_cluster.shared_cluster.id
-  ecs_task_execution_role_arn = data.aws_iam_role.shared_ecs_task_execution_role.arn
-  ecs_task_role_arn          = data.aws_iam_role.shared_ecs_task_role.arn
-  
-  mysql_memory        = var.mysql_memory
-  mysql_cpu          = var.mysql_cpu
-  mysql_root_password = var.mysql_root_password
-  mysql_database     = var.mysql_database
-}
+# Development MySQL Service — Phase 5 E단계(2026-09-01)에서 제거했다.
+# dev DB 는 module.dev_rds_mysql (RDS MySQL 8.4.11) 로 이관됐다.
+# 노드의 /opt/mysql-dev-data 는 남아 있으며 Phase 9 의 노드 교체에서 사라진다.
+# docs/runbook/phase-05-dev-rds.md
 
 # Development Redis Service
 module "dev_redis_service" {
@@ -303,7 +293,6 @@ module "dev_api_service" {
   target_group_arn = data.aws_lb_target_group.shared_dev_blue_tg.arn
   
   depends_on = [
-    module.dev_mysql_service,
     module.dev_redis_service
   ]
 }
@@ -332,17 +321,6 @@ output "api_service_arn" {
 output "api_task_definition_arn" {
   description = "API task definition ARN"
   value       = module.dev_api_service.task_definition_arn
-}
-
-# MySQL Service outputs  
-output "mysql_service_id" {
-  description = "MySQL service ID"
-  value       = module.dev_mysql_service.service_id
-}
-
-output "mysql_task_definition_arn" {
-  description = "MySQL task definition ARN"
-  value       = module.dev_mysql_service.task_definition_arn
 }
 
 # Redis Service outputs

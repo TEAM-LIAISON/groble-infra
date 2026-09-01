@@ -113,7 +113,7 @@ aws configure --profile groble-terraform
 **반드시 이 순서대로 배포:**
 1. `environments/shared` — VPC, SG, ALB, IAM, ECS Cluster, EC2 인스턴스 3대, CodeDeploy, WAF
 2. `environments/monitoring` — Grafana, Prometheus, Loki, OpenTelemetry, Node Exporter, cAdvisor, RDS Exporter
-3. `environments/dev` — Dev ECR, MySQL(컨테이너), Redis, Spring Boot API
+3. `environments/dev` — Dev ECR, RDS MySQL, Redis, Spring Boot API
 4. `environments/prod` — Prod ECR, RDS MySQL(관리형), Redis, Spring Boot API
 
 ### Directory Structure
@@ -121,7 +121,7 @@ aws configure --profile groble-terraform
 environments/
   shared/          # 공유 인프라 (VPC, SG, ALB, IAM, ECS, CodeDeploy, WAF)
   monitoring/      # 모니터링 스택 (Grafana, Prometheus, Loki, OTEL)
-  dev/             # 개발 환경 서비스 (MySQL컨테이너, Redis, API)
+  dev/             # 개발 환경 서비스 (RDS MySQL, Redis, API)
   prod/            # 프로덕션 환경 서비스 (RDS MySQL, Redis, API)
 modules/
   infrastructure/  # VPC, security-groups, iam-roles, load-balancer, rds-mysql, route53
@@ -130,7 +130,7 @@ modules/
   observability/   # alerting(SNS+Chatbot), alb-alarms, rds-alarms — 계층을 가로지르는 알람
   services/
     production/    # api-service, redis-service
-    development/   # api-service, mysql-service, redis-service
+    development/   # api-service, redis-service (mysql-service 는 Phase 5 에서 제거)
     monitoring/    # grafana, prometheus, loki, otelcol, node-exporter, cadvisor, rds-exporter
 shared/            # 공통 변수 정의 및 프로바이더 설정
 bootstrap/         # Terraform이 관리하지 않는 부트스트랩 리소스의 정책 원본 (state 버킷·KMS·CloudTrail)
@@ -178,7 +178,7 @@ RDS는 `multi_az = false`이고 db_subnet_group이 2a/2c를 모두 포함해 **A
 | Instance | Type | Subnet | Volume | 용도 |
 |----------|------|--------|--------|------|
 | Production | t3.medium | Private (2a) | 30GB gp3 | Prod API, Redis |
-| Development | t3.medium | Private (2c) | 30GB gp3 | Dev API, MySQL, Redis |
+| Development | t3.medium | Private (2c) | 30GB gp3 | Dev API, Redis (**MySQL 은 2026-09-01 RDS 로 이관**) |
 | Monitoring(구) `groble-nat-instance` | t3.small | Public (2a) | 30GB gp3 | 모니터링 스택 + **NAT + bastion + WireGuard VPN** |
 | Monitoring(신) `groble-monitoring-v2-instance` | t3a.small | **Private (2c)** | 30GB gp3 | AL2023. [Phase 4](docs/runbook/phase-04-monitoring-node-rebuild.md) D단계에서 기동. 스택 이동은 E단계 |
 
@@ -210,7 +210,10 @@ RDS는 `multi_az = false`이고 db_subnet_group이 2a/2c를 모두 포함해 **A
   > 기본값(8.4.9)으로 해석해 다운그레이드를 시도하고 apply가 실패한다.
   > 백업창 `18:00-19:00` UTC = KST 03~04시, 점검창 `sun:19:00-sun:20:00` UTC = KST 월 04~05시.
   > db.t3.micro는 메모리 1GiB다. 용량을 논할 때 EC2의 t3.medium과 혼동하지 말 것 — 이전 문서가 `db.t3.medium` / `100GB→1000GB`로 잘못 적고 있었다.
-- **Dev**: MySQL 8.0 컨테이너 (host mode, 256MB, **데이터가 노드 로컬 디스크** `/opt/mysql-dev-data`)
+- **Dev**: RDS MySQL **8.4.11** (**db.t4g.micro**, gp2, 암호화, 7일 백업, 20GB→100GB auto-scaling, **단일 AZ / 2c 고정**)
+  > 2026-09-01 [Phase 5](docs/runbook/phase-05-dev-rds.md) 에서 컨테이너 MySQL(8.0.46, 노드 로컬 디스크)에서 이관했다.
+  > 백업창 `17:00-18:00` UTC = KST 02~03시, 점검창 `sun:18:00-sun:19:00` UTC = KST 월 03~04시.
+  > 노드의 `/opt/mysql-dev-data`(211MB)는 아직 남아 있으며 Phase 9 노드 교체에서 사라진다.
 
 ### Redis 7 (ECS, host mode)
 - Port 6379, Memory 128MB, Prod/Dev 모두 컨테이너 기반
@@ -324,14 +327,19 @@ All → Grafana (3000) Dashboard
 - **Custom Rules**: IP Rate limit 2000/5min, Global 50000/5min, Login 50/5min, Request size 1MB
 - **Geo-blocking**: KR, JP, SG, AU, NZ, HK, TW, TH, VN, MY, PH, ID, IN 허용
 
-### Security Groups (6개)
+### Security Groups (7개)
 1. **LB SG**: 80, 443, 9443 from 0.0.0.0/0
 2. **Prod Target SG**: 80, 8080, 22, 3306, 6379, 9100, 8081
 3. **Dev Target SG**: 80, 8080, 22, 3306, 6379, 9100, 8081
 4. **Monitoring SG**: **51820/UDP (WireGuard, `0.0.0.0/0` 개방)**, 22, 3000, 4317/4318, 3100, 9090, NAT(all TCP/UDP)
 5. **API Task SG**: 8080 from ALB only (awsvpc 격리)
-6. **RDS MySQL SG**: 3306 from **Prod Target · API Task · Monitoring** (SG 참조 3건).
-   ⚠️ **Dev Target SG는 없다** — dev는 컨테이너 MySQL을 쓰므로 prod RDS에 붙을 일이 없다.
+6. **RDS MySQL SG** (`groble-rds-mysql-sg`, prod): 3306 from **Prod Target · API Task · Monitoring** (SG 참조 3건)
+7. **Dev RDS MySQL SG** (`groble-rds-mysql-dev-sg`): 3306 from **Dev Target · API Task · Monitoring**.
+   2026-09-01 [Phase 5](docs/runbook/phase-05-dev-rds.md) 에서 신설했다
+
+   ⚠️ **두 SG 로 prod/dev 가 갈리지 않는다** — `groble-api-task-sg` 를 dev·prod 태스크가 공유하므로
+   서로의 RDS 에 네트워크상 닿는다. 자격증명으로만 막힌다
+   ([향후 개선 Medium-6](docs/infra-future-improvements.md#medium-6)).
    ⚠️ **CIDR 인그레스가 하나도 없다** (VPN 서브넷 포함). 아래 접근 경로 참조
 
 **개발자 접근 경로**: **SSM Session Manager 가 기본이다** (2026-08-30, Phase 4). 네 노드 모두
