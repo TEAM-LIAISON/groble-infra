@@ -268,7 +268,8 @@ module "dev_api_service" {
   
   # Database 설정 (shared 환경의 DEV 인스턴스 IP 참조)
   #
-  # 🔴 Phase 5 컷오버(C2)에서 module.dev_rds_mysql.rds_address 로 바꾼다.
+  # Phase 5 컷오버(C2), 2026-09-01 — 컨테이너 IP → RDS 로 전환했다.
+  #    되돌리려면 data.aws_instance.shared_dev_instance.private_ip (10.0.12.215)
   #
   #    apply 는 태스크 정의 리비전만 등록하고 배포하지 않는다
   #    (lifecycle { ignore_changes = [task_definition] }).
@@ -282,7 +283,7 @@ module "dev_api_service" {
   #    ⚠️ apply 는 데이터 복원 뒤에 한다. 먼저 하면 그 사이의 배포가
   #       빈 RDS 를 보게 된다.
   #    docs/runbook/phase-05-dev-rds.md
-  db_host             = data.aws_instance.shared_dev_instance.private_ip
+  db_host             = module.dev_rds_mysql.rds_address
   mysql_database      = var.mysql_database
   mysql_root_password = var.mysql_root_password
   
