@@ -281,7 +281,7 @@ resource "aws_cloudwatch_metric_alarm" "unhealthy_host" {
 # "15분 연속" 조건으로는 임계치를 낮춰도 잡히지 않는다.
 # 42초 p99는 일부 사용자가 42초를 기다렸다는 뜻이므로 별도 알람이 필요하다.
 #
-# ⚠️ Phase 4(rolling)·Phase 7(instance refresh) 중에는 이 알람이 울릴 수 있다.
+# ⚠️ Phase 4(rolling)·Phase 8(instance refresh) 중에는 이 알람이 울릴 수 있다.
 #    전환 작업 중이라면 그 자체가 정보이지만, 오탐으로 느껴지면 작업 창에서만 임계치를 올릴 것.
 resource "aws_cloudwatch_metric_alarm" "latency_p99_spike" {
   for_each = local.traffic_services

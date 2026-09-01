@@ -43,6 +43,12 @@ output "all_security_group_ids" {
     aws_security_group.groble_develop_target_group.id,
     aws_security_group.groble_monitor_target_group.id,
     aws_security_group.groble_api_task_sg.id,
-    aws_security_group.groble_rds_mysql_sg.id
+    aws_security_group.groble_rds_mysql_sg.id,
+    aws_security_group.groble_rds_mysql_dev_sg.id
   ]
+}
+
+output "rds_mysql_dev_sg_id" {
+  description = "ID of the Dev RDS MySQL security group (Phase 5)"
+  value       = aws_security_group.groble_rds_mysql_dev_sg.id
 }

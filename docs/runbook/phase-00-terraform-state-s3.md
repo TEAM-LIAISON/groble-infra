@@ -56,7 +56,7 @@
 | 트레일 로그 버킷 | `groble-cloudtrail-logs-538827147369` (SSE-S3, 365일 만료) |
 | 트레일 | `groble-audit` (멀티리전, 로그 파일 검증 ON) |
 
-state 버킷 설정 — **시크릿 저장소로 취급한다** (Phase 10 전까지 평문 비밀번호가 담긴 state가 여기 올라간다, 계획서 §2.7):
+state 버킷 설정 — **시크릿 저장소로 취급한다** (Phase 11 전까지 평문 비밀번호가 담긴 state가 여기 올라간다, 계획서 §2.7):
 
 - versioning ON / BPA 4항목 전부 ON / SSE-KMS + **Bucket Key ON**(KMS 호출 비용 절감)
 - lifecycle: 비현행 버전은 **최신 10개 보존**, 그 외 90일 후 삭제. 미완료 멀티파트 7일 정리

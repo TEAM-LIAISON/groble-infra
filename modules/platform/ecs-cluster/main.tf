@@ -154,7 +154,7 @@ resource "aws_instance" "monitoring_instance" {
 #################################
 # 구 노드(public 2a, Ubuntu, NAT·bastion·VPN 겸직)를 대체하는 관측 전용 노드다.
 # **구 노드를 대체하지만 없애지는 않는다** — NAT·bastion·VPN 은 구 노드에 남고,
-# 그 폐기는 Phase 3(NAT) → Phase 9(접근 경로) → Phase 11(정리) 의 몫이다.
+# 그 폐기는 Phase 3(NAT) → Phase 10(접근 경로) → Phase 12(정리) 의 몫이다.
 #
 # 계획서 §0 에 따라 pet 으로 유지한다. ASG 로 만들지 않는다.
 

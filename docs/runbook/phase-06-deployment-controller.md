@@ -1,6 +1,6 @@
-# Phase 5 — 배포 컨트롤러 전환 (CodeDeploy → ECS rolling)
+# Phase 6 — 배포 컨트롤러 전환 (CodeDeploy → ECS rolling)
 
-> [← Phase 4](./phase-04-monitoring-node-rebuild.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 6 →](./phase-06-elasticache.md)
+> [← Phase 4](./phase-04-monitoring-node-rebuild.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 7 →](./phase-07-elasticache.md)
 
 | | |
 |---|---|
@@ -17,7 +17,7 @@
 ## 절차
 
 **현재 `api_desired_count = 1`인 상태에서 수행한다.** desired 를 올리지 않는다 —
-증설은 노드가 2대가 되는 [Phase 7](./phase-07-prod-asg.md)(prod) · [Phase 8](./phase-08-dev-migration.md)(dev) 의 작업이다.
+증설은 노드가 2대가 되는 [Phase 8](./phase-08-prod-asg.md)(prod) · [Phase 9](./phase-09-dev-cache-asg.md)(dev) 의 작업이다.
 
 ### ⚠️ desired = 1 구간에는 계획서의 To-Be 비율을 쓸 수 없다
 
@@ -33,7 +33,7 @@ ECS 는 두 값을 desired 에 곱한 뒤 **서로 다른 방향으로 정수화
 계획서 §2.1 의 `100/150` · `50/100` 은 **desired 2 · 4슬롯 플릿을 전제로 계산된 값**이다.
 그대로 쓰면 `update-service` 가 신규 태스크를 하나도 띄우지 못하고 배포가 멈춘다.
 
-→ **이 Phase 에서는 임시로 `100 / 200` 을 쓰고, Phase 7/8 에서 desired 를 2로 올릴 때 To-Be 값으로 바꾼다.**
+→ **이 Phase 에서는 임시로 `100 / 200` 을 쓰고, Phase 8/8 에서 desired 를 2로 올릴 때 To-Be 값으로 바꾼다.**
 `deployment_minimum_healthy_percent` / `deployment_maximum_percent` 는 `deployment_controller` 와 달리
 **in-place 변경**이라 서비스 재생성을 유발하지 않는다. 미루어도 안전하다.
 
@@ -53,7 +53,7 @@ t3.medium 가용치(~3.75 GiB) 안이다. 배치 판단은 `memoryReservation = 
    ```hcl
    deployment_controller { type = "ECS" }
    deployment_minimum_healthy_percent = 100
-   deployment_maximum_percent         = 200   # 임시값 — Phase 7/8 에서 prod 150 / dev 100 으로
+   deployment_maximum_percent         = 200   # 임시값 — Phase 8/8 에서 prod 150 / dev 100 으로
    deployment_circuit_breaker { enable = true, rollback = true }
    ```
    - 기존(CodeDeploy) 서비스는 **그대로 살려둔다**
@@ -65,7 +65,7 @@ t3.medium 가용치(~3.75 GiB) 안이다. 배치 판단은 `memoryReservation = 
    - **6-a.** 이상 없으면 구 서비스 **`desired_count = 0`** — 리소스는 남긴다
      → 슬롯이 1개 풀린다. **여기서 검증 항목의 rolling 배포 · 서킷 브레이커 확인을 수행한다**
    - **6-b.** 검증이 끝나면 구 서비스 **리소스 제거** ← *되돌릴 수 없어지는 지점*
-7. CodeDeploy 애플리케이션·배포그룹·IAM 역할 제거 (Phase 11에서 일괄 정리해도 무방)
+7. CodeDeploy 애플리케이션·배포그룹·IAM 역할 제거 (Phase 12에서 일괄 정리해도 무방)
 8. **CI 파이프라인 전환**: `appspec` 기반 CodeDeploy 호출 → 태스크 정의 등록 + `aws ecs update-service`
    - Terraform은 `lifecycle { ignore_changes = [task_definition] }` 유지
 
@@ -79,7 +79,7 @@ t3.medium 가용치(~3.75 GiB) 안이다. 배치 판단은 `memoryReservation = 
 - [ ] 리스너 스왑 후 트래픽이 신 서비스 태스크로 가는지 (TG별 `RequestCount`)
 - [ ] CI에서 **rolling 배포를 1회 실제로 수행**해 정상 동작 확인 — **6-a 이후에 한다** (그 전에는 슬롯이 없다)
 - [ ] 서킷 브레이커가 동작하는지 — 의도적으로 실패하는 이미지를 Dev에 배포해 롤백 확인
-- [ ] `min/max` 가 **임시값 `100/200`** 인지, Phase 7/8 에서 To-Be 값으로 되돌릴 항목으로 인계되었는지
+- [ ] `min/max` 가 **임시값 `100/200`** 인지, Phase 8/8 에서 To-Be 값으로 되돌릴 항목으로 인계되었는지
 - [ ] 드레이닝 파라미터 정렬 (계획서 §3-3): `deregistration_delay` / `stopTimeout` / Spring graceful 값 확정 및 적용
 
 ## 롤백
@@ -100,4 +100,4 @@ t3.medium 가용치(~3.75 GiB) 안이다. 배치 판단은 `memoryReservation = 
 
 ---
 
-[← Phase 4 — 모니터링 노드 재구축](./phase-04-monitoring-node-rebuild.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 6 — Prod Redis → ElastiCache →](./phase-06-elasticache.md)
+[← Phase 4 — 모니터링 노드 재구축](./phase-04-monitoring-node-rebuild.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 7 — Prod Redis → ElastiCache →](./phase-07-elasticache.md)

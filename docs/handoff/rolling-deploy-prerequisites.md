@@ -6,7 +6,7 @@
 | **요청자** | 인프라 (groble-infra) |
 | **작성일** | 2026-08-30 |
 | **상태** | ⏳ **회신 대기** |
-| **관련** | [Phase 5 런북 — 배포 컨트롤러 전환](../runbook/phase-05-deployment-controller.md) · [계획서 §2.6 · §3](../infra-ha-improvement-plan.md) |
+| **관련** | [Phase 6 런북 — 배포 컨트롤러 전환](../runbook/phase-06-deployment-controller.md) · [계획서 §2.6 · §3](../infra-ha-improvement-plan.md) |
 
 ---
 

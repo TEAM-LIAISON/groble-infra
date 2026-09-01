@@ -1,6 +1,6 @@
-# Phase 11 — 잔재 정리 및 문서 갱신
+# Phase 12 — 잔재 정리 및 문서 갱신
 
-> [← Phase 10](./phase-10-secrets-ssm.md) · [이관 절차 목차](../infra-ha-migration-runbook.md)
+> [← Phase 11](./phase-11-secrets-ssm.md) · [이관 절차 목차](../infra-ha-migration-runbook.md)
 
 | | |
 |---|---|
@@ -12,7 +12,7 @@
 
 ## 정리 대상
 
-- [ ] CodeDeploy 애플리케이션 / 배포그룹 / IAM 역할 ([Phase 5](./phase-05-deployment-controller.md)에서 남겼다면)
+- [ ] CodeDeploy 애플리케이션 / 배포그룹 / IAM 역할 ([Phase 6](./phase-06-deployment-controller.md)에서 남겼다면)
 - [ ] **테스트 리스너(9443)** 및 관련 SG 규칙 — rolling에서는 사용하지 않음
 - [ ] 사용하지 않는 Blue 타깃그룹
 - [ ] `ecs-cluster` 모듈의 고정 사설 IP 변수 (`prod_instance_private_ip` 등)
@@ -27,8 +27,8 @@
   - "Prometheus: S3 장기 저장(90일)" → **실제로 미사용**. 현재는 로컬 15일이 전부
   - EC2 인스턴스 표, 배포 전략, 네트워크 구성, Secrets 관리 전면 갱신
 - [ ] 계획서 §4의 남은 To-Do 상태 갱신
-- [ ] [Phase 7](./phase-07-prod-asg.md)에서 실측한 **노드 복구 시간**을 계획서 §2.1에 반영
+- [ ] [Phase 8](./phase-08-prod-asg.md)에서 실측한 **노드 복구 시간**을 계획서 §2.1에 반영
 
 ---
 
-[← Phase 10 — Secrets를 SSM Parameter Store로](./phase-10-secrets-ssm.md) · [이관 절차 목차](../infra-ha-migration-runbook.md)
+[← Phase 11 — Secrets를 SSM Parameter Store로](./phase-11-secrets-ssm.md) · [이관 절차 목차](../infra-ha-migration-runbook.md)

@@ -21,7 +21,7 @@ This is **groble-infra**, a Terraform-based AWS infrastructure project for the G
 | [`docs/README.md`](docs/README.md) | **문서 진입점** — 무엇을 언제 여는가, 폴더·상태 어휘 규칙 |
 | [`docs/infra-ha-improvement-plan.md`](docs/infra-ha-improvement-plan.md) | 무엇을 왜 바꾸는가 (설계·결정 근거) |
 | [`docs/infra-ha-migration-runbook.md`](docs/infra-ha-migration-runbook.md) | 어떤 순서로 이관하는가 — **목차·공통 원칙·부록** |
-| [`docs/runbook/`](docs/runbook/) | Phase 0~11 각각의 상세 절차·검증·롤백 (Phase당 1개 파일). `adhoc/`는 Phase 순서와 무관한 단발 작업 |
+| [`docs/runbook/`](docs/runbook/) | Phase 0~12 각각의 상세 절차·검증·롤백 (Phase당 1개 파일). `adhoc/`는 Phase 순서와 무관한 단발 작업 |
 | [`docs/handoff/README.md`](docs/handoff/README.md) | 백엔드에 보낸 요청·질의와 **회신 대기 현황** (`closed/`는 종결분) |
 | [`docs/infra-future-improvements.md`](docs/infra-future-improvements.md) | 이번 범위 밖 항목 (우선순위·트리거) |
 | [`docs/monitoring-config-baking.md`](docs/monitoring-config-baking.md) | 모니터링 config baking 구조 |
@@ -36,7 +36,7 @@ SSM Session Manager(bastion·WireGuard 폐기) · Terraform state를 S3로
 (`#groble-alert` 긴급 / `#groble-alert-dev`)로 전달된다. 임계치는 실측 기준선으로 확정했다
 (계획서 §2.1 "트래픽·자원 기준선").
 **Phase 2 진행 중** — 2-0(API 워킹셋 측정) · 2-1(Prometheus `ec2_sd_config` 전환) ·
-2-2(Grafana 프로비저닝 as-code) **배포·검증까지 완료**. `memoryReservation` 확정으로 Phase 7 차단이 풀렸다.
+2-2(Grafana 프로비저닝 as-code) **배포·검증까지 완료**. `memoryReservation` 확정으로 Phase 8 차단이 풀렸다.
 남은 것은 ① NoData로 죽어 있는 JVM 힙 알람 수정 ② 백엔드 지표 3종을 받은 뒤 알림 R10~R14. 상세와 이어받기는
 [`docs/runbook/phase-02-observability.md`](docs/runbook/phase-02-observability.md)에 있다.
 **Phase 3 진행 중** — 3-a(EIP `15.165.223.110` 확보 + S3 엔드포인트 생성)까지 apply 했다.
@@ -44,16 +44,27 @@ SSM Session Manager(bastion·WireGuard 폐기) · Terraform state를 S3로
 **[외부 업체 허용목록에 이 IP 를 등록](docs/handoff/egress-ip-allowlist.md)하는 것**이며,
 등록 완료 회신이 오면 스위치를 순서대로 켠다. 상세는
 [`docs/runbook/phase-03-nat-gateway.md`](docs/runbook/phase-03-nat-gateway.md)에 있다.
-**Phase 4·5 는 2026-08-30 에 번호를 맞바꿨다** — 원래 4가 배포 컨트롤러 전환, 5가 모니터링 노드
-재구축이었다. 배포 컨트롤러 전환이 앱 측 차단 조건 4건에 막혀 있는 동안 모니터링 노드 재구축은
-진행할 수 있어서다. 근거는 [이관 절차 목차](docs/infra-ha-migration-runbook.md)에 있다.
+> ⚠️ **Phase 번호는 2026-08-30 과 2026-08-31 두 번 바뀌었다.** 옛 문서·PR 의 번호가 지금과 다를 수 있다 —
+> 대응표는 [이관 절차 목차의 번호 이력](docs/infra-ha-migration-runbook.md#번호-이력--옛-문서pr-의-번호는-다를-수-있다)에 있다.
 **[Phase 4 — 모니터링 노드 재구축](docs/runbook/phase-04-monitoring-node-rebuild.md)은 2026-08-30 완료했다** —
 관측 스택이 `groble-monitoring-v2-instance`(AL2023, private 2c, t3a.small)로 옮겨갔고,
 앱의 OTLP·Loki 주소가 `otel.internal.groble.im` 으로 간접화되어 **다음 교체부터는
 레코드 값 변경 + 구 노드 수신 중단만으로 끝난다**(앱 재배포 없음).
 구 노드는 `groble-nat-instance` 로 개명해 NAT·bastion·VPN 만 지고 남아 있다.
-**다음 작업은 [Phase 5 — 배포 컨트롤러 전환](docs/runbook/phase-05-deployment-controller.md)**이며
-앱 측 차단 조건 4건 회신 대기다. Phase 5부터는 미착수다.
+**[Phase 5 — Dev MySQL → RDS](docs/runbook/phase-05-dev-rds.md) 는 2026-09-01 완료했다.**
+Phase 3·6 이 모두 회신 대기라 순서를 앞당겼다(원래 Phase 8 의 일부였다). dev DB 가
+컨테이너 MySQL 8.0.46 → RDS `groble-dev-mysql`(8.4.11, db.t4g.micro, private 2c)로 옮겨갔고
+구 컨테이너 서비스까지 제거했다. **dev 엔진이 prod 와 같아져** 계획서 §3-5 promote 게이트가
+DB 계층에서도 의미를 갖는다.
+⚠️ 구 컨테이너 DB 가 예정보다 이르게 비워져 **롤백 경로가 없다** — RDS 스냅샷·PITR 만 남았다.
+
+> 이 Phase 에서 확인된 사실: **앱 CD 워크플로가 태스크 정의의 최신 ACTIVE 리비전을 기반으로
+> 이미지만 갈아끼운다.** 즉 이 리포에서 환경변수를 바꿔 apply 하면 **다음 배포에 실려 간다**
+> (rev 1191 terraform → 1192 CD 승계로 실증). 단 **apply 전에 `spring_app_image` 를 실행 중
+> 이미지와 맞춰야 한다** — 낡은 값이면 그것이 family 의 최신 리비전이 된다.
+
+**다음 작업은 [Phase 6 — 배포 컨트롤러 전환](docs/runbook/phase-06-deployment-controller.md)** 이며
+앱 측 차단 조건 4건 회신 대기다. Phase 6·7·8·9 는 미착수다.
 Phase와 독립적인 [RDS MySQL 8.4 업그레이드](docs/runbook/adhoc/rds-mysql-84-upgrade.md)는
 **2026-08-29 전환 완료**했다 (확장 지원 과금 $178.56/월 중단).
 구 인스턴스도 같은 날 삭제했고, 최종 스냅샷 `groble-prod-mysql-80-final`(8.0.45)만 남아 있다.
@@ -86,7 +97,7 @@ terraform show
 - 버킷 정책이 접근 주체를 Terraform 실행 SSO 역할로 한정한다. **ECS Task Role은 `AmazonS3FullAccess`를 갖고 있지만 이 버킷은 거부된다**
 
 ⚠️ **Terraform 1.10+ 가 필요하다** (`use_lockfile` 요건). 리포지토리는 `.terraform-version`으로 **1.15.8**을 고정한다.
-⚠️ **Phase 10 전까지 state에는 DB·Grafana 비밀번호가 평문으로 들어 있다.** 버킷을 시크릿 저장소로 취급할 것.
+⚠️ **Phase 11 전까지 state에는 DB·Grafana 비밀번호가 평문으로 들어 있다.** 버킷을 시크릿 저장소로 취급할 것.
 
 state 버킷·KMS 키·CloudTrail은 **Terraform이 관리하지 않는다** — "state를 담을 버킷의 state를 어디에 둘 것인가"라는 순환을 피하려고 AWS CLI로 만들었다. 정책 원본은 [`bootstrap/`](bootstrap/README.md)에 있다.
 
@@ -107,7 +118,7 @@ aws configure --profile groble-terraform
 **반드시 이 순서대로 배포:**
 1. `environments/shared` — VPC, SG, ALB, IAM, ECS Cluster, EC2 인스턴스 3대, CodeDeploy, WAF
 2. `environments/monitoring` — Grafana, Prometheus, Loki, OpenTelemetry, Node Exporter, cAdvisor, RDS Exporter
-3. `environments/dev` — Dev ECR, MySQL(컨테이너), Redis, Spring Boot API
+3. `environments/dev` — Dev ECR, RDS MySQL, Redis, Spring Boot API
 4. `environments/prod` — Prod ECR, RDS MySQL(관리형), Redis, Spring Boot API
 
 ### Directory Structure
@@ -115,7 +126,7 @@ aws configure --profile groble-terraform
 environments/
   shared/          # 공유 인프라 (VPC, SG, ALB, IAM, ECS, CodeDeploy, WAF)
   monitoring/      # 모니터링 스택 (Grafana, Prometheus, Loki, OTEL)
-  dev/             # 개발 환경 서비스 (MySQL컨테이너, Redis, API)
+  dev/             # 개발 환경 서비스 (RDS MySQL, Redis, API)
   prod/            # 프로덕션 환경 서비스 (RDS MySQL, Redis, API)
 modules/
   infrastructure/  # VPC, security-groups, iam-roles, load-balancer, rds-mysql, route53
@@ -124,7 +135,7 @@ modules/
   observability/   # alerting(SNS+Chatbot), alb-alarms, rds-alarms — 계층을 가로지르는 알람
   services/
     production/    # api-service, redis-service
-    development/   # api-service, mysql-service, redis-service
+    development/   # api-service, redis-service (mysql-service 는 Phase 5 에서 제거)
     monitoring/    # grafana, prometheus, loki, otelcol, node-exporter, cadvisor, rds-exporter
 shared/            # 공통 변수 정의 및 프로바이더 설정
 bootstrap/         # Terraform이 관리하지 않는 부트스트랩 리소스의 정책 원본 (state 버킷·KMS·CloudTrail)
@@ -172,7 +183,7 @@ RDS는 `multi_az = false`이고 db_subnet_group이 2a/2c를 모두 포함해 **A
 | Instance | Type | Subnet | Volume | 용도 |
 |----------|------|--------|--------|------|
 | Production | t3.medium | Private (2a) | 30GB gp3 | Prod API, Redis |
-| Development | t3.medium | Private (2c) | 30GB gp3 | Dev API, MySQL, Redis |
+| Development | t3.medium | Private (2c) | 30GB gp3 | Dev API, Redis (**MySQL 은 2026-09-01 RDS 로 이관**) |
 | Monitoring(구) `groble-nat-instance` | t3.small | Public (2a) | 30GB gp3 | 모니터링 스택 + **NAT + bastion + WireGuard VPN** |
 | Monitoring(신) `groble-monitoring-v2-instance` | t3a.small | **Private (2c)** | 30GB gp3 | AL2023. [Phase 4](docs/runbook/phase-04-monitoring-node-rebuild.md) D단계에서 기동. 스택 이동은 E단계 |
 
@@ -204,7 +215,10 @@ RDS는 `multi_az = false`이고 db_subnet_group이 2a/2c를 모두 포함해 **A
   > 기본값(8.4.9)으로 해석해 다운그레이드를 시도하고 apply가 실패한다.
   > 백업창 `18:00-19:00` UTC = KST 03~04시, 점검창 `sun:19:00-sun:20:00` UTC = KST 월 04~05시.
   > db.t3.micro는 메모리 1GiB다. 용량을 논할 때 EC2의 t3.medium과 혼동하지 말 것 — 이전 문서가 `db.t3.medium` / `100GB→1000GB`로 잘못 적고 있었다.
-- **Dev**: MySQL 8.0 컨테이너 (host mode, 256MB, **데이터가 노드 로컬 디스크** `/opt/mysql-dev-data`)
+- **Dev**: RDS MySQL **8.4.11** (**db.t4g.micro**, gp2, 암호화, 7일 백업, 20GB→100GB auto-scaling, **단일 AZ / 2c 고정**)
+  > 2026-09-01 [Phase 5](docs/runbook/phase-05-dev-rds.md) 에서 컨테이너 MySQL(8.0.46, 노드 로컬 디스크)에서 이관했다.
+  > 백업창 `17:00-18:00` UTC = KST 02~03시, 점검창 `sun:18:00-sun:19:00` UTC = KST 월 03~04시.
+  > 노드의 `/opt/mysql-dev-data`(211MB)는 아직 남아 있으며 Phase 9 노드 교체에서 사라진다.
 
 ### Redis 7 (ECS, host mode)
 - Port 6379, Memory 128MB, Prod/Dev 모두 컨테이너 기반
@@ -293,7 +307,7 @@ All → Grafana (3000) Dashboard
 - **Domains**: `api.groble.im` (prod), `api.dev.groble.im` (dev), `monitor.groble.im` (monitoring)
 - ⚠️ **API 타깃그룹 4개(prod/dev Blue·Green)는 `deregistration_delay`가 미설정이다** (기본 300초).
   ECS `ECS_CONTAINER_STOP_TIMEOUT=30s`와 정렬되지 않아 in-flight 요청이 잘릴 수 있다.
-  **정렬 값 확정은 [Phase 5](docs/runbook/phase-05-deployment-controller.md)의 작업이다**
+  **정렬 값 확정은 [Phase 6](docs/runbook/phase-06-deployment-controller.md)의 작업이다**
   (계획서 §3-3: dereg / stopTimeout / Spring graceful 을 함께 정한다).
   > 300초를 단순히 내리는 것은 정렬이 아니라 **in-flight 보호를 줄이는 것**이다 —
   > 태스크는 `DEACTIVATING` 동안 살아서 요청을 처리하고 SIGTERM 은 그 뒤에 온다.
@@ -318,14 +332,19 @@ All → Grafana (3000) Dashboard
 - **Custom Rules**: IP Rate limit 2000/5min, Global 50000/5min, Login 50/5min, Request size 1MB
 - **Geo-blocking**: KR, JP, SG, AU, NZ, HK, TW, TH, VN, MY, PH, ID, IN 허용
 
-### Security Groups (6개)
+### Security Groups (7개)
 1. **LB SG**: 80, 443, 9443 from 0.0.0.0/0
 2. **Prod Target SG**: 80, 8080, 22, 3306, 6379, 9100, 8081
 3. **Dev Target SG**: 80, 8080, 22, 3306, 6379, 9100, 8081
 4. **Monitoring SG**: **51820/UDP (WireGuard, `0.0.0.0/0` 개방)**, 22, 3000, 4317/4318, 3100, 9090, NAT(all TCP/UDP)
 5. **API Task SG**: 8080 from ALB only (awsvpc 격리)
-6. **RDS MySQL SG**: 3306 from **Prod Target · API Task · Monitoring** (SG 참조 3건).
-   ⚠️ **Dev Target SG는 없다** — dev는 컨테이너 MySQL을 쓰므로 prod RDS에 붙을 일이 없다.
+6. **RDS MySQL SG** (`groble-rds-mysql-sg`, prod): 3306 from **Prod Target · API Task · Monitoring** (SG 참조 3건)
+7. **Dev RDS MySQL SG** (`groble-rds-mysql-dev-sg`): 3306 from **Dev Target · API Task · Monitoring**.
+   2026-09-01 [Phase 5](docs/runbook/phase-05-dev-rds.md) 에서 신설했다
+
+   ⚠️ **두 SG 로 prod/dev 가 갈리지 않는다** — `groble-api-task-sg` 를 dev·prod 태스크가 공유하므로
+   서로의 RDS 에 네트워크상 닿는다. 자격증명으로만 막힌다
+   ([향후 개선 Medium-6](docs/infra-future-improvements.md#medium-6)).
    ⚠️ **CIDR 인그레스가 하나도 없다** (VPN 서브넷 포함). 아래 접근 경로 참조
 
 **개발자 접근 경로**: **SSM Session Manager 가 기본이다** (2026-08-30, Phase 4). 네 노드 모두
@@ -333,7 +352,7 @@ All → Grafana (3000) Dashboard
 RDS 도 노드 경유 포트 포워딩으로 닿는다 — 방법은 [`docs/developer-access.md`](docs/developer-access.md).
 
 기존 경로(WireGuard(51820) → VPN 서브넷 `10.6.0.0/24` → 모니터링 노드 SSH(22) → private 노드)는
-**아직 살아 있다.** 실제 폐기는 [Phase 9](docs/runbook/phase-09-access-path.md) 의 몫이다.
+**아직 살아 있다.** 실제 폐기는 [Phase 10](docs/runbook/phase-10-access-path.md) 의 몫이다.
 
 ⚠️ **RDS는 VPN에서 직접 닿지 않는다.** RDS SG에 CIDR 인그레스가 없고 SG 참조만 허용하므로
 (`groble-monitor-target-group` · `groble-prod-target-group` · `groble-api-task-sg`)
@@ -347,7 +366,7 @@ aws ssm start-session --profile groble --target <monitoring-instance-id> \
   --parameters '{"host":["<rds-endpoint>"],"portNumber":["3306"],"localPortNumber":["13306"]}'
 ```
 
-기존 SSH 터널도 아직 동작한다 (Phase 9 까지):
+기존 SSH 터널도 아직 동작한다 (Phase 10 까지):
 
 ```bash
 ssh -f -N -L 13306:<rds-endpoint>:3306 -i <key>.pem ubuntu@10.0.1.193
