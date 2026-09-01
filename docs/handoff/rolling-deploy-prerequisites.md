@@ -5,7 +5,7 @@
 | **요청 대상** | groble-backend |
 | **요청자** | 인프라 (groble-infra) |
 | **작성일** | 2026-08-30 |
-| **상태** | 🔄 **진행 중** — [§4 회신 도착(2026-09-01)](#4-회신-groble-backend-2026-09-01). 앱 3건 PR 착수 · **인프라 회답 대기 4건** |
+| **상태** | 🔄 **진행 중** — [§4 회신](#4-회신-groble-backend-2026-09-01)(09-01) · [§5 인프라 회답](#5-인프라-회답-groble-infra-2026-09-02)(09-02). **착수 조건이 4건 → 5건이 됐다**(스케줄러 추가). 대기: 앱 SIGTERM 실측 · 스케줄러 전수 점검 |
 | **관련** | [Phase 6 런북 — 배포 컨트롤러 전환](../runbook/phase-06-deployment-controller.md) · [계획서 §2.6 · §3](../plan/infra-ha-improvement-plan.md) |
 
 ---
@@ -13,7 +13,10 @@
 ## 1. 무엇을 봐 주셔야 하나
 
 **롤링 배포로 전환하기 위한 앱 측 준비 4건입니다.** 정해진 기한은 없으나
-**4건이 모두 끝나기 전에는 전환에 착수하지 않습니다.**
+**전부 끝나기 전에는 전환에 착수하지 않습니다.**
+
+> ⚠️ **2026-09-01 회신에서 5번째 조건이 추가됐습니다** — 스케줄러 23개의 다중 실행 안전성
+> ([§4-5 A](#4-5-요청서에-없던-항목--저희가-먼저-알려드립니다)). 백엔드가 먼저 발견해 신고한 건입니다.
 
 > JVM DNS 캐시 건은 [`closed/jvm-dns-cache.md`](./closed/jvm-dns-cache.md) 로 분리했고 종결됐습니다.
 
@@ -21,6 +24,11 @@
 > 있었고, 2번은 **인프라 쪽 3건(ALB 경로·ECS 경로·WAF)이 세트로 필요**합니다. 4번 예시 값에는
 > 이견이 있습니다(**dereg 60 / stopTimeout 90** 제안). 요청서에 없던 **스케줄러 다중 실행** 1건이
 > 추가로 올라왔습니다.
+>
+> **인프라 회답도 붙였습니다 → [§5](#5-인프라-회답-groble-infra-2026-09-02).** I-1~I-4 모두 동의하되
+> **I-1 은 지목 위치가 다르고 선행 리팩터가 필요**하며, `stopTimeout` 은 노드가 아니라 **태스크 정의**로
+> 넣습니다. "앱 PR 과 동시에 나가야 한다"는 **불필요합니다 — 앱이 먼저가 안전합니다.**
+> 착수 조건은 **4건 → 5건**이 됐습니다. 순서는 [§5-7](#5-7-정리--누가-언제-무엇을).
 
 ---
 
@@ -375,3 +383,203 @@ Redis 에 있어 태스크 증설 자체는 문제가 없습니다.
 **dereg 60 / stopTimeout 90** 에 동의하시는지. 특히 **I-1 과 I-2 는 저희 PR 과 같은 시점에
 나가야** 합니다 — 앱만 먼저 바꾸면 아무것도 안 바뀌고, 인프라만 먼저 바꾸면
 `/actuator/health/readiness` 가 없어 전 태스크가 unhealthy 가 됩니다.
+
+---
+
+## 5. 인프라 회답 (groble-infra, 2026-09-02)
+
+**§4 잘 받았습니다.** 특히 3번이 이미 되어 있다는 것과, executor 종료 대기·`MailHealthIndicator`·
+스케줄러처럼 **저희가 묻지 않은 것을 찾아 주신 것**이 이 회신의 가치입니다.
+
+I-1~I-4 에 답하고, 코드를 확인하는 과정에서 **정정할 것 2건**이 나와 함께 적습니다.
+
+| # | 회답 | 한 줄 |
+|---|---|---|
+| **I-1** ALB 경로 → readiness | ✅ 동의. **단 위치가 다릅니다** | 유효한 곳은 shared 1곳이고, 타깃그룹 4개가 변수를 공유해 **선행 리팩터가 필요합니다** |
+| **I-2** ECS `healthCheck` → liveness | ✅ 동의 | 모듈이 환경별로 갈려 있어 dev 만 먼저 가능합니다 |
+| **I-3** WAF `STARTS_WITH` | ✅ 동의 | `count` 모드라 순서 제약이 없어 언제든 넣습니다 |
+| **I-4** dereg 60 / stopTimeout 90 | ✅ 동의. **단 stopTimeout 은 태스크 정의로 넣습니다** | 지금 값은 노드 `user_data` 에 있어 노드를 갈지 않으면 안 바뀝니다 |
+| "앱 PR 과 같은 시점에 나가야 한다" | ⚠️ **그럴 필요 없습니다 — 앱이 먼저가 더 안전합니다** | §5-5 |
+
+---
+
+### 5-1. I-1 정정 — 고쳐야 할 곳은 `shared` 한 곳이고, 그 전에 리팩터가 필요합니다
+
+**① 지목해 주신 3곳 중 실제로 동작하는 것은 `shared` 뿐입니다.**
+
+타깃그룹 5개는 전부 `environments/shared` 가 만듭니다. prod·dev 환경은 `load-balancer` 모듈을
+호출하지 않고, 만들어진 타깃그룹의 ARN 만 remote state 로 받아 씁니다.
+
+```
+environments/shared/main.tf:62   health_check_path = var.health_check_path
+  └→ modules/infrastructure/load-balancer/main.tf
+       39: prod_blue_tg   path = var.health_check_path
+       67: prod_green_tg  path = var.health_check_path
+       99: dev_blue_tg    path = var.health_check_path
+      127: dev_green_tg   path = var.health_check_path
+      170: monitoring_tg  path = "/api/health"   ← 하드코딩이라 별개
+```
+
+⚠️ **`environments/{prod,dev}/variables.tf` 의 `health_check_path` 는 어느 모듈에도 연결되어
+있지 않습니다.** `terraform.tfvars` 에 값이 들어 있지만 소비자가 없습니다. **고치고 apply 해도
+plan 에 아무것도 뜨지 않습니다** — "적용했다"고 착각하기 쉬운 자리라 저희 쪽에서 주석으로
+표시해 두겠습니다.
+
+**② 더 중요한 것: 지금 구조로는 dev 만 바꿀 수 없습니다.**
+
+위에서 보시듯 **타깃그룹 4개가 `var.health_check_path` 하나를 공유**합니다.
+`shared` 의 값을 readiness 로 바꾸면 **prod blue/green 도 같이 바뀝니다.**
+
+```
+[앱] PR① 이 dev 에만 배포된 상태에서 인프라가 경로를 바꾸면
+
+  ALB → prod 태스크  GET /actuator/health/readiness → 404
+      → matcher "200-399" 불일치
+      → prod TG 는 unhealthy_threshold 2 × interval 30 = 60초 뒤 unhealthy
+      → ALB 가 prod 타깃을 전부 제외  ⛔ prod 전면 5xx
+```
+
+말씀하신 "인프라만 먼저 바꾸면 전 태스크가 unhealthy 가 된다"가 **dev 만 바꾸려 할 때도
+prod 에서 일어난다**는 뜻입니다.
+
+**③ 그래서 선행 작업을 하나 넣습니다 — 값은 하나도 바꾸지 않는 리팩터입니다.**
+
+`load-balancer` 모듈의 변수를 환경별로 쪼갭니다.
+
+| | 지금 | 리팩터 직후 |
+|---|---|---|
+| prod TG 경로 | `var.health_check_path` = `/actuator/health` | `var.prod_health_check_path` = `/actuator/health` |
+| dev TG 경로 | `var.health_check_path` = `/actuator/health` | `var.dev_health_check_path` = `/actuator/health` |
+
+**두 값이 지금과 같으므로 `terraform plan` 은 No changes 여야 하고, 그것을 prod 무영향의
+증거로 삼습니다.** 이후 dev 변수만 올리면 **dev 타깃그룹 2개만** 움직입니다.
+
+`deregistration_delay`(I-4) 도 지금 4개 타깃그룹 전부 미설정이라 같은 문제가 있어,
+같은 리팩터에서 함께 쪼갭니다.
+
+---
+
+### 5-2. I-2 동의 — 그리고 `mail` 지적은 prod 에서 더 급합니다
+
+[`prod:101`](../../modules/services/production/api-service/main.tf) ·
+[`dev:101`](../../modules/services/development/api-service/main.tf) 확인했습니다. 지목하신 위치가 정확하고,
+**이쪽은 모듈이 환경별로 갈려 있어 dev 만 먼저 바꿀 수 있습니다.**
+
+"readiness 에 db·redis 를 넣어 놓고 컨테이너 헬스체크가 같은 경로를 계속 보면 DB 순단에
+ECS 가 전 태스크를 재시작한다"— 정확합니다. 저희가 놓치고 있던 지점입니다.
+
+> ⚠️ **`MailHealthIndicator` 건은 prod 가 dev 보다 먼저 터집니다.** 타깃그룹 민감도가 다릅니다.
+>
+> | | `unhealthy_threshold` | `timeout` | 실패 판정까지 |
+> |---|---|---|---|
+> | prod blue/green | **2** | 5초 | **60초** |
+> | dev blue/green | 5 | 8초 | 150초 |
+>
+> SMTP 가 흔들릴 때 **prod 는 60초 만에 타깃에서 빠집니다.** `management.health.mail.enabled: false`
+> 를 PR① 에 넣어 주시는 것에 전적으로 동의하고, **이 항목만은 dev 검증을 기다리지 말고
+> prod 에도 빨리 반영**하는 편이 낫다고 봅니다. 롤링과 무관하게 지금 열려 있는 위험입니다.
+
+---
+
+### 5-3. I-3 동의
+
+현재 규칙은 `CONTAINS "/actuator/"` **AND NOT** `EXACTLY "/actuator/health"` → `count`
+([`modules/security/waf/main.tf:222`](../../modules/security/waf/main.tf)) 입니다.
+`STARTS_WITH` 로 바꾸면 `/actuator/health/readiness` · `/liveness` 가 함께 예외가 됩니다.
+
+`count` 모드이고 ALB 헬스체크는 WAF 를 타지 않아 **순서 제약이 없으므로**, 위 리팩터와 같이
+넣겠습니다. block 으로 올릴 때를 대비한다는 판단에 동의합니다.
+
+---
+
+### 5-4. I-4 동의 — 값은 그대로, `stopTimeout` 적용 방법만 다릅니다
+
+**dereg 60 / graceful 20 / stopTimeout 90 에 동의합니다.** 결제 승인 상한 30초와
+executor 종료 대기라는 두 근거가 저희 예시값(30/20/60)보다 정확합니다.
+특히 "잘린 승인은 실패가 아니라 **결과 불명(UNKNOWN)**" 이라는 지적이 결정적이었습니다.
+
+**① `stopTimeout` 은 태스크 정의에 넣겠습니다. 지금 그 필드가 아예 없습니다.**
+
+| 위치 | 현재 |
+|---|---|
+| 태스크 정의 `stopTimeout` | **없음** (prod·dev 둘 다) |
+| `prod_user_data.sh:25` | `ECS_CONTAINER_STOP_TIMEOUT=30s` |
+| `dev_user_data.sh` | **그 줄이 아예 없음** — 에이전트 기본값 30초라 결과는 같습니다 |
+
+즉 지금의 30초는 **노드 설정**이고, `user_data` 는 `lifecycle` 때문에 **고쳐도 실행 중 노드에
+반영되지 않습니다.** 90초를 노드로 넣으면 노드 교체가 필요해집니다.
+
+→ **태스크 정의의 `stopTimeout = 90` 으로 넣습니다.** 노드를 갈지 않아도 되고, 모듈이
+환경별로 갈려 있어 **dev 먼저**가 가능합니다.
+(태스크 정의 값이 에이전트 설정을 이기는지는 **dev 에서 실측 확인**하겠습니다.)
+
+**② `dereg 60` 은 현행 대비 보호를 줄이는 변경입니다 — 상호 확인만 남깁니다.**
+
+지금 4개 타깃그룹은 `deregistration_delay` **미설정 = 기본 300초**입니다. 60초는 **내리는**
+방향이고, 그래서 **지금은 살아남는 업로드가 앞으로는 잘립니다.**
+
+| | 업로드에 주어지는 시간 | 60MB / 5Mbps ≈ 96초 |
+|---|---|---|
+| 지금 (dereg 300 + graceful 20) | 320초 | ✅ 완료 |
+| 앞으로 (dereg 60 + graceful 20) | 80초 | ❌ **잘림** |
+
+§4-4 에서 **"의도적으로 수용"** 이라고 명시해 주셨으므로 그대로 진행하겠습니다.
+근본 해법(presigned 직행)은 [`infra-future-improvements.md`](../plan/infra-future-improvements.md) 에
+별건으로 등록하고, 전환되면 dereg 를 30초로 내리는 것에 동의합니다.
+
+**③ 배포 시간에 미치는 영향을 함께 알아 둡니다.**
+
+태스크 1개 교체가 **최악 dereg 60 + 종료 60 = 120초**입니다. desired 2 가 되는
+[Phase 7](../runbook/phase-07-dev-cache-asg.md)(dev)·[9](../runbook/phase-09-prod-asg.md)(prod) 에서는
+순차 교체라 배포 1회가 **최악 4분대**가 됩니다. 수용 가능하다고 보지만, 배포가 느려졌다는
+인상이 생길 수 있어 미리 공유합니다.
+
+---
+
+### 5-5. "앱 PR 과 같은 시점" 은 필요 없습니다 — **항상 앱이 먼저입니다**
+
+§4-6 마지막의 우려에 답합니다. **동시 배포를 조율하지 않으셔도 됩니다.**
+
+| 순서 | 무슨 일이 일어나나 |
+|---|---|
+| **앱 먼저** | `/actuator/health/readiness` 가 **생기기만** 합니다. 아무도 그 경로를 보지 않으므로 무해합니다. `mail` 끄는 것은 즉시 이득입니다 |
+| 인프라 먼저 | ALB 가 없는 경로를 보게 되어 **60초 뒤 전 태스크 unhealthy** ⛔ |
+
+→ **앱 PR① 이 배포된 것을 확인한 뒤 저희가 경로를 옮깁니다.** 되돌리기도 저희 쪽 변수 한 줄이라
+앱 롤백 없이 복구됩니다. 같은 시점에 맞추는 것보다 이쪽이 안전합니다.
+
+---
+
+### 5-6. 스케줄러 건 — 새 차단 조건으로 접수했습니다
+
+**§4-5 A 를 5번째 착수 조건으로 올렸습니다.** 먼저 찾아 알려 주신 것에 감사드립니다.
+"블루/그린에서도 배포 중 짧게 2태스크가 겹치므로 새로 생기는 위험이 아니라 상시화되는 위험"
+이라는 정리에 동의합니다.
+
+> 💡 **[`http-metrics-5xx-undercount.md`](./http-metrics-5xx-undercount.md) 의 B 항목과 같은 23개를 보고 있습니다.**
+> 그쪽은 "스케줄러 정체 알람의 임계를 정하려면 중요도·실행 주기가 필요하다"는 요청인데,
+> 지금 하시려는 전수 점검에서 **같은 표에 `실행 주기` · `중요도` · `다중 실행 안전성` 세 열을
+> 함께 채워 주시면** 두 건이 한 번에 끝납니다.
+
+§4-5 B(`Semaphore(3)` 가 태스크당) 는 그대로 두는 데 동의합니다.
+C 는 저희 인식과 같습니다.
+
+---
+
+### 5-7. 정리 — 누가 언제 무엇을
+
+| 순서 | 주체 | 작업 | 비고 |
+|---|---|---|---|
+| 1 | 인프라 | **타깃그룹 변수 환경별 분리** (경로 · dereg) + WAF `STARTS_WITH` | 값 불변. `plan` No changes 확인 |
+| 2 | 앱 | **PR① dev 배포** (readiness/liveness · `mail` off · executor 20s) | 인프라보다 먼저 |
+| 3 | 앱 | 로컬 SIGTERM 실측 → 총 종료 시간 공유 | `stopTimeout 90` 의 근거 확정 |
+| 4 | 인프라 | **dev 만** 경로 → readiness · `healthCheck` → liveness · `stopTimeout 90` · dereg 60 | dev TG 2개만 움직임 |
+| 5 | 공동 | dev 검증 (기동 직후 `OUT_OF_SERVICE` → `UP` 전이 확인) | |
+| 6 | 앱 | PR① prod 배포 | |
+| 7 | 인프라 | prod 동일 적용 | |
+| 8 | 앱 | **스케줄러 23개 전수 점검** ← 가장 오래 걸림 | [Phase 6](../runbook/phase-06-deployment-controller.md) 착수의 마지막 조건 |
+
+**⚠️ `mail` 끄는 것만은 위 순서와 무관하게 prod 에 빨리 반영해 주시길 부탁드립니다** (§5-2).
+
+**저희가 기다리는 것**: 3번(SIGTERM 실측값)과 8번(스케줄러 점검 결과)입니다.
+나머지는 저희 쪽에서 진행하겠습니다.
