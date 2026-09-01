@@ -268,10 +268,19 @@ module "dev_api_service" {
   
   # Database 설정 (shared 환경의 DEV 인스턴스 IP 참조)
   #
-  # 🔴 Phase 5 컷오버(C단계)에서 module.dev_rds_mysql.rds_address 로 바꾼다.
-  #    바꾼 뒤 terraform apply 만 해서는 **배포되지 않는다** — 이 서비스는
-  #    lifecycle { ignore_changes = [task_definition] } 라 새 리비전만 생기고
-  #    서비스는 옛 리비전을 계속 돈다. CodeDeploy 배포를 별도로 트리거할 것.
+  # 🔴 Phase 5 컷오버(C2)에서 module.dev_rds_mysql.rds_address 로 바꾼다.
+  #
+  #    apply 는 태스크 정의 리비전만 등록하고 배포하지 않는다
+  #    (lifecycle { ignore_changes = [task_definition] }).
+  #    다만 그 리비전이 버려지는 것은 아니다 — 앱 CD 워크플로가
+  #    describe-task-definition <family>(리비전 미지정 = 최신 ACTIVE)를 읽어
+  #    이미지만 갈아끼우므로, **다음 배포에 이 값이 실려 간다.**
+  #
+  #    ⚠️ 그래서 apply 전에 terraform.tfvars 의 spring_app_image 를 실행 중
+  #       이미지와 맞춰야 한다. 낡은 값이면 그것이 family 의 최신 리비전이 되어
+  #       이미지를 갈아끼우지 않는 배포(롤백·재배포)가 낡은 이미지를 띄운다.
+  #    ⚠️ apply 는 데이터 복원 뒤에 한다. 먼저 하면 그 사이의 배포가
+  #       빈 RDS 를 보게 된다.
   #    docs/runbook/phase-05-dev-rds.md
   db_host             = data.aws_instance.shared_dev_instance.private_ip
   mysql_database      = var.mysql_database

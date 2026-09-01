@@ -10,7 +10,7 @@
 
 | 문서 | 대상 | 요청일 | 상태 | 무엇이 막혀 있나 |
 |---|---|---|---|---|
-| [dev-rds-cutover.md](./dev-rds-cutover.md) | groble-backend | 2026-08-31 | ⏳ 회신 대기 | **[Phase 5](../runbook/phase-05-dev-rds.md) E단계(자원 정리)의 착수 조건.** Dev RDS 생성·리허설까지 인프라가 마쳤고, **데이터 이관과 `DB_HOST` 전환은 배포 경로가 백엔드 파이프라인에 있어** 백엔드 소관이다. 이관 완료 연락을 받으면 구 MySQL 컨테이너를 제거한다 |
+| [dev-rds-cutover.md](./dev-rds-cutover.md) | groble-backend | 2026-08-31 | ⏳ 회신 대기 | **[Phase 5](../runbook/phase-05-dev-rds.md) E단계(자원 정리)의 착수 조건.** Dev RDS 생성·리허설까지 인프라가 마쳤고, 데이터 이관(덤프·복원)과 배포는 백엔드, `DB_HOST` 전환 apply 는 인프라가 맡는 **짧은 합동 작업**이다. 이관 완료 연락을 받으면 구 MySQL 컨테이너를 제거한다 |
 | [egress-ip-allowlist.md](./egress-ip-allowlist.md) | groble-backend | 2026-08-24 | 🔄 진행 중 | **[Phase 3](../runbook/phase-03-nat-gateway.md) 전환의 차단 조건.** 허용목록 관리가 확인되어 **EIP `15.165.223.110` 을 먼저 확보**했다. 현재 **외부 업체 등록 완료 회신 대기** — 등록 전에 전환하면 지속 장애가 된다 |
 | [http-metrics-5xx-undercount.md](./http-metrics-5xx-undercount.md) | groble-backend | 2026-08-30 | ⏳ 회신 대기 | **A** 앱이 반환한 500 10건 중 **4건만 `http_server_requests` 에 기록**된 원인 — 결제 알람 R1·R3·R4 가 전부 이 지표에 의존한다. **B** 스케줄러 23개 중 **10개가 정체 알람 대상 밖** — 중요도·실행 주기를 받아야 임계를 정할 수 있다. 진행 중인 Phase 를 막지는 않는다 |
 | [rolling-deploy-prerequisites.md](./rolling-deploy-prerequisites.md) | groble-backend | 2026-08-30 | ⏳ 회신 대기 | **[Phase 6](../runbook/phase-06-deployment-controller.md) 착수 조건 4건.** 롤링에서는 구·신 버전이 동시에 실트래픽을 받으므로 expand/contract · readiness 분리 · graceful shutdown · 드레이닝 값 정렬이 전제다 |

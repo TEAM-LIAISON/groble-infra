@@ -55,8 +55,9 @@ Dev 전환은 2026-08-31 에 **[5](docs/runbook/phase-05-dev-rds.md)(RDS) / [9](
 **[Phase 5](docs/runbook/phase-05-dev-rds.md) 를 앞당겨 진행했다** — Phase 3·6 이 모두 회신 대기라
 착수할 수 있는 유일한 Phase 였다. **인프라 몫은 끝났다**: `groble-dev-mysql`
 (RDS MySQL 8.4.11, db.t4g.micro, private 2c) 과 전용 SG·알람 6종을 배포했고 덤프/복원 리허설까지 검증했다.
-**데이터 이관과 `DB_HOST` 전환은 백엔드 소관이다** — 실행 중인 태스크 정의를 등록하는 것이
-Terraform 이 아니라 GitHub Actions 이기 때문이다([요청서](docs/handoff/dev-rds-cutover.md)).
+**컷오버는 짧은 합동 작업이다** — 백엔드가 덤프·복원·배포를, 인프라가 `DB_HOST` apply 를 맡는다
+([요청서](docs/handoff/dev-rds-cutover.md)). 앱 CD 워크플로가 태스크 정의의 **최신 ACTIVE 리비전을
+기반으로 이미지만 갈아끼우므로**, Terraform 이 등록한 리비전이 다음 배포에 실려 간다.
 이관 완료 연락을 받으면 구 MySQL 컨테이너를 제거한다.
 Phase 6·7·8 과 9 는 미착수다.
 Phase와 독립적인 [RDS MySQL 8.4 업그레이드](docs/runbook/adhoc/rds-mysql-84-upgrade.md)는

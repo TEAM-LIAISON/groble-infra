@@ -365,31 +365,73 @@ RDS API 의 `DBName` 은 **생성 시점의 메타데이터**라 스키마를 �
 
 ---
 
-## 역할 분담 — 인프라는 RDS 제공까지다
+## 역할 분담 — 인프라는 RDS 와 `DB_HOST`, 백엔드는 데이터와 배포
 
 | 단계 | 담당 | 상태 |
 |---|---|---|
 | **A. RDS·SG·알람 생성** | 인프라 | ✅ 완료 (2026-08-31) |
 | **B. 덤프/복원 리허설** | 인프라 | ✅ 완료 (2026-08-31) |
-| **C. 컷오버** (데이터 이관 + `DB_HOST` 전환 + 배포) | **groble-backend** | ⏳ 진행 요청 — [요청서](../handoff/dev-rds-cutover.md) |
+| **C. 컷오버** | **백엔드 + 인프라 (합동)** | ⏳ 진행 요청 — [요청서](../handoff/dev-rds-cutover.md) |
+| ├ C1 쓰기 동결 · 덤프 · 복원 · 대조 | 백엔드 | |
+| ├ C2 `DB_HOST` 전환 apply | **인프라** | 창 안에서 수행 |
+| └ C3 배포 · 검증 | 백엔드 | |
 | **D. 관찰** | 백엔드 | ⏳ |
 | **E. 자원 정리** (컨테이너 서비스 제거) | 인프라 | ⬜ **이관 완료 연락을 받으면 착수** |
 
-### 왜 C단계가 백엔드 소관인가 — 배포 경로가 이 리포에 없다
+### `DB_HOST` 는 이 리포가 정하고, 배포는 백엔드가 한다
 
-**실행 중인 태스크 정의를 이 리포지토리가 만들지 않는다.**
+**태스크 정의를 등록하는 주체가 둘이다.**
 
 ```
-groble-dev-task:1181  registeredBy = .../groble-terraform          ← Terraform. 아무도 실행하지 않는다
-groble-dev-task:1188  registeredBy = user/groble-github-actions    ← 실제로 서비스가 돌리는 것
+groble-dev-task:1181  registeredBy = .../groble-terraform          ← 이 리포
+groble-dev-task:1190  registeredBy = user/groble-github-actions    ← 앱 CD 워크플로
 ```
 
 `aws_ecs_service.api_service` 에 `lifecycle { ignore_changes = [task_definition] }` 가 걸려 있어
-**Terraform 이 만든 리비전은 배포되지 않는다.** 즉 `DB_HOST` 의 실효값은 **백엔드의 GitHub Actions
-파이프라인이 정한다.** 인프라가 이 리포에서 `db_host` 를 바꿔 apply 해도 쓰이지 않는 리비전만 하나 더 생긴다.
+**Terraform apply 만으로는 배포되지 않는다.** 리비전이 하나 생길 뿐이다.
 
-> 이 리포의 `environments/dev/main.tf` 의 `db_host` 도 **일관성을 위해 함께 바꾼다.**
-> 다만 그것은 기록일 뿐 배포 경로가 아니다 — E단계에서 정리한다.
+**그러나 그 리비전은 버려지지 않는다.** CD 워크플로가
+`describe-task-definition --task-definition <family>`(리비전 미지정 = **최신 ACTIVE**)를 읽어
+**이미지만 갈아끼우므로, Terraform 이 등록한 리비전이 다음 배포의 기반이 된다.**
+즉 `apply` → (앱 배포) 순서면 환경변수가 자동으로 실려 간다.
+
+**[Phase 4](./phase-04-monitoring-node-rebuild.md) 에서 실제로 그렇게 동작했다:**
+
+| rev | 등록자 | `OTEL_EXPORTER_OTLP_ENDPOINT` |
+|---|---|---|
+| 1180 | github-actions | `http://10.0.1.193:4318` |
+| **1181** | **terraform** | **`http://otel.internal.groble.im:4318`** ← 이 리포가 바꿨다 |
+| 1182 | github-actions (11분 뒤) | `http://otel.internal.groble.im:4318` ← **승계됐다** |
+
+CD 가 자체 태스크 정의 JSON 을 들고 있었다면 1182 에서 옛 값으로 되돌아갔을 것이다.
+
+> 그래서 **백엔드가 `DB_HOST` 를 직접 고칠 필요가 없다.** 앱 yml 도 손대지 않는다 —
+> 태스크 정의의 환경변수가 yml 을 이긴다.
+
+### 🔴 apply 전에 `spring_app_image` 를 실행 중 이미지와 맞춘다
+
+같은 메커니즘이 함정이기도 하다. `environments/dev/terraform.tfvars` 의 `spring_app_image` 가
+낡은 채로 apply 하면 **그 낡은 이미지가 family 의 최신 리비전이 되고**, 이미지를 갈아끼우지 않는
+배포(롤백·재배포)가 그것을 띄운다. [Phase 4](./phase-04-monitoring-node-rebuild.md) 가 경고해 둔 것과 같은 함정이다.
+
+```bash
+# 실행 중 이미지 확인 → tfvars 에 반영
+aws ecs describe-services --cluster groble-cluster --services groble-dev-service \
+  --profile groble-terraform --query 'services[0].taskDefinition' --output text \
+| xargs -I{} aws ecs describe-task-definition --task-definition {} --profile groble-terraform \
+  --query 'taskDefinition.containerDefinitions[0].image' --output text
+```
+
+> ⚠️ **tfvars 는 `.gitignore` 대상이라 이 값이 git 에 남지 않는다.** 바꿀 때 주석으로 이전 값을 남긴다.
+
+### 🔴 그래서 apply 는 복원 **뒤**에 한다
+
+apply 하는 순간부터 **"다음 배포"가 RDS 를 본다.** 데이터 이관 전에 apply 해 두면
+그 사이 아무 PR 이나 머지되어 CD 가 돌 때 **dev 앱이 빈 RDS 를 보게 된다**
+(dev 는 2일에 한 번꼴로 배포된다 — 14일에 리비전 7개).
+
+**복원·대조가 끝난 뒤에 apply 한다.** 그 대신 컷오버가 백엔드 단독 작업이 아니라
+**짧은 합동 작업**이 된다 — apply 자체는 1분이면 끝난다.
 
 ---
 
@@ -453,7 +495,7 @@ groble-dev-task:1188  registeredBy = user/groble-github-actions    ← 실제로
    - 클라이언트는 **컨테이너 안의 것을 쓴다** — 노드에 아무것도 설치하지 않는다
 8. 검증 쿼리(아래 [검증](#검증))가 통과하는지 확인
 
-### C. 컷오버 — **백엔드 소관** 🔴 쓰기 유실 구간이다
+### C. 컷오버 — **합동** 🔴 쓰기 유실 구간이다
 
 > **절차 전문과 접속 정보는 요청서에 있다 → [`handoff/dev-rds-cutover.md`](../handoff/dev-rds-cutover.md)**
 > 아래는 인프라 쪽 요약이다.
@@ -464,23 +506,34 @@ groble-dev-task:1188  registeredBy = user/groble-github-actions    ← 실제로
 > [Phase 7](./phase-07-elasticache.md) 이 Redis 에서 stop-first 를 쓰는 것과 같은 split-brain 이다.
 > **DB 레벨에서 쓰기를 얼려** 그 창을 없앤다.
 
+**C1 — 백엔드**
+
 9. **쓰기 동결** — 컨테이너 MySQL 에 `SET GLOBAL read_only = ON`
    - `groble_root` 에 SUPER 가 없으므로(실측) 앱의 쓰기가 실제로 막힌다. 읽기는 계속된다
    - ⚠️ 컨테이너가 재시작하면 `OFF` 로 돌아간다. 14일에 5회 재시작한 이력이 있다
 10. **최종 덤프 → 복원** (B단계와 동일. 실측 소요 **16초**)
 11. **행 수 대조** — [검증](#검증)의 스크립트. **어긋나면 진행하지 않는다**
-12. **`DB_HOST` 를 RDS 주소로 바꿔 평소대로 배포** — GitHub Actions 파이프라인에서.
-    **`DB_PORT`·`DB_NAME`·`DB_USERNAME`·`DB_PASSWORD` 는 바꾸지 않는다** (아래 참조)
-13. green 태스크 healthy · RDS 에 실제로 붙었는지 확인 후 트래픽 전환
-14. 컨테이너의 `read_only` 는 **켜 둔 채로 남긴다** — 롤백 자산이 더 갈라지지 않게
 
-### 🟢 바꿀 값이 `DB_HOST` 하나뿐인 이유
+**C2 — 인프라** (여기서부터 "다음 배포"가 RDS 를 본다)
+
+12. `terraform.tfvars` 의 `spring_app_image` 를 **실행 중 이미지와 동기화** (위 함정 참조)
+13. `environments/dev/main.tf` 의 `db_host` 를
+    `data.aws_instance.shared_dev_instance.private_ip` → `module.dev_rds_mysql.rds_address` 로 변경
+14. `terraform plan` 육안 확인 → apply. **태스크 정의 리비전 1개 추가 외에 변경이 없어야 한다**
+
+**C3 — 백엔드**
+
+15. **평소대로 배포.** CD 가 방금 등록된 리비전을 기반으로 읽어 `DB_HOST` 를 승계한다
+16. green 태스크 healthy · RDS 에 실제로 붙었는지 확인 후 트래픽 전환
+17. 컨테이너의 `read_only` 는 **켜 둔 채로 남긴다** — 롤백 자산이 더 갈라지지 않게
+
+### 🟢 바뀌는 값이 `DB_HOST` 하나뿐인 이유
 
 RDS 마스터 계정을 **앱이 지금 쓰는 것과 같은 자격증명으로 만들었다.** 확인했다:
 
 | 환경변수 | 컨테이너 | RDS | 바꾸나 |
 |---|---|---|---|
-| `DB_HOST` | `10.0.12.215` | `groble-dev-mysql.cloukwy4oscs.ap-northeast-2.rds.amazonaws.com` | **✅ 이것만** |
+| `DB_HOST` | `10.0.12.215` | `groble-dev-mysql.cloukwy4oscs.ap-northeast-2.rds.amazonaws.com` | **✅ 이것만** (인프라가 C2 에서) |
 | `DB_PORT` | 3306 | 3306 | ❌ |
 | `DB_NAME` | `groble_develop_database` | 동일 | ❌ |
 | `DB_USERNAME` | `groble_root` | 동일 | ❌ |
@@ -488,25 +541,23 @@ RDS 마스터 계정을 **앱이 지금 쓰는 것과 같은 자격증명으로 
 
 ### D. 관찰 — 컨테이너를 아직 지우지 않는다
 
-15. **2~3일 관찰.** 컨테이너 MySQL 서비스는 `read_only=ON` 상태로 그대로 둔다 (롤백 자산)
-16. dev 스모크 테스트 · 알람 정상 · RDS 자동 백업 1회 이상 생성 확인
-17. **인프라에 이관 완료를 알린다** → E단계 착수 조건
+18. **2~3일 관찰.** 컨테이너 MySQL 서비스는 `read_only=ON` 상태로 그대로 둔다 (롤백 자산)
+19. dev 스모크 테스트 · 알람 정상 · RDS 자동 백업 1회 이상 생성 확인
+20. **인프라에 이관 완료를 알린다** → E단계 착수 조건
 
 ### E. 정리 — **인프라 소관** 🔴 되돌릴 수 없는 지점
 
-18. `module "dev_mysql_service"` 제거 → apply
-19. `environments/dev/main.tf` 의 `db_host` 를 `module.dev_rds_mysql.rds_address` 로 정리
-    (배포 경로가 아니라 기록의 일관성 목적)
-20. dev 노드의 `/opt/mysql-dev-data` 는 **바로 지우지 않는다.** 1주 더 둔 뒤
+21. `module "dev_mysql_service"` 제거 → apply
+22. dev 노드의 `/opt/mysql-dev-data` 는 **바로 지우지 않는다.** 1주 더 둔 뒤
     [9](./phase-09-dev-cache-asg.md) 의 노드 교체에서 자연 소멸시킨다
-21. `컨테이너 메모리 하드리밋 근접` 알람이 멎었는지 확인
-22. dev 노드 여유 메모리가 ~256 MiB 늘었는지 — [9](./phase-09-dev-cache-asg.md) 예산의 전제
+23. `컨테이너 메모리 하드리밋 근접` 알람이 멎었는지 확인
+24. dev 노드 여유 메모리가 ~256 MiB 늘었는지 — [9](./phase-09-dev-cache-asg.md) 예산의 전제
 
 ---
 
 ## 검증
 
-### 데이터 대조 (9번 단계 — 통과 못 하면 진행 금지)
+### 데이터 대조 (C1 11번 단계 — 통과 못 하면 진행 금지)
 
 `information_schema.table_rows` 는 InnoDB **추정치**라 대조에 쓸 수 없다. 실제 `COUNT(*)` 를 돌린다.
 

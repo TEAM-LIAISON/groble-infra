@@ -107,7 +107,7 @@
 | 대기 | 막고 있는 것 |
 |---|---|
 | [egress IP 허용목록](./handoff/egress-ip-allowlist.md) | **Phase 3 착수 조건** |
-| [Dev RDS 컷오버](./handoff/dev-rds-cutover.md) | **Phase 5 E단계(자원 정리) 착수 조건.** RDS 는 만들어 뒀고 이관·전환은 백엔드 파이프라인 몫이다 |
+| [Dev RDS 컷오버](./handoff/dev-rds-cutover.md) | **Phase 5 E단계(자원 정리) 착수 조건.** RDS·리허설은 끝났고, 컷오버는 백엔드(덤프·복원·배포)와 인프라(`DB_HOST` apply)의 짧은 합동 작업이다 |
 | 계획서 §3 앱 측 차단 조건 **A~D** (expand/contract · readiness/liveness · graceful shutdown · 드레이닝 값) | **Phase 6 착수 조건.** 요청서 [rolling-deploy-prerequisites.md](./handoff/rolling-deploy-prerequisites.md) |
 | [결제 지표 3종 노출](./handoff/payment-alerts-review.md) (§6) | 알림 R10~R14. Phase 2 완료는 막지 않는다 |
 | 전환 구간(02:19~02:27) 결제 점검 · 첫 09:00 배치 확인 | [RDS 8.4 업그레이드](./runbook/adhoc/rds-mysql-84-upgrade.md) — 전환은 끝났고 사후 확인만 남았다 |
