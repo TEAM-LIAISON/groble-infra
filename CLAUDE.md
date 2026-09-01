@@ -51,15 +51,20 @@ SSM Session Manager(bastion·WireGuard 폐기) · Terraform state를 S3로
 앱의 OTLP·Loki 주소가 `otel.internal.groble.im` 으로 간접화되어 **다음 교체부터는
 레코드 값 변경 + 구 노드 수신 중단만으로 끝난다**(앱 재배포 없음).
 구 노드는 `groble-nat-instance` 로 개명해 NAT·bastion·VPN 만 지고 남아 있다.
-Dev 전환은 2026-08-31 에 **[5](docs/runbook/phase-05-dev-rds.md)(RDS) / [9](docs/runbook/phase-09-dev-cache-asg.md)(ElastiCache + ASG)** 로 쪼갰고,
-**[Phase 5](docs/runbook/phase-05-dev-rds.md) 를 앞당겨 진행했다** — Phase 3·6 이 모두 회신 대기라
-착수할 수 있는 유일한 Phase 였다. **인프라 몫은 끝났다**: `groble-dev-mysql`
-(RDS MySQL 8.4.11, db.t4g.micro, private 2c) 과 전용 SG·알람 6종을 배포했고 덤프/복원 리허설까지 검증했다.
-**컷오버는 짧은 합동 작업이다** — 백엔드가 덤프·복원·배포를, 인프라가 `DB_HOST` apply 를 맡는다
-([요청서](docs/handoff/dev-rds-cutover.md)). 앱 CD 워크플로가 태스크 정의의 **최신 ACTIVE 리비전을
-기반으로 이미지만 갈아끼우므로**, Terraform 이 등록한 리비전이 다음 배포에 실려 간다.
-이관 완료 연락을 받으면 구 MySQL 컨테이너를 제거한다.
-Phase 6·7·8 과 9 는 미착수다.
+**[Phase 5 — Dev MySQL → RDS](docs/runbook/phase-05-dev-rds.md) 는 2026-09-01 완료했다.**
+Phase 3·6 이 모두 회신 대기라 순서를 앞당겼다(원래 Phase 8 의 일부였다). dev DB 가
+컨테이너 MySQL 8.0.46 → RDS `groble-dev-mysql`(8.4.11, db.t4g.micro, private 2c)로 옮겨갔고
+구 컨테이너 서비스까지 제거했다. **dev 엔진이 prod 와 같아져** 계획서 §3-5 promote 게이트가
+DB 계층에서도 의미를 갖는다.
+⚠️ 구 컨테이너 DB 가 예정보다 이르게 비워져 **롤백 경로가 없다** — RDS 스냅샷·PITR 만 남았다.
+
+> 이 Phase 에서 확인된 사실: **앱 CD 워크플로가 태스크 정의의 최신 ACTIVE 리비전을 기반으로
+> 이미지만 갈아끼운다.** 즉 이 리포에서 환경변수를 바꿔 apply 하면 **다음 배포에 실려 간다**
+> (rev 1191 terraform → 1192 CD 승계로 실증). 단 **apply 전에 `spring_app_image` 를 실행 중
+> 이미지와 맞춰야 한다** — 낡은 값이면 그것이 family 의 최신 리비전이 된다.
+
+**다음 작업은 [Phase 6 — 배포 컨트롤러 전환](docs/runbook/phase-06-deployment-controller.md)** 이며
+앱 측 차단 조건 4건 회신 대기다. Phase 6·7·8·9 는 미착수다.
 Phase와 독립적인 [RDS MySQL 8.4 업그레이드](docs/runbook/adhoc/rds-mysql-84-upgrade.md)는
 **2026-08-29 전환 완료**했다 (확장 지원 과금 $178.56/월 중단).
 구 인스턴스도 같은 날 삭제했고, 최종 스냅샷 `groble-prod-mysql-80-final`(8.0.45)만 남아 있다.
