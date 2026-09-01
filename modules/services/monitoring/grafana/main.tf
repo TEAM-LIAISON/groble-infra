@@ -156,6 +156,49 @@ resource "aws_ecs_service" "grafana" {
 # ⚠️ 노드 재부팅으로 credential 프록시 iptables 가 사라지면 이 경로가 조용히 끊긴다.
 #    (과거 Loki S3 적재 실패와 같은 원인) 알람이 안 오는 것으로 나타나므로 알아채기 어렵다.
 #################################
+# CloudWatch 읽기 — Grafana 의 CloudWatch 데이터소스용
+#
+# RDS 지표는 두 층으로 나뉜다. 엔진 계층(연결·쿼리·락·버퍼풀)은 mysqld_exporter →
+# Prometheus 로 들어오지만, **AWS 자원 계층(CPU·FreeableMemory·FreeStorageSpace·
+# IOPS·BurstBalance)은 CloudWatch 에만 있다.** 알람 12건이 임계 초과는 잡아 주지만
+# "언제부터 그랬는가"를 그래프로 볼 수는 없었다.
+#
+# 인증은 별도 자격증명 없이 컨테이너 credential provider(169.254.170.2)를 쓴다.
+# 같은 경로를 Grafana 의 SNS contact point 가 이미 쓰고 있어 실증된 경로다.
+# ⚠️ 그래서 이 데이터소스는 credential 프록시 iptables 에 의존한다. 노드 재부팅으로
+#    DNAT 규칙이 사라지면 CloudWatch 패널이 죽는다 — Loki S3 적재를 실패시킨 그 기전이다.
+#
+# ⚠️ 정책이 붙는 곳은 **공용 ECS Task Role** 이라 prod·dev API 태스크도 이 권한을 갖게 된다
+#    (기존 monitoring-* 인라인 정책들과 같은 한계다). 읽기 전용 지표 조회라 수용한다.
+#
+# Resource 가 "*" 인 것은 선택이 아니다 — cloudwatch 의 지표 조회 액션들은
+# 리소스 수준 권한을 지원하지 않는다.
+resource "aws_iam_role_policy" "grafana_cloudwatch_read" {
+  name = "${var.environment}-grafana-cloudwatch-read"
+  role = split("/", var.task_role_arn)[1] # ARN 에서 역할 이름만 추출
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:GetMetricData",
+          "cloudwatch:GetMetricStatistics",
+          "cloudwatch:ListMetrics",
+          "cloudwatch:DescribeAlarms",
+          "cloudwatch:DescribeAlarmsForMetric",
+          "cloudwatch:DescribeAlarmHistory",
+          # 데이터소스가 차원 값을 태그로 찾을 때 쓴다
+          "tag:GetResources",
+        ]
+        Resource = "*"
+      }
+      # ec2:DescribeRegions 는 monitoring-prometheus-access 가 이미 준다 — 중복 부여하지 않는다
+    ]
+  })
+}
+
 resource "aws_iam_role_policy" "grafana_sns_publish" {
   count = var.sns_topic_arn_prod != "" || var.sns_topic_arn_dev != "" ? 1 : 0
 
