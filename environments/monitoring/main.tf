@@ -181,6 +181,38 @@ module "rds_exporter" {
   database_password = var.rds_database_password
 }
 
+# Dev RDS exporter — prod 와 같은 모니터링 노드에 뜬다
+#
+# 노드를 나누지 않는 이유: Prometheus 의 rds-exporter job 이 `localhost:<port>` 를
+# 긁는다(groble-images prometheus.yml). dev 노드에 두면 dev target SG 에 포트를 열고
+# prometheus.yml 에 사설 IP 를 하드코딩해야 하는데, 그건 Phase 4 가 걷어낸 방향이다.
+#
+# ⚠️ 모니터링 노드(t3a.small)의 잔여 메모리는 **255 MB** 다 (2026-09-01 실측,
+#    등록 1663 MB 중 태스크 7개가 1408 MB). 48 MB 를 더 얹으면 207 MB 가 남는다.
+#    Phase 9 노드 교체 전까지는 이게 상한이므로, 여기에 태스크를 더 얹기 전에
+#    반드시 remainingResources 를 다시 확인할 것.
+module "rds_exporter_dev" {
+  source = "../../modules/services/monitoring/rds-exporter"
+  count  = var.rds_dev_endpoint != "" ? 1 : 0
+
+  environment        = "monitoring"
+  ecs_cluster_id     = data.terraform_remote_state.shared.outputs.ecs_cluster_id
+  execution_role_arn = data.terraform_remote_state.shared.outputs.ecs_execution_role_arn
+  task_role_arn      = data.terraform_remote_state.shared.outputs.ecs_task_role_arn
+
+  # prod 인스턴스와 이름·포트가 겹치지 않게 가른다
+  name_suffix   = "-dev"
+  exporter_port = var.rds_dev_exporter_port
+
+  memory                       = var.rds_exporter_memory
+  container_memory             = var.rds_exporter_memory
+  container_memory_reservation = var.rds_exporter_container_memory_reservation
+
+  rds_endpoint      = var.rds_dev_endpoint
+  database_username = var.rds_dev_database_username
+  database_password = var.rds_dev_database_password
+}
+
 #################################
 # ECR - 모니터링 커스텀 이미지 (config baking, groble-images가 push)
 #################################

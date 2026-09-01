@@ -26,6 +26,7 @@
 | 🟡 Medium | [VPC Interface Endpoint](#medium-4) | 조건부 절감 | NAT 데이터 요금 확인 후 |
 | 🟡 Medium | [관측 평면 HA](#medium-5) | +$16/월 | 관측 단절이 실제 장애 대응을 방해했을 때 |
 | 🟡 Medium | [API 태스크 SG 의 prod/dev 분리](#medium-6) | $0 | **Phase 5 에서 확인됨** — dev·prod 가 서로의 DB 에 네트워크상 닿는다 |
+| 🟡 Medium | [노드 SG 의 개방 인그레스 정리](#medium-7) | $0 | **2026-09-01 확인됨** — prod·dev 양쪽 22·3306 이 `0.0.0.0/0` 이다 |
 | 🔵 Low | [dev DB 콜레이션 분열 정리](#low-6) | $0 (앱 작업) | 콜레이션 불일치로 인한 조인 성능·정렬 문제가 실제로 드러날 때 |
 | 🔵 Low | [ENI trunking](#low-1) | $0 | 노드당 3태스크 이상이 필요해질 때 |
 | 🔵 Low | [멀티 AZ / AZ 장애 생존](#low-2) | 상당 | 사업 요구사항이 SLA를 요구할 때 |
@@ -149,7 +150,7 @@ CLAUDE.md는 *"Prometheus: 로컬 15일, S3 장기 저장(90일)"* 이라고 기
 | 지표 | 실측값 | 판단 |
 |---|---|---|
 | `FreeableMemory` | 21~62 MiB (평균 42) / 총 1 GiB | 만성 부족 |
-| `SwapUsage` | 400~482 MiB, 7일간 안정된 고원 | 절반 가까이를 디스크로 밀어냄 |
+| `SwapUsage` | 400~482 MiB, 7일간 안정된 고원 → **2026-09-01 재측정 시 최대 517 MiB** | 절반 가까이를 디스크로 밀어냄. **알람 임계치 600 MiB 까지 83 MiB 남았다** |
 | `CPUUtilization` | 4.7~5.0% | 놀고 있음 |
 | `CPUCreditBalance` | 288 (최대치) | 버스트를 쓰지도 않음 |
 | `DatabaseConnections` | 14개 | 여유 |
@@ -179,6 +180,33 @@ Redis를 ElastiCache로 빼면 결제 경로가 DB에 더 의존하게 된다. �
 최소한 수용 여부를 명시적으로 결정해야 한다.
 
 `groble-prod-rds-swap` 알람(임계치 600 MiB)이 울리면 결정을 더 미룰 수 없다는 신호다.
+
+**이 재부팅 창에 함께 넣을 것 — `performance_schema = 1`**
+
+`groble-images` [PR #13](https://github.com/TEAM-LIAISON/groble-images/pull/13)(RDS 대시보드)이
+느린 쿼리 Top 10 패널을 채우기 위해 두 가지를 요청했다.
+
+| | 요청 | 이 리포의 변경 |
+|---|---|---|
+| 1 | mysqld_exporter 에 perf_schema 콜렉터 추가 | `modules/services/monitoring/rds-exporter/main.tf` 의 `command` 에 `--collect.perf_schema.eventsstatements` · `--collect.perf_schema.eventsstatements.limit=50` 2줄 |
+| 2 | RDS `performance_schema = 1` | `modules/infrastructure/rds-mysql/main.tf` 의 `mysql_params_84` 파라미터 그룹 |
+
+**2026-09-01 확인**: prod 파라미터 그룹의 `performance_schema` 는 `0`(Source `system`)이고
+Performance Insights 도 꺼져 있어, "이미 켜져 있을지도 모른다"는 경로는 없다.
+**static 파라미터라 재부팅이 필요하다.**
+
+**그래서 단독으로 하지 않는다.** `performance_schema` 는 `max_connections`(이 그룹은 200 명시)를
+기준으로 자동 사이징되어 통상 100 MiB 이상을 잡는다. **여유 메모리가 24 MiB 인 인스턴스에
+그만큼을 얹는 것은 위 표의 문제를 그대로 악화시키는 일이다** — 스왑 알람을 넘기거나, 나쁘면 OOM 재시작이다.
+A·B 어느 쪽을 택하든 재부팅이 필요하므로 **한 번의 유지보수 창에서 세 파라미터를 함께 적용**한다.
+
+요청 1(exporter 플래그)도 함께 간다. 파라미터가 꺼진 채로 콜렉터만 켜면
+`mysql_exporter_collector_success{collector="perf_schema.eventsstatements"}` 가 0 으로 떨어져
+잡음만 늘고 표는 여전히 비어 있다.
+
+> 검증 방법은 PR 본문에 있다 — Grafana `Groble — 데이터베이스` 대시보드 맨 아래
+> `perf_schema 수집` 패널이 "미수집"(빨강)에서 숫자(초록)로 바뀌면 성공이다.
+> exporter 태스크 메모리(하드리밋 48 MB, 7일 최대 실측 15 MB)도 반영 후 실측 확인이 필요하다.
 
 **함께 발견한 것 — `max_connections = 200`**
 
@@ -353,6 +381,47 @@ RDS SG 들은 이 SG 를 참조해 3306 을 여는데, 참조가 환경을 구�
 "한 번에 한 가지만 바꾼다"는 원칙이 깨진다.**
 
 **트리거**: 환경 간 오접속이 실제로 발생했을 때, 또는 [Phase 12](./runbook/phase-12-cleanup.md) 정리 시.
+
+
+### Medium-7. 노드 SG 의 개방 인그레스 정리 {#medium-7}
+
+**배경**: `groble-develop-target-group` 과 `groble-prod-target-group` **양쪽 모두**
+인그레스 7건 중 **2건이 `0.0.0.0/0` 이다.** 2026-09-01 dev RDS exporter 배치를 검토하다 확인했고,
+prod 도 같은지 대조해 보니 **규칙 구성이 완전히 동일했다.**
+
+| 포트 | 소스 | 비교 — 같은 SG 의 다른 규칙들 |
+|---|---|---|
+| **22 (SSH)** | **`0.0.0.0/0`** | — |
+| **3306 (MySQL)** | **`0.0.0.0/0`** | — |
+| 6379 (Redis) | `10.0.0.0/16` | VPC 로 한정 |
+| 80 · 8080 | ALB SG 참조 | 주체로 한정 |
+| 9100 · 8081 | 모니터링 SG 참조 | 주체로 한정 |
+
+**지금 당장의 노출은 제한적이다.** 두 노드 모두 사설 서브넷에 있고 퍼블릭 IP 가 없어
+인터넷에서 직접 도달하지 않는다. 실효 범위는 **VPC 내부와 WireGuard VPN 서브넷**이다.
+
+**그래도 고쳐야 하는 이유는 두 가지다.**
+
+1. **같은 SG 의 다른 규칙들은 전부 SG 참조나 VPC CIDR 로 한정되어 있다.** 이 두 건만 어긋나 있어
+   의도한 설정이라기보다 초기 구성의 잔재로 보인다. 규칙이 서로 다른 기준을 섞으면
+   **다음 사람이 어느 쪽이 기준인지 알 수 없다.**
+2. **3306 은 이제 양쪽 다 들을 것이 없다.** prod DB 는 처음부터 RDS 였고,
+   dev 도 [Phase 5](./runbook/phase-05-dev-rds.md) 로 컨테이너 MySQL 이 사라졌다.
+   **규칙 자체가 잔재다.**
+
+**해결안**
+
+- **3306** — 두 SG 에서 제거한다. 이 포트를 여는 컨테이너가 이제 없다
+- **22** — [Phase 10](./runbook/phase-10-access-path.md) 이 SSH 경로 자체를 폐기한다.
+  그 Phase 에서 함께 제거하는 것이 맞고, 그 전에 좁힌다면 모니터링 SG 참조로 한정한다
+  (현재 접근 경로가 모니터링 노드 경유 SSH 이므로)
+
+**왜 이번 범위 밖인가**: 22 번은 Phase 10 의 작업이고, 3306 은 그것과 같은 리소스를 건드린다.
+따로 쪼개면 같은 SG 를 두 번 고치게 된다. **SG 규칙 변경은 잘못 잡으면 조용히 통신을 끊으므로**
+접근 경로를 다시 그리는 Phase 10 에서 한 번에 하는 편이 안전하다.
+
+**트리거**: [Phase 10](./runbook/phase-10-access-path.md) 착수 시. 그 전이라도 VPN 사용자가
+늘어나면 앞당긴다.
 
 ---
 
