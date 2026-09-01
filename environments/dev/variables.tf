@@ -105,8 +105,13 @@ variable "enable_deletion_protection" {
   default     = false
 }
 
+# ⚠️ 이 변수는 어느 모듈에도 연결되어 있지 않다 — 죽은 변수다.
+#    타깃그룹은 environments/shared 가 만들고, 이 환경은 만들어진 타깃그룹의 ARN 만
+#    remote state 로 받아 쓴다. 여기를 고치고 apply 해도 plan 에 아무것도 뜨지 않는다.
+#    실제 헬스체크 경로는 shared 의 {prod,dev}_health_check_path 에서 정한다.
+#    (2026-09-02: 백엔드가 이 파일을 고치라고 지목해 혼선이 있었다)
 variable "health_check_path" {
-  description = "Health check path for application containers"
+  description = "[미사용] 실제 값은 environments/shared 에서 정한다"
   type        = string
   default     = "/actuator/health"
   

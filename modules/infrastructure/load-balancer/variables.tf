@@ -35,15 +35,54 @@ variable "idle_timeout" {
 }
 
 # 헬스체크 관련 변수
-variable "health_check_path" {
-  description = "Health check path for application containers"
+#
+# ⚠️ prod / dev 를 나눠 둔 이유는 값을 다르게 쓰려는 것이 아니라 **따로 바꿀 수 있게** 하기
+#    위해서다. Phase 6 에서 경로를 /actuator/health → /actuator/health/readiness 로 옮기는데,
+#    dev 에서 먼저 검증한 뒤 prod 로 간다.
+#    변수가 하나이던 시절에는 dev 만 바꾸는 순간 prod 타깃그룹도 함께 바뀌었고, prod 앱에
+#    아직 그 엔드포인트가 없으면 60초 뒤 전 태스크가 unhealthy 가 된다
+#    (prod TG 는 unhealthy_threshold 2 × interval 30).
+#    → docs/runbook/phase-06-deployment-controller.md 의 0단계
+variable "prod_health_check_path" {
+  description = "Prod 타깃그룹(blue/green)의 ALB 헬스체크 경로"
   type        = string
   default     = "/actuator/health"
-  
+
   validation {
-    condition     = can(regex("^/.*", var.health_check_path))
+    condition     = can(regex("^/.*", var.prod_health_check_path))
     error_message = "Health check path must start with '/'."
   }
+}
+
+variable "dev_health_check_path" {
+  description = "Dev 타깃그룹(blue/green)의 ALB 헬스체크 경로"
+  type        = string
+  default     = "/actuator/health"
+
+  validation {
+    condition     = can(regex("^/.*", var.dev_health_check_path))
+    error_message = "Health check path must start with '/'."
+  }
+}
+
+# API 타깃그룹의 등록 해제 대기(초)
+#
+# 기본값 300 은 AWS 기본값이며 지금까지의 동작 그대로다 (이전에는 미설정이었다).
+# Phase 6 에서 60 으로 내린다 — 결제 승인 상한 30초(Payple 왕복 2회)를 덮는 값이다.
+# ⚠️ 내리는 방향이므로 in-flight 보호가 줄어든다. 60MB 업로드(~96초)가 잘리는 것은
+#    백엔드와 의도적으로 수용하기로 했다 (근본 해법은 presigned 직행, 별건).
+#    → docs/handoff/rolling-deploy-prerequisites.md §4-4 · §5-4
+# 경로와 같은 이유로 prod / dev 를 나눠 둔다 — dev 먼저 내리고 검증한 뒤 prod 로 간다.
+variable "prod_deregistration_delay" {
+  description = "Prod 타깃그룹(blue/green)의 등록 해제 대기(초)"
+  type        = number
+  default     = 300
+}
+
+variable "dev_deregistration_delay" {
+  description = "Dev 타깃그룹(blue/green)의 등록 해제 대기(초)"
+  type        = number
+  default     = 300
 }
 
 # SSL 인증서 관련 변수

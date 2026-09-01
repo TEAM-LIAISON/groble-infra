@@ -80,10 +80,31 @@ variable "enable_deletion_protection" {
   default     = false
 }
 
-variable "health_check_path" {
-  description = "Health check path for application containers"
+# 헬스체크 경로 · 등록 해제 대기는 prod / dev 를 나눠 둔다.
+# 값을 다르게 쓰려는 것이 아니라 Phase 6 에서 **dev 먼저 바꾸고 검증한 뒤 prod 로 가기**
+# 위해서다. 자세한 이유는 modules/infrastructure/load-balancer/variables.tf 주석 참조.
+variable "prod_health_check_path" {
+  description = "Prod 타깃그룹(blue/green)의 ALB 헬스체크 경로"
   type        = string
   default     = "/actuator/health"
+}
+
+variable "dev_health_check_path" {
+  description = "Dev 타깃그룹(blue/green)의 ALB 헬스체크 경로"
+  type        = string
+  default     = "/actuator/health"
+}
+
+variable "prod_deregistration_delay" {
+  description = "Prod 타깃그룹(blue/green)의 등록 해제 대기(초). Phase 6 에서 60 으로 내린다"
+  type        = number
+  default     = 300
+}
+
+variable "dev_deregistration_delay" {
+  description = "Dev 타깃그룹(blue/green)의 등록 해제 대기(초). Phase 6 에서 60 으로 내린다"
+  type        = number
+  default     = 300
 }
 
 # SSH 접근 관련 변수들
