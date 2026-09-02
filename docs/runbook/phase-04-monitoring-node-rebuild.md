@@ -79,7 +79,7 @@ additive 라 무영향이지만 **shared 환경 변경**이므로 모든 노드�
 (`modules/services/monitoring/*/main.tf`). 신 노드에 같은 attribute 를 주면 ECS 가
 두 노드 중 **어디에 놓을지 결정론적이지 않다.** host mode + desired 1 이라 "복제"가 아니라 "이동"이다.
 
-→ **구 노드를 `DRAINING` 으로 전환해 밀어낸다** ([Phase 8](./phase-08-prod-asg.md) 6번과 같은 기법).
+→ **구 노드를 `DRAINING` 으로 전환해 밀어낸다** ([Phase 9](./phase-09-prod-asg.md) 6번과 같은 기법).
    attribute 는 양쪽 노드에 다 두고, 배치는 드레이닝으로 강제한다.
 
 ### 4. AL2023 용 user_data 가 아직 없다

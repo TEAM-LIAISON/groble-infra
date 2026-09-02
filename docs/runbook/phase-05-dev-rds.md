@@ -1,6 +1,6 @@
 # Phase 5 — Dev MySQL → RDS
 
-> [← Phase 8](./phase-08-prod-asg.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 9 →](./phase-09-dev-cache-asg.md)
+> [← Phase 4](./phase-04-monitoring-node-rebuild.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 6 →](./phase-06-deployment-controller.md)
 
 | | |
 |---|---|
@@ -13,7 +13,7 @@
 
 > **이 Phase 는 2026-08-31 이전에 "Phase 8"(Dev 전환) 의 일부였다.** RDS·ElastiCache·ASG 를
 > 한 문서에 담고 있었는데, RDS 이관만 선행 조건이 없어 떼어내 **5번으로 앞당기고** 나머지는
-> **[9](./phase-09-dev-cache-asg.md)(Dev ElastiCache + ASG)** 로 남겼다.
+> **[7](./phase-07-dev-cache-asg.md)(Dev ElastiCache + ASG)** 로 남겼다.
 > 그때 뒤의 Phase 들이 한 칸씩 밀렸다 — 번호 대응표는
 > [이관 절차 목차](../infra-ha-migration-runbook.md#번호-이력--옛-문서pr-의-번호는-다를-수-있다)에 있다.
 
@@ -21,14 +21,14 @@
 
 ## 왜 순서를 앞당기는가
 
-Phase 6·7·8 을 기다릴 이유가 없고, 오히려 **먼저 해야 이득인 것이 세 가지** 있다.
+Phase 6~9 를 기다릴 이유가 없고, 오히려 **먼저 해야 이득인 것이 세 가지** 있다.
 
 1. **[Phase 2](./phase-02-observability.md) 부터 계속 발화 중인 `컨테이너 메모리 하드리밋 근접` 알람이 멎는다.**
    "어차피 Dev 전환에서 컨테이너째 사라지니 리밋을 상향하지 않는다"고 결정하며 발화를 감수해 둔 건이다.
    그 "어차피"를 앞당기면 감수 기간이 끝난다.
-2. **dev 노드에서 256 MiB 가 회수된다.** [9](./phase-09-dev-cache-asg.md) 는 dev 노드를
+2. **dev 노드에서 256 MiB 가 회수된다.** [7](./phase-07-dev-cache-asg.md) 는 dev 노드를
    t3.medium(4 GiB) → t3.small(2 GiB) 로 낮추는데, MySQL 컨테이너가 남아 있으면 예산이 성립하지 않는다.
-   **Phase 5 는 Phase 9 의 선행 조건이다.**
+   **Phase 5 는 [Phase 7](./phase-07-dev-cache-asg.md) 의 선행 조건이다.**
 3. **dev 엔진이 prod 와 같아진다.** 지금 dev 는 컨테이너 **MySQL 8.0.46**, prod 는 **RDS 8.4.11** 이다.
    "동일 이미지를 Dev 에 먼저 배포해 통과하면 Prod 로 승격"(계획서 §3-5)이라는 게이트인데
    **DB 엔진부터 갈라져 있으면 게이트가 검증하는 게 없다.**
@@ -39,8 +39,8 @@ Phase 6·7·8 을 기다릴 이유가 없고, 오히려 **먼저 해야 이득�
 |---|---|
 | [Phase 3](./phase-03-nat-gateway.md) (NAT GW) | RDS 는 VPC 내부다. 아웃바운드 경로와 무관 |
 | [Phase 6](./phase-06-deployment-controller.md) (rolling 전환) | 지금의 CodeDeploy Blue/Green 으로 컷오버 가능. 아래 절차가 그것을 전제로 쓰여 있다 |
-| [Phase 7](./phase-07-elasticache.md) (Prod Redis) | 자원이 겹치지 않는다 |
-| [Phase 8](./phase-08-prod-asg.md) (Prod ASG) | prod 노드만 건드린다 |
+| [Phase 8](./phase-08-prod-elasticache.md) (Prod Redis) | 자원이 겹치지 않는다 |
+| [Phase 9](./phase-09-prod-asg.md) (Prod ASG) | prod 노드만 건드린다 |
 
 ---
 
@@ -445,7 +445,7 @@ apply 하는 순간부터 **"다음 배포"가 RDS 를 본다.** 데이터 이�
 | `db_host` | `data.aws_instance.shared_dev_instance.private_ip` → **`module.dev_rds_mysql.rds_address`** |
 | plan | `1 to add, 0 to change, 1 to destroy` — destroy 는 아무도 실행하지 않는 rev 1181 의 deregister |
 | 결과 | **rev 1191** 등록. family 의 최신 ACTIVE 이므로 다음 배포에 실려 간다 |
-| 확인 | `DB_HOST` = RDS · `DB_USERNAME`/`DB_NAME` 불변 · `REDIS_HOST` 불변(10.0.12.215, Phase 9 까지) · 이미지 일치 |
+| 확인 | `DB_HOST` = RDS · `DB_USERNAME`/`DB_NAME` 불변 · `REDIS_HOST` 불변(10.0.12.215, [Phase 7](./phase-07-dev-cache-asg.md) 까지) · 이미지 일치 |
 | state 되돌리기 지점 | `tqSdp5LSDH5J..ptQ3HnC83U08xN6tqS` |
 
 ### 🔴 계획과 달랐던 것 — 구 컨테이너 DB 가 먼저 비워졌다
@@ -476,7 +476,7 @@ RDS 보다 낡아 쓸모가 없다.
 
 > **교훈**: 요청서 §4-2 의 "대상 비우기" 명령은 `-h $RDS` 하나로 대상과 원본이 갈린다.
 > 같은 셸에서 원본과 대상을 오가는 절차는 이런 사고에 열려 있다.
-> [Phase 9](./phase-09-dev-cache-asg.md) 이후 비슷한 이관이 있으면
+> [Phase 7](./phase-07-dev-cache-asg.md) 이후 비슷한 이관이 있으면
 > **원본 쪽 명령과 대상 쪽 명령의 프롬프트를 물리적으로 분리**하는 편이 낫다.
 
 ---
@@ -492,7 +492,7 @@ RDS 보다 낡아 쓸모가 없다.
 | 알람 | RDS 6종 → `#groble-alert-dev` |
 | 앱 | rev **1192** (CD 가 인프라의 rev 1191 에서 `DB_HOST` 승계) |
 | 제거 | ECS 서비스 `groble-dev-mysql-service` · 태스크 정의 `groble-dev-mysql-task:40` |
-| 남긴 것 | 노드의 `/opt/mysql-dev-data` (211 MB) — [9](./phase-09-dev-cache-asg.md) 노드 교체에서 소멸 |
+| 남긴 것 | 노드의 `/opt/mysql-dev-data` (211 MB) — [7](./phase-07-dev-cache-asg.md) 노드 교체에서 소멸 |
 | 비용 | **+$20/월** |
 
 **검증 결과**
@@ -500,7 +500,7 @@ RDS 보다 낡아 쓸모가 없다.
 - dev API 태스크 rev 1192 healthy · ALB 타깃 healthy
 - RDS 에 앱 커넥션 6개(`10.0.12.160`), `Com_select` 증가 확인 → 실트래픽 처리 중
 - 컨테이너 MySQL `Exited (0)` 정상 종료, cAdvisor 노출 중단, Prometheus 시계열 소멸
-- **dev 노드 MemAvailable 2,080 → 2,357 MiB (+277 MiB 회수)** — [9](./phase-09-dev-cache-asg.md) 의 t3.small 예산 전제
+- **dev 노드 MemAvailable 2,080 → 2,357 MiB (+277 MiB 회수)** — [7](./phase-07-dev-cache-asg.md) 의 t3.small 예산 전제
 - `컨테이너가 메모리 하드리밋에 근접` 알람: 규칙의 `noDataState = OK` 이고 시계열이 사라져 자동 해소된다
 
 **계획과 달랐던 점**
@@ -596,7 +596,7 @@ RDS 내부 사고는 스냅샷·PITR(보존 7일)로 복구한다.
 > **원래 문서에는 이 구간이 없었다.** "덤프→복원" 다음에 바로 "DB_HOST 변경→재배포"가 오는데,
 > 그 사이에 앱은 **여전히 컨테이너에 쓰고 있다.** 게다가 Blue/Green 이라 전환 순간
 > **blue(컨테이너)와 green(RDS)이 서로 다른 DB 를 보며 동시에 살아 있다** —
-> [Phase 7](./phase-07-elasticache.md) 이 Redis 에서 stop-first 를 쓰는 것과 같은 split-brain 이다.
+> [Phase 8](./phase-08-prod-elasticache.md) 이 Redis 에서 stop-first 를 쓰는 것과 같은 split-brain 이다.
 > **DB 레벨에서 쓰기를 얼려** 그 창을 없앤다.
 
 **C1 — 백엔드**
@@ -642,9 +642,9 @@ RDS 마스터 계정을 **앱이 지금 쓰는 것과 같은 자격증명으로 
 
 21. `module "dev_mysql_service"` 제거 → apply
 22. dev 노드의 `/opt/mysql-dev-data` 는 **바로 지우지 않는다.** 1주 더 둔 뒤
-    [9](./phase-09-dev-cache-asg.md) 의 노드 교체에서 자연 소멸시킨다
+    [7](./phase-07-dev-cache-asg.md) 의 노드 교체에서 자연 소멸시킨다
 23. `컨테이너 메모리 하드리밋 근접` 알람이 멎었는지 확인
-24. dev 노드 여유 메모리가 ~256 MiB 늘었는지 — [9](./phase-09-dev-cache-asg.md) 예산의 전제
+24. dev 노드 여유 메모리가 ~256 MiB 늘었는지 — [7](./phase-07-dev-cache-asg.md) 예산의 전제
 
 ---
 
@@ -707,7 +707,7 @@ grep MISMATCH /tmp/rowdiff.txt   # 아무것도 안 나와야 한다
 - [ ] 백업창·점검창이 **의도한 KST 시각**인지 콘솔에서 재확인 (UTC 함정)
 - [ ] Dev RDS 알람 4~6종이 `#groble-alert-dev` 로 도달하는지 (하나를 강제 발화시켜 확인)
 - [ ] 구 컨테이너 제거 후 **`컨테이너 메모리 하드리밋 근접` 알람이 멎는지**
-- [ ] dev 노드 여유 메모리가 ~256 MiB 늘었는지 — [9](./phase-09-dev-cache-asg.md) 예산의 전제
+- [ ] dev 노드 여유 메모리가 ~256 MiB 늘었는지 — [7](./phase-07-dev-cache-asg.md) 예산의 전제
 
 ---
 
@@ -809,9 +809,9 @@ rev 40 이 (2026-08-20 부터 8-31 까지) 고정돼 있던 것도 이 때문이
 | dev-api · prod-api | `[task_definition, load_balancer]` | ✅ CodeDeploy 소유. **단 위 11번 단계의 원인이다** |
 | **dev-mysql** | `[task_definition, desired_count]` | ❌ 이 Phase 에서 서비스째 제거되므로 자연 해소 |
 | **prod-redis** | `[task_definition, desired_count]` | ❌ **남는다 — 아래 참조** |
-| dev-redis | 없음 | — [9](./phase-09-dev-cache-asg.md) 에서 제거 |
+| dev-redis | 없음 | — [7](./phase-07-dev-cache-asg.md) 에서 제거 |
 
-> 🔴 **prod-redis 에도 같은 함정이 있다.** [Phase 7](./phase-07-elasticache.md) 에서 ElastiCache 로
+> 🔴 **prod-redis 에도 같은 함정이 있다.** [Phase 8](./phase-08-prod-elasticache.md) 에서 ElastiCache 로
 > 이관하며 서비스가 제거될 때까지, **prod Redis 태스크 정의를 고쳐도 배포되지 않는다.**
 > 급히 고쳐야 할 일이 생기면 `aws ecs update-service --force-new-deployment --task-definition <family>:<rev>`
 > 로 강제 배포해야 한다. Redis 컨테이너 재시작은 결제 멱등성 키·재고 예약 유실로 직결되므로
@@ -819,4 +819,4 @@ rev 40 이 (2026-08-20 부터 8-31 까지) 고정돼 있던 것도 이 때문이
 
 ---
 
-[← Phase 8 — Prod ASG 전환](./phase-08-prod-asg.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 9 — Dev ElastiCache + ASG →](./phase-09-dev-cache-asg.md)
+[← Phase 4 — 모니터링 노드 재구축](./phase-04-monitoring-node-rebuild.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 6 — 배포 컨트롤러 전환 →](./phase-06-deployment-controller.md)

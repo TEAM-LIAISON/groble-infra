@@ -236,5 +236,5 @@ G1이 상한을 2,878 MiB로 알고 있어 회수를 미룬 결과이며, 이 �
 | 문서 | 내용 |
 |---|---|
 | `groble-infra/docs/runbook/phase-02-observability.md` | 이 측정이 나온 Phase (2-0 API 태스크 워킹셋 측정) |
-| `groble-infra/docs/runbook/phase-08-prod-asg.md` | 스왑이 사라지는 Phase |
+| `groble-infra/docs/runbook/phase-09-prod-asg.md` | 스왑이 사라지는 Phase |
 | `groble-infra/docs/infra-ha-improvement-plan.md` §2.1 | 트래픽·자원 기준선 |

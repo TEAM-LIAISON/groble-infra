@@ -36,7 +36,7 @@ SSM Session Manager(bastion·WireGuard 폐기) · Terraform state를 S3로
 (`#groble-alert` 긴급 / `#groble-alert-dev`)로 전달된다. 임계치는 실측 기준선으로 확정했다
 (계획서 §2.1 "트래픽·자원 기준선").
 **Phase 2 진행 중** — 2-0(API 워킹셋 측정) · 2-1(Prometheus `ec2_sd_config` 전환) ·
-2-2(Grafana 프로비저닝 as-code) **배포·검증까지 완료**. `memoryReservation` 확정으로 Phase 8 차단이 풀렸다.
+2-2(Grafana 프로비저닝 as-code) **배포·검증까지 완료**. `memoryReservation` 확정으로 Phase 9 차단이 풀렸다.
 남은 것은 ① NoData로 죽어 있는 JVM 힙 알람 수정 ② 백엔드 지표 3종을 받은 뒤 알림 R10~R14. 상세와 이어받기는
 [`docs/runbook/phase-02-observability.md`](docs/runbook/phase-02-observability.md)에 있다.
 **Phase 3 진행 중** — 3-a(EIP `15.165.223.110` 확보 + S3 엔드포인트 생성)까지 apply 했다.
@@ -64,7 +64,10 @@ DB 계층에서도 의미를 갖는다.
 > 이미지와 맞춰야 한다** — 낡은 값이면 그것이 family 의 최신 리비전이 된다.
 
 **다음 작업은 [Phase 6 — 배포 컨트롤러 전환](docs/runbook/phase-06-deployment-controller.md)** 이며
-앱 측 차단 조건 4건 회신 대기다. Phase 6·7·8·9 는 미착수다.
+앱 측 차단 조건 4건 회신 대기다. Phase 6~9 는 미착수다.
+> **Phase 7~9 는 dev-first 로 배열되어 있다** (2026-09-02 재배열). Dev 전환(ElastiCache + ASG)이
+> **[7](docs/runbook/phase-07-dev-cache-asg.md)** 로 앞서고 Prod 가 **[8](docs/runbook/phase-08-prod-elasticache.md)**(ElastiCache) ·
+> **[9](docs/runbook/phase-09-prod-asg.md)**(ASG) 로 뒤따른다. ASG 절차의 원본은 Phase 7 문서에 있다.
 Phase와 독립적인 [RDS MySQL 8.4 업그레이드](docs/runbook/adhoc/rds-mysql-84-upgrade.md)는
 **2026-08-29 전환 완료**했다 (확장 지원 과금 $178.56/월 중단).
 구 인스턴스도 같은 날 삭제했고, 최종 스냅샷 `groble-prod-mysql-80-final`(8.0.45)만 남아 있다.
@@ -218,7 +221,7 @@ RDS는 `multi_az = false`이고 db_subnet_group이 2a/2c를 모두 포함해 **A
 - **Dev**: RDS MySQL **8.4.11** (**db.t4g.micro**, gp2, 암호화, 7일 백업, 20GB→100GB auto-scaling, **단일 AZ / 2c 고정**)
   > 2026-09-01 [Phase 5](docs/runbook/phase-05-dev-rds.md) 에서 컨테이너 MySQL(8.0.46, 노드 로컬 디스크)에서 이관했다.
   > 백업창 `17:00-18:00` UTC = KST 02~03시, 점검창 `sun:18:00-sun:19:00` UTC = KST 월 03~04시.
-  > 노드의 `/opt/mysql-dev-data`(211MB)는 아직 남아 있으며 Phase 9 노드 교체에서 사라진다.
+  > 노드의 `/opt/mysql-dev-data`(211MB)는 아직 남아 있으며 Phase 7 노드 교체에서 사라진다.
 
 ### Redis 7 (ECS, host mode)
 - Port 6379, Memory 128MB, Prod/Dev 모두 컨테이너 기반

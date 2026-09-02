@@ -32,24 +32,58 @@
 | **[4](./runbook/phase-04-monitoring-node-rebuild.md)** | 모니터링 노드 재구축 (private 2c, AL2023) + OTLP DNS 간접화 | ✅ **완료** (2026-08-30) | 없음 (관측만 수 분 중단) | DNS 레코드 되돌리기 (재배포 없음) |
 | **[5](./runbook/phase-05-dev-rds.md)** | Dev MySQL → RDS | ✅ **완료** (2026-09-01) | Dev만 (쓰기 차단 1분 미만) | **되돌릴 수 없다** (구 컨테이너 DB 소멸) |
 | **[6](./runbook/phase-06-deployment-controller.md)** | 배포 컨트롤러 CodeDeploy → ECS rolling | ⬜ 미착수 — **다음 작업.** 앱 측 차단 조건 4건 대기 | 없음 (리스너 스왑) | **리스너 규칙 되돌리기** |
-| **[7](./runbook/phase-07-elasticache.md)** | Prod Redis → ElastiCache (**stop-first**, rolling 아님) | ⬜ 미착수 | **진행 중 결제 세션 소실 + 1~2분 순단** ⚠️ | 되돌려도 재소실 |
-| **[8](./runbook/phase-08-prod-asg.md)** | Prod ASG 전환 (구 노드 드레인) | ⬜ 미착수 | 없음 | 구 노드 재활성화 |
-| **[9](./runbook/phase-09-dev-cache-asg.md)** | Dev ElastiCache + ASG 전환 | ⬜ 미착수 — 5·6·8 대기 | Dev만 | 단계별 |
+| **[7](./runbook/phase-07-dev-cache-asg.md)** | Dev ElastiCache + ASG 전환 — **8·9 의 리허설** | ⬜ 미착수 — 5·6 대기 | Dev만 | 단계별 |
+| **[8](./runbook/phase-08-prod-elasticache.md)** | Prod Redis → ElastiCache (**stop-first**, rolling 아님) | ⬜ 미착수 — 7 대기 | **진행 중 결제 세션 소실 + 1~2분 순단** ⚠️ | 되돌려도 재소실 |
+| **[9](./runbook/phase-09-prod-asg.md)** | Prod ASG 전환 (구 노드 드레인) | ⬜ 미착수 — 7·8 대기 | 없음 | 구 노드 재활성화 |
 | **[10](./runbook/phase-10-access-path.md)** | 접근 경로 정리 (WireGuard/bastion/22 폐기) | ⬜ 미착수 | 없음 | SG 규칙 복원 |
 | **[11](./runbook/phase-11-secrets-ssm.md)** | Secrets → SSM Parameter Store | ⬜ 미착수 | 없음 (rolling 재배포) | 이전 태스크 정의 |
 | **[12](./runbook/phase-12-cleanup.md)** | 잔재 정리 및 문서 갱신 | ⬜ 미착수 | 없음 | — |
 | **[별건](./runbook/adhoc/rds-mysql-84-upgrade.md)** | RDS MySQL 8.0 → 8.4 (확장 지원 과금 $178.56/월 중단) | 📦 **종결** (2026-08-29) — 전환·정리 완료 | 쓰기 차단 35초 + **앱 재연결 문제로 7~8분 쓰기 실패** | 되돌릴 수 없음 (최종 스냅샷만 보유) |
 
 **RDS 8.4 업그레이드는 Phase 순서와 독립적이다.** 2026-08-01 부터 확장 지원 과금이 자동으로 붙기
-시작해 촉발된 별건이며, Phase 7·8 과 자원이 겹치지 않아 언제든 끼워 넣을 수 있다.
+시작해 촉발된 별건이며, Phase 8·9 와 자원이 겹치지 않아 언제든 끼워 넣을 수 있다.
 
-**Phase 7 이전까지는 사용자 영향이 사실상 0이다.** 그 지점까지 최대한 검증을 쌓고 진입한다.
+**Phase 8 이전까지는 사용자 영향이 사실상 0이다.** 그 지점까지 최대한 검증을 쌓고 진입한다.
+
+### 🔁 Dev 를 Prod 보다 먼저 — 이 구간의 기본 규칙
+
+**같은 변경은 Dev 에서 먼저 하고 Prod 로 승격한다** (계획서 §3-5 promote 게이트).
+Phase 7~9 는 이 규칙에 따라 배열되어 있다.
+
+| 변경 | Dev (먼저) | Prod (나중) |
+|---|---|---|
+| Redis → ElastiCache | **[7](./runbook/phase-07-dev-cache-asg.md)-A** | **[8](./runbook/phase-08-prod-elasticache.md)** |
+| 노드 → ASG / Launch Template | **[7](./runbook/phase-07-dev-cache-asg.md)-B** | **[9](./runbook/phase-09-prod-asg.md)** |
+
+**ASG 전환 절차의 원본은 [7](./runbook/phase-07-dev-cache-asg.md)-B 에 있고, [9](./runbook/phase-09-prod-asg.md) 는 그것을 참조하며 Prod 고유 차이만 적는다.**
+2026-09-02 이전에는 반대였다 — 아래 [번호 이력](#번호-이력--옛-문서pr-의-번호는-다를-수-있다) ① 참조.
+
+> ⚠️ **Dev 가 Prod 를 완전히 대변하지는 못한다.** Dev 는 t3.small ×2 로 **노드당 API 태스크 1개**라
+> Prod 의 surge 배치(3번째 태스크가 슬롯에 들어가는 동작)와 피크 시점 메모리·ENI 압력은
+> 검증되지 않는다 (계획서 §2.1). 그 둘은 [9](./runbook/phase-09-prod-asg.md) 의 instance refresh 리허설에서 처음 실측한다.
+> **Dev 리허설이 덮는 것**은 ElastiCache 엔드포인트 전환 · AL2023 AMI · Launch Template ·
+> Capacity Provider managed draining · 태그 전파 · credential 프록시 · SSM 등록이며,
+> 이것들이 실패했을 때 Prod 에서 치르는 대가가 크다.
 
 ### 번호 이력 — 옛 문서·PR 의 번호는 다를 수 있다
 
-**Phase 번호는 두 번 바뀌었다. 내용·차단 조건·되돌리기는 그대로다.**
+**Phase 번호는 세 번 바뀌었다. 내용·차단 조건·되돌리기는 그대로다.**
 
-**① 2026-08-31 — Dev RDS 를 5번으로 앞당기고 뒤를 한 칸씩 밀었다**
+**① 2026-09-02 — Dev 를 Prod 앞으로 당겼다** (최신)
+
+Dev 전환(ElastiCache + ASG)이 Prod 전환보다 **뒤**에 있어 dev-first 규칙에 반했다.
+7·8·9 세 자리 안에서만 회전시켰고 6·10 은 그대로다.
+
+| 옛 | 새 | 내용 |
+|---|---|---|
+| 9 | **7** | Dev ElastiCache + ASG (`phase-07-dev-cache-asg.md`) |
+| 7 | **8** | Prod Redis → ElastiCache (`phase-08-prod-elasticache.md`) |
+| 8 | **9** | Prod ASG 전환 (`phase-09-prod-asg.md`) |
+
+이때 **ASG 절차의 원본을 Prod 문서에서 Dev 문서로 옮겼다.** 옛 Phase 9 가 "Phase 8 과 동일한 절차"라고
+Prod 를 참조하던 방향이 뒤집혔다.
+
+**② 2026-08-31 — Dev RDS 를 5번으로 앞당기고 뒤를 한 칸씩 밀었다**
 
 원래 Phase 8 이 Dev 전환(RDS + ElastiCache + ASG)을 한 덩어리로 담고 있었는데,
 **RDS 이관만 선행 조건이 없어** 떼어내 앞으로 옮겼다.
@@ -65,7 +99,7 @@
 | 10 | **11** | Secrets → SSM |
 | 11 | **12** | 잔재 정리 |
 
-**② 2026-08-30 — 모니터링 노드 재구축과 배포 컨트롤러 전환의 순서를 맞바꿨다**
+**③ 2026-08-30 — 모니터링 노드 재구축과 배포 컨트롤러 전환의 순서를 맞바꿨다**
 
 지금의 **[4](./runbook/phase-04-monitoring-node-rebuild.md)(모니터링 노드 재구축)** 와
 **[6](./runbook/phase-06-deployment-controller.md)(배포 컨트롤러 전환)** 이다.
@@ -79,23 +113,27 @@
 ### 왜 Dev RDS([5](./runbook/phase-05-dev-rds.md))를 앞당겼나
 
 - **선행 조건이 하나도 없다.** RDS 는 VPC 내부라 Phase 3(NAT)와 무관하고,
-  컷오버는 지금의 CodeDeploy Blue/Green 으로 가능하다. Phase 6·7·8 과 자원이 겹치지 않는다
-- **[9](./runbook/phase-09-dev-cache-asg.md)(Dev ElastiCache + ASG)는 Phase 6·8 의 결과물에 얹힌다.**
-  배포 설정(`50/100`)은 Phase 6 이 만든 rolling 위에서만 의미가 있고, ASG 절차는 Phase 8 의 복제다
-- **[5](./runbook/phase-05-dev-rds.md) 는 [9](./runbook/phase-09-dev-cache-asg.md) 의 선행 조건이기도 하다.**
-  9 가 dev 노드를 t3.medium → t3.small 로 낮추는데, MySQL 컨테이너(256 MiB)가 남아 있으면 예산이 성립하지 않는다
+  컷오버는 지금의 CodeDeploy Blue/Green 으로 가능하다. Phase 6·8·9 와 자원이 겹치지 않는다
+- **[7](./runbook/phase-07-dev-cache-asg.md)(Dev ElastiCache + ASG)는 Phase 6 의 결과물에 얹힌다.**
+  배포 설정(`50/100`)은 Phase 6 이 만든 rolling 위에서만 의미가 있다
+- **[5](./runbook/phase-05-dev-rds.md) 는 [7](./runbook/phase-07-dev-cache-asg.md) 의 선행 조건이기도 하다.**
+  7 이 dev 노드를 t3.medium → t3.small 로 낮추는데, MySQL 컨테이너(256 MiB)가 남아 있으면 예산이 성립하지 않는다
 
 **앞당기는 실익이 세 가지 있다.**
 
 1. Phase 2 부터 계속 발화 중인 `컨테이너 메모리 하드리밋 근접` 알람이 멎는다 —
    "어차피 Dev 전환에서 사라지니 상향하지 않는다"고 감수해 둔 건이다
-2. dev 노드에서 256 MiB 가 회수된다 ([9](./runbook/phase-09-dev-cache-asg.md) 예산의 전제)
+2. dev 노드에서 256 MiB 가 회수된다 ([7](./runbook/phase-07-dev-cache-asg.md) 예산의 전제)
 3. **dev 엔진이 prod 와 같아진다** — dev 는 컨테이너 MySQL 8.0.46, prod 는 RDS 8.4.11 이었다.
    "동일 이미지를 Dev 에 먼저 배포해 통과하면 Prod 승격"(계획서 §3-5) 게이트인데
    DB 엔진부터 갈라져 있으면 게이트가 검증하는 것이 없다
 
-**6·7·8 은 앞당기지 않는다.** Phase 8 은 Phase 7(Redis 외부화)에 묶여 있고, Phase 7 은 이 마이그레이션에서
-유일하게 사용자 영향이 실재하는 단계다. 무영향 작업을 다 하기 전에 그것부터 감수할 이유가 없다.
+**6 은 앞당기지 않는다.** 앱 측 차단 조건 4건에 막혀 있고, 7·8·9 가 모두 그 위에 얹힌다.
+
+**[8](./runbook/phase-08-prod-elasticache.md)(Prod ElastiCache)은 이 마이그레이션에서 유일하게 사용자 영향이 실재하는 단계다.**
+그래서 무영향 작업을 다 한 뒤에, 그리고 **같은 전환을 Dev([7](./runbook/phase-07-dev-cache-asg.md)-A)에서 한 번 해본 뒤에** 들어간다.
+[9](./runbook/phase-09-prod-asg.md)(Prod ASG)는 [8](./runbook/phase-08-prod-elasticache.md)(Redis 외부화)에 묶여 있다 —
+host-mode 싱글턴 컨테이너는 cattle 노드에서 유지할 수 없다.
 
 ---
 
@@ -123,7 +161,7 @@
 - [ ] `terraform plan`이 모든 환경에서 **no changes**로 깨끗한지 확인 — drift가 있으면 먼저 해소
 - [ ] 계획서 §3 "rolling 전환의 차단 조건 — 앱 측 작업" **4건**(expand/contract 합의 · readiness/liveness 분리 · graceful shutdown · 드레이닝 값 정렬)이 groble-backend에서 완료되었는지 — **Phase 6의 차단 조건**. Phase 0~4는 이와 무관하게 먼저 진행할 수 있다
 - [ ] **WireGuard 51820 소스를 `0.0.0.0/0` → 팀 IP로 축소** (계획서 §2.5 선행 즉시 조치 — Phase 10까지 6~8주를 열어둘 이유가 없다)
-- [ ] 저트래픽 시간대 확인 (Phase 3·7에 필요)
+- [ ] 저트래픽 시간대 확인 (Phase 3·8에 필요)
 - [ ] **외부 업체 허용목록에 새 egress IP 등록 완료** — [Phase 3](./runbook/phase-03-nat-gateway.md) 전환의 차단 조건.
   등록 전에 전환하면 짧은 블립이 아니라 **등록될 때까지 지속되는 장애**가 된다
   ([질의서](./handoff/egress-ip-allowlist.md))
@@ -151,14 +189,14 @@
 | 4 | 반나절 + 관찰 | **1주** (rolling 안정화) |
 | 5 | 반나절 (RDS 기동 ~10분 + 컷오버) | **2~3일** — 컨테이너를 지우기 전 관찰 |
 | 6 | 반나절 | 2~3일 |
-| 7 | 1~2시간 | **1주** (결제 지표 확인) |
-| 8 | 1일 | **1주** (instance refresh 검증 포함) |
-| 9 | 1일 | 2~3일 |
+| 7 | 1일 | 2~3일 |
+| 8 | 1~2시간 | **1주** (결제 지표 확인) |
+| 9 | 1일 | **1주** (instance refresh 검증 포함) |
 | 10 | 전환 기간 1~2주 | — |
 | 11 | 반나절 | 2~3일 |
 | 12 | 1일 | — |
 
-**전체 약 6~8주.** Phase 6·7·8 뒤의 관찰 기간을 줄이지 않는 것을 권한다 — 문제가 즉시 드러나지 않는 종류의 변경들이다.
+**전체 약 6~8주.** Phase 6·8·9 뒤의 관찰 기간을 줄이지 않는 것을 권한다 — 문제가 즉시 드러나지 않는 종류의 변경들이다.
 
 ---
 
@@ -168,9 +206,9 @@
 |---|---|---|
 | [5](./runbook/phase-05-dev-rds.md) | 구 Dev MySQL 컨테이너 서비스 제거 | **행 수 대조 통과**(110개 테이블) · 2~3일 관찰 · RDS 자동 백업 1회 생성 확인 |
 | [6](./runbook/phase-06-deployment-controller.md) | 구 CodeDeploy 서비스 제거 | rolling 배포 1회 이상 성공, 서킷 브레이커 동작 |
-| [7](./runbook/phase-07-elasticache.md) | ElastiCache로 전환한 순간 | 저트래픽 시간대인지, 결제 지표 기준선 기록 |
-| [8](./runbook/phase-08-prod-asg.md) | 구 Prod 인스턴스 종료 | 신 노드에서 태스크 정상 기동, Prometheus 타깃 등록, SSM 접속. **+ JVM 힙 상한 수정 완료** — 신 노드엔 스왑이 없어 미수정 시 prod API가 OOM으로 죽는다 ([Phase 2-0](./runbook/phase-02-observability.md)) |
-| [9](./runbook/phase-09-dev-cache-asg.md) | 구 Dev 노드 종료 | 신 노드 태스크 기동 · Prometheus 타깃 등록 · SSM 접속 |
+| [7](./runbook/phase-07-dev-cache-asg.md) | 구 Dev 노드 종료 | 신 노드 태스크 기동 · Prometheus 타깃 등록 · SSM 접속 |
+| [8](./runbook/phase-08-prod-elasticache.md) | ElastiCache로 전환한 순간 | 저트래픽 시간대인지, 결제 지표 기준선 기록 |
+| [9](./runbook/phase-09-prod-asg.md) | 구 Prod 인스턴스 종료 | 신 노드에서 태스크 정상 기동, Prometheus 타깃 등록, SSM 접속. **+ JVM 힙 상한 수정 완료** — 신 노드엔 스왑이 없어 미수정 시 prod API가 OOM으로 죽는다 ([Phase 2-0](./runbook/phase-02-observability.md)) |
 | [10](./runbook/phase-10-access-path.md) | 구 VPN 노드 종료 | **팀 전원의 SSM 전환 완료** |
 
 ---

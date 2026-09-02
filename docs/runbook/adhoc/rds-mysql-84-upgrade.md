@@ -1,6 +1,6 @@
 # RDS MySQL 8.0 → 8.4 업그레이드 (확장 지원 과금 중단)
 
-> [이관 절차 목차](../../infra-ha-migration-runbook.md) · Phase 와 독립적인 단발 작업이다. Phase 7(ElastiCache)·Phase 8(prod ASG)과 자원이 겹치지 않는다.
+> [이관 절차 목차](../../infra-ha-migration-runbook.md) · Phase 와 독립적인 단발 작업이다. [Phase 8](../phase-08-prod-elasticache.md)(prod ElastiCache)·[Phase 9](../phase-09-prod-asg.md)(prod ASG)와 자원이 겹치지 않는다.
 
 | | |
 |---|---|
@@ -879,7 +879,7 @@ aws ce get-cost-and-usage --profile groble-terraform --region us-east-1 \
 2. **dev MySQL 컨테이너와 Testcontainers 가 8.0 이다.** prod 만 8.4 가 되면
    **8.4 비호환이 CI 를 통과해 prod 에서 처음 드러난다.** 업그레이드 후 dev 도 8.4 로 맞출 것.
 3. **`/actuator/health` 에 liveness/readiness 구분이 없다.** 이번엔 임계 완화로 우회하지만,
-   Phase 8(ASG) 에서 노드가 교체될 때 같은 문제가 반복된다. 백엔드에 health group 분리 요청 필요.
+   [Phase 9](../phase-09-prod-asg.md)(ASG) 에서 노드가 교체될 때 같은 문제가 반복된다. 백엔드에 health group 분리 요청 필요.
 4. **✅ 반영 완료 — `CLAUDE.md` 의 RDS SG 서술을 실제에 맞게 고쳤다.** 문서는
    "3306 from Prod/Dev/API Task/Monitoring" 이라고 적었지만, 실제 인그레스는
    **Monitoring · Prod · API Task 3개 SG 뿐이고 Dev 는 없다** (Terraform 코드도 3건뿐이라
@@ -888,4 +888,4 @@ aws ce get-cost-and-usage --profile groble-terraform --region us-east-1 \
    **MySQL 9.x 클라이언트로는 접속되지 않는다**는 점을 함께 적어 두었다.
 5. **AZ 불일치는 이번에 해소되지 않는다.** 그린도 db_subnet_group 안에서 생성되며 2c 로
    배치될 가능성이 높지만 보장되지 않는다. 전환 후 실제 AZ 를 확인하고, prod EC2(2a)와의
-   cross-AZ 문제는 Phase 8 에서 함께 다룬다.
+   cross-AZ 문제는 [Phase 9](../phase-09-prod-asg.md) 에서 함께 다룬다.

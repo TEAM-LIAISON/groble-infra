@@ -1,14 +1,21 @@
-# Phase 8 — Prod ASG 전환
+# Phase 9 — Prod ASG 전환
 
-> [← Phase 7](./phase-07-elasticache.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 5 →](./phase-05-dev-rds.md)
+> [← Phase 8](./phase-08-prod-elasticache.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 10 →](./phase-10-access-path.md)
 
 | | |
 |---|---|
 | **상태** | ⬜ 미착수 |
 | **목적** | 이 프로젝트의 본 목표. 무중단 하드웨어 교체가 가능한 구조로 전환한다 |
 | **사용자 영향** | 없음 — 신 노드를 먼저 띄우고 구 노드를 드레인한다 |
-| **선행 조건** | [Phase 2](./phase-02-observability.md)(관측), [Phase 7](./phase-07-elasticache.md)(Redis 외부화) 완료 + **아래 차단 조건 2건** |
+| **선행 조건** | [Phase 2](./phase-02-observability.md)(관측) · **[7](./phase-07-dev-cache-asg.md)-B(Dev ASG 리허설) 완료** · [8](./phase-08-prod-elasticache.md)(Redis 외부화) 완료 + **아래 차단 조건 2건** |
 | **되돌리기** | 구 노드 재활성화 |
+
+> **ASG 전환 절차의 원본은 [7](./phase-07-dev-cache-asg.md)-B 에 있다.** 이 문서는 그것을 참조하고
+> **Prod 고유의 차이만** 적는다. 착수 전에 [7](./phase-07-dev-cache-asg.md) 의
+> "인계할 것" 체크리스트가 채워져 있어야 한다.
+>
+> 2026-09-02 까지는 반대였다 — 이 문서가 원본이고 Dev 가 "Phase 8 과 동일한 절차"로 참조했다
+> ([번호 이력](../infra-ha-migration-runbook.md#번호-이력--옛-문서pr-의-번호는-다를-수-있다) ①).
 
 ---
 
@@ -43,40 +50,42 @@ API 태스크는 `awsvpc` 모드라 태스크마다 별도 ENI를 갖는데, Pro
 
 ## 절차
 
-1. **Launch Template 작성**
-   - AMI: SSM Parameter `/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id`
-   - user_data: `/etc/ecs/ecs.config`에 `ECS_CLUSTER`, `ECS_INSTANCE_ATTRIBUTES={"environment":"production"}`, `ECS_RESERVED_MEMORY=512`, `ECS_CONTAINER_STOP_TIMEOUT`(§3-3에서 확정한 값)
-   - 인스턴스 프로파일: 기존 ECS 인스턴스 롤 + `AmazonSSMManagedInstanceCore`
-   - **키페어 지정하지 않음**
-   - 루트 볼륨 30GB gp3, 암호화
-2. **ASG 생성** — `desired = 2`, **2c 서브넷 고정**, mixed instances policy (`t3.medium` / `t3a.medium`)
-   - instance refresh preferences: `min_healthy_percentage = 100`, `max_healthy_percentage = 200` (launch-before-terminate)
-   - **태그 전파** — `ec2_sd`가 새 노드를 보려면 인스턴스에 태그가 붙어야 한다 (계획서 §2.4):
-     ```hcl
-     tag { key = "Cluster"     value = "groble-cluster" propagate_at_launch = true }
-     tag { key = "environment" value = "production"     propagate_at_launch = true }
-     tag { key = "Type"        value = "api"            propagate_at_launch = true }
-     ```
-     Launch Template `tag_specifications`와 **중복 정의하지 않는다** — 한 곳으로 통일
+**1~4 는 [7](./phase-07-dev-cache-asg.md)-B 의 4~7번과 같은 절차다.** 아래 표의 값만 Prod 로 바꿔서 수행한다.
 
-     ⚠️ **위 3개로는 부족하다. Phase 2-1의 relabel 매핑과 대조할 것:**
-     - **`Name` 태그가 빠져 있다.** Prometheus가 `Name` → `instance_name` 라벨로 승격하므로,
-       빠지면 **신 노드의 `instance_name` 라벨이 비어** 대시보드에서 노드를 구분할 수 없게 된다.
-       ASG는 `Name`을 자동으로 붙이지 않는다 — 명시적으로 추가해야 한다
-     - **`Type` 값이 기존 노드와 다르다.** 현재 운영 인스턴스는 `Type = "Production"`인데 위 계획은 `"api"`다.
-       `node_type` 라벨이 신·구 노드 간에 갈리므로, 값을 통일하거나 **의도한 차이임을 문서화**할 것
+| | Dev([7](./phase-07-dev-cache-asg.md)-B) | **Prod (여기)** |
+|---|---|---|
+| 인스턴스 타입 | `t3.small` 단일 (`t3a.small` 은 ENI 2개라 제외) | **`t3.medium` / `t3a.medium` mixed** — t3a 는 medium 이상에서만 ENI 가 동일하다 |
+| `ECS_INSTANCE_ATTRIBUTES` | `{"environment":"development"}` | **`{"environment":"production"}`** |
+| `Name` 태그 | `groble-develop-instance` | **`groble-prod-instance-1`** (구 노드와 같은 값) |
+| `environment` 태그 | `development` | **`production`** |
+| `Type` 태그 | `Development` | **`Production`** |
+| 노드당 API 태스크 | 1개 (메모리가 상한) | **2개** (ENI 가 상한) |
+| 배포 비율 | `50 / 100` | **`100 / 150`** |
+
+AMI(AL2023 ECS-optimized SSM 파라미터) · `ECS_RESERVED_MEMORY=512` · 인스턴스 프로파일 +
+`AmazonSSMManagedInstanceCore` · 키페어 미지정 · 루트 30GB gp3 암호화 · `desired = 2` ·
+2c 서브넷 고정 · instance refresh `100/200`(launch-before-terminate) · Capacity Provider
+`managed_draining = ENABLED` / `managed_scaling = DISABLED` 는 **Dev 와 동일하다.**
+
+> ⚠️ **`Type` 값 주의.** 계획서 §2.4 초안은 `Type = "api"` 였으나 현재 운영 인스턴스는
+> `Type = "Production"` 이다. 값을 바꾸면 `node_type` 라벨이 신·구 노드 간에 갈린다 —
+> **기존 값을 그대로 쓴다.** `Name` 태그도 ASG 가 자동으로 붙이지 않으므로 명시할 것
+> (빠지면 Prometheus 의 `instance_name` 라벨이 빈다).
+
+> ⚠️ **Capacity Provider 부착 시 `aws_ecs_service` replace.** Dev 에서 이미 확인했을 것이다
+> ([7](./phase-07-dev-cache-asg.md)-B 6번). **plan 에서 replace 가 잡히면 apply 하지 않는다** —
+> launch type 서비스도 DRAINING 으로 정상 드레인되므로 CP 전략 부착을 미루고
+> managed draining 만으로 진행한다 (10번 리허설에서 확인).
+
+1. **Launch Template 작성** — 위 표의 Prod 값으로
+2. **ASG 생성** — 위 표의 Prod 값으로, 태그 4개(`Name`·`Cluster`·`environment`·`Type`) 전파
 3. **Capacity Provider 생성 및 클러스터 연결**
-   ```hcl
-   managed_draining = "ENABLED"
-   managed_scaling { status = "DISABLED" }   # 고정 크기 ASG
-   ```
-   - ⚠️ Phase 6에서 만든 신 서비스에 `capacity_provider_strategy`를 붙이는 변경은 **provider 버전에 따라 서비스 재생성을 강제할 수 있다** (계획서 §2.1). **plan에서 `aws_ecs_service`가 replace로 잡히면 apply하지 않는다.** launch type 서비스도 컨테이너 인스턴스 DRAINING으로 정상 드레인되므로, 이 경우 CP 전략 부착은 미루고 managed draining만으로 진행한다 (10번 리허설에서 실제 드레인 동작으로 확인)
-4. **신 노드 검증** (구 노드와 병존 상태)
+4. **신 노드 검증** (구 노드와 병존 상태) — [7](./phase-07-dev-cache-asg.md)-B 7번과 동일 항목
    - [ ] ECS 클러스터에 컨테이너 인스턴스로 등록되었는지
    - [ ] `environment=production` 속성이 붙었는지
-   - [ ] EC2 콘솔/CLI에서 인스턴스에 `Cluster`·`environment`·`Type` 태그가 붙었는지 (`aws ec2 describe-instances --filters Name=tag:Cluster,Values=groble-cluster`)
-   - [ ] Prometheus `/targets`에 **자동으로 나타나는지** (Phase 2의 `ec2_sd` 검증) — 위 태그가 없으면 여기서 조용히 빠진다
-   - [ ] `aws ssm start-session`으로 접속되는지
+   - [ ] 인스턴스에 `Name`·`Cluster`·`environment`·`Type` 태그가 붙었는지
+   - [ ] Prometheus `/targets` 에 자동으로 나타나는지
+   - [ ] `aws ssm start-session` 으로 접속되는지
    - [ ] credential 프록시 정상 — 태스크에서 AWS API 호출 성공 확인
 5. **`memory_reservation`을 1000으로 변경** 후 태스크 재배포
 6. **구 Prod 노드를 DRAINING으로 전환**
@@ -94,6 +103,11 @@ API 태스크는 `awsvpc` 모드라 태스크마다 별도 ENI를 갖는데, Pro
 
 ## 검증
 
+> **아래 중 [7](./phase-07-dev-cache-asg.md)-B 에서 검증되지 않는 것**: 실트래픽 하의 5xx,
+> **surge 배치**(3번째 태스크가 슬롯에 들어가는 동작), 피크 시점의 노드 메모리·ENI 압력.
+> Dev 는 노드당 태스크가 1개라 이 셋을 구조적으로 재현할 수 없다(계획서 §2.1) —
+> **여기가 초연이다.**
+
 - [ ] **instance refresh 중 5xx가 0인지** — 이 프로젝트의 목표가 달성되었는지 확인하는 핵심 검증
 - [ ] 드레이닝 시 in-flight 요청이 끊기지 않는지
 - [ ] 노드 1대를 강제 종료했을 때 ASG가 자동 복구하는지, 태스크가 재배치되는지
@@ -109,4 +123,4 @@ API 태스크는 `awsvpc` 모드라 태스크마다 별도 ENI를 갖는데, Pro
 
 ---
 
-[← Phase 7 — Prod Redis → ElastiCache](./phase-07-elasticache.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 5 — Dev MySQL → RDS →](./phase-05-dev-rds.md)
+[← Phase 8 — Prod Redis → ElastiCache](./phase-08-prod-elasticache.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 10 — 접근 경로 정리 →](./phase-10-access-path.md)

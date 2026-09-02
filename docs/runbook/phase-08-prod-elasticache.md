@@ -1,16 +1,34 @@
-# Phase 7 — Prod Redis → ElastiCache ⚠️
+# Phase 8 — Prod Redis → ElastiCache ⚠️
 
-> [← Phase 6](./phase-06-deployment-controller.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 8 →](./phase-08-prod-asg.md)
+> [← Phase 7](./phase-07-dev-cache-asg.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 9 →](./phase-09-prod-asg.md)
 
 | | |
 |---|---|
 | **상태** | ⬜ 미착수 |
-| **목적** | host-mode 싱글턴 컨테이너는 cattle 노드에서 유지할 수 없다. Phase 8(구 노드 드레인)의 **선행 조건**이다 |
+| **목적** | host-mode 싱글턴 컨테이너는 cattle 노드에서 유지할 수 없다. [9](./phase-09-prod-asg.md)(구 노드 드레인)의 **선행 조건**이다 |
+| **선행 조건** | [Phase 6](./phase-06-deployment-controller.md)(rolling) · **[7](./phase-07-dev-cache-asg.md)-A(Dev ElastiCache) 완료** — 같은 전환을 Dev 에서 먼저 해본다 |
 | **사용자 영향** | **진행 중이던 체크아웃 세션·재고 예약·멱등성 키가 전부 소실된다** |
 | **시점** | **저트래픽 시간대 필수.** TTL이 30분이므로 최소 30분의 안정화 창을 확보한다 |
 | **되돌리기** | 되돌려도 재소실 |
 
 > 이 Phase는 **되돌려도 손실이 반복된다**(되돌리는 순간 다시 상태가 바뀐다). 전후로 결제 지표를 주의 깊게 본다.
+
+---
+
+## Dev 에서 이미 해본 것 / 여기서 처음인 것
+
+[7](./phase-07-dev-cache-asg.md)-A 가 같은 전환을 Dev 에서 먼저 수행한다.
+**착수 전에 그 문서의 "인계할 것" 체크리스트가 채워져 있어야 한다.**
+
+| | Dev([7](./phase-07-dev-cache-asg.md)-A)에서 검증됨 | **여기서 처음** |
+|---|---|---|
+| `replication_group` 리소스 정의 · SG · 유지보수 창 | ✅ | |
+| 앱의 ElastiCache 연결 · 엔드포인트 전환 | ✅ | |
+| **stop-first 시퀀스** | ❌ (dev 엔 지킬 결제 상태가 없어 rolling 으로 했다) | **⚠️ 여기서 처음** |
+| **결제 상태 소실 · 실트래픽 순단** | ❌ | **⚠️ 여기서 처음** |
+
+**따라서 Dev 리허설이 이 Phase 의 위험을 다 없애지는 않는다.** 아래 3번의 stop-first 절차는
+어디서도 예행되지 않았으므로 명령을 미리 적어두고 순서대로 실행한다.
 
 ---
 
@@ -61,4 +79,4 @@
 
 ---
 
-[← Phase 6 — 배포 컨트롤러 전환](./phase-06-deployment-controller.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 8 — Prod ASG 전환 →](./phase-08-prod-asg.md)
+[← Phase 7 — Dev ElastiCache + ASG 전환](./phase-07-dev-cache-asg.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 9 — Prod ASG 전환 →](./phase-09-prod-asg.md)

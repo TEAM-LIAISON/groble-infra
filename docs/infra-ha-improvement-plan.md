@@ -105,7 +105,7 @@ v1은 노드당 2태스크의 근거를 메모리로 설명했으나, 실제 상
 | **t3a.small** | **2** | 1 | **1** ⚠️ |
 
 > ⚠️ **`t3a.small` 만 ENI 가 2개다** (2026-08-30 실측). t3a 계열이 t3 와 동일하다는 것은
-> medium 이상에서만 참이다. **Phase 8 에서 dev 를 t3.small 2대로 만들 때 비용을 이유로
+> medium 이상에서만 참이다. **[런북 Phase 7](./runbook/phase-07-dev-cache-asg.md) 에서 dev 를 t3.small 2대로 만들 때 비용을 이유로
 > t3a.small 로 바꾸면 dev API(awsvpc)가 노드당 1개만 배치된다** — 계획한 배포 시퀀스가 깨진다.
 > 반면 host 모드만 도는 모니터링 노드에는 무해하다.
 
@@ -120,7 +120,7 @@ v1은 노드당 2태스크의 근거를 메모리로 설명했으나, 실제 상
 | **노드 1대 상실** | 2 / 2 | **0** |
 | 노드 1대 상실 + 배포 시도 | 3 필요 / 2 가능 | **배포 불가** ⚠️ |
 
-> **알려진 제약(수용)**: 노드 1대를 잃은 상태에서는 배포할 수 없다. ASG가 새 노드를 띄울 때까지 대기한다. **이 창은 실측 전 추정으로 3~5분 이상**이다 — EC2 헬스체크 실패 감지(기본 유예 포함) → 종료 → 기동 → ECS 에이전트 등록 → 태스크 배치까지의 합이며, "인스턴스 부팅 시간"만으로 산정하면 과소평가된다. ECS-optimized AMI 채택으로 부팅 구간은 v1 대비 크게 줄었지만 감지·등록 구간은 그대로다. 런북 Phase 8에서 실측한 뒤 이 값을 갱신한다. 필요해지면 `desired`를 3으로 올려 N+1을 확보한다 — ASG이므로 값 하나만 바꾸면 된다.
+> **알려진 제약(수용)**: 노드 1대를 잃은 상태에서는 배포할 수 없다. ASG가 새 노드를 띄울 때까지 대기한다. **이 창은 실측 전 추정으로 3~5분 이상**이다 — EC2 헬스체크 실패 감지(기본 유예 포함) → 종료 → 기동 → ECS 에이전트 등록 → 태스크 배치까지의 합이며, "인스턴스 부팅 시간"만으로 산정하면 과소평가된다. ECS-optimized AMI 채택으로 부팅 구간은 v1 대비 크게 줄었지만 감지·등록 구간은 그대로다. 런북 [Phase 9](./runbook/phase-09-prod-asg.md)에서 실측한 뒤 이 값을 갱신한다. 필요해지면 `desired`를 3으로 올려 N+1을 확보한다 — ASG이므로 값 하나만 바꾸면 된다.
 
 **메모리 설정**
 
@@ -163,7 +163,7 @@ t3.small(2GiB)은 API 태스크를 **노드당 1개**만 담을 수 있다. 따�
 | readiness 헬스체크 | |
 | 서킷 브레이커 롤백 | |
 
-배포 안전성의 핵심은 그대로 검증된다. surge 배치는 Prod 전환 시 instance refresh 리허설에서 실측한다(런북 Phase 8). Dev를 t3.medium으로 올리면 Prod와 동일 전략을 쓸 수 있으나 월 $38가 추가되며, 그 예산은 Prod의 N+1 노드나 ElastiCache replica에 쓰는 편이 낫다고 판단했다.
+배포 안전성의 핵심은 그대로 검증된다. surge 배치는 Prod 전환 시 instance refresh 리허설에서 실측한다(런북 [Phase 9](./runbook/phase-09-prod-asg.md)). Dev를 t3.medium으로 올리면 Prod와 동일 전략을 쓸 수 있으나 월 $38가 추가되며, 그 예산은 Prod의 N+1 노드나 ElastiCache replica에 쓰는 편이 낫다고 판단했다.
 
 > `dev_api_memory_limit = 900`은 **Prod 실측(1200)에서 유추한 값이며 Dev 프로파일의 실사용량은 아직 측정되지 않았다.** 전환 후 실측하여 조정한다. 여유가 부족하면 cAdvisor task memory를 256 → 160으로 조여 100 MiB를 확보할 수 있다.
 
@@ -181,10 +181,10 @@ t3.small(2GiB)은 API 태스크를 **노드당 1개**만 담을 수 있다. 따�
 현재 코드에는 capacity provider가 전혀 없다(`capacity_provider_strategy: []`). 신규 도입 항목이다.
 
 > ⚠️ **순서 의존성 — 서비스에 CP를 나중에 붙이는 변경은 Terraform 함정이 될 수 있다.**
-> 배포 컨트롤러 전환(§2.6, 런북 Phase 6)에서 만드는 신 ECS 서비스는 CP가 아직 없으므로 launch type으로 생성된다. 이후 Phase 8에서 이 서비스에 `capacity_provider_strategy`를 추가하는 변경은 **AWS provider 버전에 따라 서비스 재생성(destroy → create)을 강제할 수 있다.** §2.6의 `deployment_controller`와 같은 종류의 함정이다.
-> - Phase 8에서 이 변경을 apply하기 전 **plan에 서비스 replace가 없는지 육안 확인**한다.
+> 배포 컨트롤러 전환(§2.6, 런북 Phase 6)에서 만드는 신 ECS 서비스는 CP가 아직 없으므로 launch type으로 생성된다. 이후 ASG 전환([런북 Phase 7](./runbook/phase-07-dev-cache-asg.md) dev → [Phase 9](./runbook/phase-09-prod-asg.md) prod)에서 이 서비스에 `capacity_provider_strategy`를 추가하는 변경은 **AWS provider 버전에 따라 서비스 재생성(destroy → create)을 강제할 수 있다.** §2.6의 `deployment_controller`와 같은 종류의 함정이다.
+> - 이 변경을 apply하기 전 **plan에 서비스 replace가 없는지 육안 확인**한다. **Dev([런북 Phase 7](./runbook/phase-07-dev-cache-asg.md))에서 먼저 겪으므로 Prod([Phase 9](./runbook/phase-09-prod-asg.md)) 판단의 근거가 거기서 나온다.**
 > - CP 전략을 붙이지 않은(launch type) 서비스의 태스크도 컨테이너 인스턴스가 DRAINING이 되면 정상적으로 옮겨진다. 따라서 CP 전략 부착이 재생성을 요구하면 **부착을 미루고 managed draining만으로 운용**해도 무중단 교체 목표는 달성된다. 이 경우 CP 전략 부착은 다음 서비스 재생성 기회로 이관한다.
-> - 리허설(Phase 7-10)에서 실제 드레인 동작을 확인하는 항목이 이 판단의 근거가 된다.
+> - instance refresh 리허설([런북 Phase 7](./runbook/phase-07-dev-cache-asg.md) 10번 → [Phase 9](./runbook/phase-09-prod-asg.md) 10번)에서 실제 드레인 동작을 확인하는 항목이 이 판단의 근거가 된다.
 
 #### 용량 확보 실패에 대한 대비
 
@@ -249,14 +249,14 @@ ECS는 이 값으로 노드에 태스크를 배치할지 판단하는데, 실제
 즉 **Prometheus 접근이 필요하다.**
 
 → **[Phase 2](./runbook/phase-02-observability.md)에서 Prometheus를 손볼 때 이 값을 함께 측정한다.**
-Phase 8의 `memory_reservation` 결정([아래 Phase 8 절차 5번](./runbook/phase-08-prod-asg.md))은 그 측정 결과를 기다린다.
+[Phase 9](./runbook/phase-09-prod-asg.md)의 `memory_reservation` 결정(그 문서의 절차 5번)은 그 측정 결과를 기다린다.
 현재 계획된 1000은 근거 없는 값이므로 그대로 적용하지 않는다.
 
 **참고 계산** (실사용 1,370 MiB이 전부 필요하다는 최악 가정):
 t3.medium(4 GiB)에 태스크 2개면 ~2.7 GiB + ECS 오버헤드(~0.5) + Redis(0.128) ≈ **3.3 GiB**로 여유가 크지 않다.
 워킹셋이 이보다 작다면 여유는 늘어난다 — 그래서 측정이 필요하다.
 
-[Phase 9](./runbook/phase-09-dev-cache-asg.md)이 dev 태스크를 `memory = 900`으로 낮추려는 계획도 같은 측정에 의존한다.
+[Phase 7](./runbook/phase-07-dev-cache-asg.md)이 dev 태스크를 `memory = 900`으로 낮추려는 계획도 같은 측정에 의존한다.
 
 **결론 — `desired = 2`는 충분하다.** 피크가 1.77 req/s이고 피크/평균 비율이 1.89배에 불과해
 트래픽 변동이 작다. 병목은 요청 처리량이 아니라 **태스크당 메모리**다.
@@ -324,7 +324,7 @@ Target 5xx가 0인데 ELB 5xx만 발생한 것은 **ALB가 타깃에 도달하�
 
 **원칙**: Redis 엔드포인트 변경은 **버전 공존을 허용하지 않는 변경**이다. 이 배포 1회에 한해 **stop-first**로 전환한다 — `deployment_minimum_healthy_percent`를 일시적으로 `0`으로 낮춰 구 태스크를 모두 내린 뒤 신 태스크를 띄우고, 완료 후 `100`으로 되돌린다. 저트래픽 창에서 1~2분의 순단을 추가로 감수하고 "두 개의 진실"이 공존하는 구간을 없앤다. 상태 유실은 어차피 이 전환의 전제이므로 추가 손실은 순단뿐이다.
 
-같은 논리가 Dev Redis 전환(런북 Phase 8)에도 적용되지만, Dev는 `50% / 100%` 축소 우선 방식이라 이미 1:1 공존 구간이 짧고 결제 정합성 요구가 없으므로 별도 조치는 하지 않는다.
+같은 논리가 Dev Redis 전환(런북 [Phase 7](./runbook/phase-07-dev-cache-asg.md)-A)에도 적용되지만, Dev는 `50% / 100%` 축소 우선 방식이라 이미 1:1 공존 구간이 짧고 결제 정합성 요구가 없으므로 별도 조치는 하지 않는다.
 
 > **일반화**: 어떤 외부 상태 저장소든 "권위 소스가 둘로 갈라지는" 엔드포인트 전환은 rolling 대상이 아니다. §3-1의 expand/contract 규율은 *스키마*의 공존을 다루고, 이 원칙은 *저장소 인스턴스*의 공존을 다룬다.
 
@@ -629,7 +629,7 @@ rolling에서는 구/신 버전이 **동시에 실트래픽**을 받으므로 �
 | 7 | ~~CLAUDE.md의 IAM 서술 정정~~ | ✅ 완료. **다만 방향이 반대였다** — Task Role에 `ec2:Describe*`가 "없다"는 서술이 틀렸고, 인라인 `prometheus-access`로 이미 부여되어 있다. 누락돼 있던 `AmazonSSMReadOnlyAccess`·`monitoring-*` 인라인 정책도 함께 반영했다 |
 | 8 | 온보딩/히스토리 문서화 | 별도 트랙 — §2.7(state)·§2.4(Grafana as-code)로 일부 해소 |
 | 9 | **트래픽 기준선 수집** — 계획서 전체에 트래픽 수치가 없고 desired 2의 근거가 메모리 실측뿐이다 | 런북 Phase 1의 1주 알람 기준선 관측 때 함께 기록: ALB `RequestCountPerTarget`·`TargetResponseTime` p99·피크 시간대·피크/평균 비율·태스크 CPU/메모리. 용량 결정의 근거이자 동적 스케일링(향후 개선 Low-3) 트리거의 데이터원 |
-| 10 | **ASG 노드 복구 시간 실측** | 런북 Phase 8 노드 강제 종료 테스트에서 측정 → §2.1의 "3~5분 추정" 갱신 |
+| 10 | **ASG 노드 복구 시간 실측** | 런북 [Phase 9](./runbook/phase-09-prod-asg.md) 노드 강제 종료 테스트에서 측정 → §2.1의 "3~5분 추정" 갱신 |
 | 11 | **WireGuard 51820 소스 축소** (§2.5 선행 즉시 조치) | 마이그레이션 착수 전 |
 | 12 | **JVM DNS 캐시 TTL 확인** (§3-8) | OTLP DNS 간접화 전 |
 | 13 | **RDS 사양 재확인** — Prod RDS는 `db.t3.micro`(메모리 1GiB) / `20GB→100GB`다. 문서가 `db.t3.medium` / `100GB→1000GB`로 잘못 적고 있었다 | CLAUDE.md는 정정 완료. **용량 판단이 이 값에 의존하므로 Phase 1 트래픽 기준선 수집 때 RDS 지표도 함께 볼 것** |
@@ -773,7 +773,7 @@ graph TB
 - ✅ **mixed instances policy** (t3 / t3a) — 용량 확보 실패 대비
 - ✅ **노드당 태스크 상한은 ENI로 2개** — 총 4슬롯, desired 2, 롤링 피크 3
 - ✅ `memory_reservation` 500 → **1000**, `ECS_RESERVED_MEMORY` 64 → **512**
-- ⚠️ **알려진 제약**: 노드 1대 상실 중에는 배포 불가 (ASG 복구까지 **실측 전 추정 3~5분+**, Phase 8에서 실측)
+- ⚠️ **알려진 제약**: 노드 1대 상실 중에는 배포 불가 (ASG 복구까지 **실측 전 추정 3~5분+**, [Phase 9](./runbook/phase-09-prod-asg.md)에서 실측)
 - ⚠️ 서비스에 CP 전략을 후속 부착하는 변경은 **재생성을 강제할 수 있음** — plan 육안 확인, 필요 시 managed draining만으로 운용
 
 ### 네트워크
