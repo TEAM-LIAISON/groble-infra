@@ -1,6 +1,6 @@
 # Phase 3 — NAT Gateway 전환
 
-> [← Phase 2](./phase-02-observability.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 4 →](./phase-04-monitoring-node-rebuild.md)
+> [← Phase 2](./phase-02-observability.md) · [이관 절차 목차](README.md) · [다음: Phase 4 →](./phase-04-monitoring-node-rebuild.md)
 
 | | |
 |---|---|
@@ -187,7 +187,7 @@ ssh 10.0.11.62
 
 ### 중단 기준
 
-[이관 절차 목차의 Abort 기준](../infra-ha-migration-runbook.md)을 그대로 따른다.
+[이관 절차 목차의 Abort 기준](README.md)을 그대로 따른다.
 추가로 **`checkip` 결과가 `15.165.223.110` 이 아니면** 무언가 잘못된 것이므로 롤백한다.
 
 ---
@@ -288,4 +288,4 @@ prod 가 2c 로 넘어가면 해소된다.** 계획서가 "2c 정렬로 비용�
 
 ---
 
-[← Phase 2 — 관측 선행 전환](./phase-02-observability.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 4 — 모니터링 노드 재구축 →](./phase-04-monitoring-node-rebuild.md)
+[← Phase 2 — 관측 선행 전환](./phase-02-observability.md) · [이관 절차 목차](README.md) · [다음: Phase 4 — 모니터링 노드 재구축 →](./phase-04-monitoring-node-rebuild.md)

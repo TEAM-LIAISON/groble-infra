@@ -1,6 +1,6 @@
 # Phase 1 — 알람 백스톱 확보
 
-> [← Phase 0](./phase-00-terraform-state-s3.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 2 →](./phase-02-observability.md)
+> [← Phase 0](./phase-00-terraform-state-s3.md) · [이관 절차 목차](README.md) · [다음: Phase 2 →](./phase-02-observability.md)
 
 | | |
 |---|---|
@@ -73,7 +73,7 @@ Dev에 `ok_actions`를 걸지 않은 것은 사건당 메시지가 2배가 되�
 | `groble-prod-rds-swap` | > 600MiB | prod |
 
 **임계치는 전부 실측 근거로 확정했다.** 근거 수치는 각 모듈 변수의 description에,
-전체 기준선은 [계획서 §2.1 "트래픽·자원 기준선"](../infra-ha-improvement-plan.md)에 있다.
+전체 기준선은 [계획서 §2.1 "트래픽·자원 기준선"](../plan/infra-ha-improvement-plan.md)에 있다.
 
 **비용**: 지표 기준 29개 → 무료 10개 제외 시 **월 약 $1.90**
 
@@ -157,7 +157,7 @@ CPUUtilization  4.7~5.0%     CPUCreditBalance  288 (최대치)
 "평소보다 악화됨"을 감지하도록 알람의 역할을 바꾼 것이다. 만성 부족 자체는
 `groble-prod-rds-swap` 알람과 아래 문서 항목이 추적한다.
 
-→ 해소 방안과 실측 근거는 [`infra-future-improvements.md`의 High-4](../infra-future-improvements.md#high-4)에 있다.
+→ 해소 방안과 실측 근거는 [`infra-future-improvements.md`의 High-4](../plan/infra-future-improvements.md#high-4)에 있다.
 **[Phase 8](./phase-08-prod-elasticache.md) 진입 전에 결정한다** — Redis를 ElastiCache로 빼면 결제 경로가 DB에 더 의존한다.
 
 ---
@@ -284,7 +284,7 @@ RDS 스왑(450 MiB)과 cross-AZ 쿼리가 의심되지만 현재 데이터로 �
 > `memory_reservation` = **1,300 MiB** 확정. dev 값은 [Phase 7](./phase-07-dev-cache-asg.md)
 > 착수 시점에 재측정한다 (2026-08-31 실측이 Phase 2 와 450 MiB 어긋나 있다).
 
-상세는 [계획서 §2.1](../infra-ha-improvement-plan.md)에 있다.
+상세는 [계획서 §2.1](../plan/infra-ha-improvement-plan.md)에 있다.
 
 ---
 
@@ -307,4 +307,4 @@ RDS 스왑(450 MiB)과 cross-AZ 쿼리가 의심되지만 현재 데이터로 �
 
 ---
 
-[← Phase 0 — Terraform state를 S3로 이전](./phase-00-terraform-state-s3.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 2 — 관측 선행 전환 →](./phase-02-observability.md)
+[← Phase 0 — Terraform state를 S3로 이전](./phase-00-terraform-state-s3.md) · [이관 절차 목차](README.md) · [다음: Phase 2 — 관측 선행 전환 →](./phase-02-observability.md)

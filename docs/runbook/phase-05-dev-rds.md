@@ -1,6 +1,6 @@
 # Phase 5 — Dev MySQL → RDS
 
-> [← Phase 4](./phase-04-monitoring-node-rebuild.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 6 →](./phase-06-deployment-controller.md)
+> [← Phase 4](./phase-04-monitoring-node-rebuild.md) · [이관 절차 목차](README.md) · [다음: Phase 6 →](./phase-06-deployment-controller.md)
 
 | | |
 |---|---|
@@ -15,7 +15,7 @@
 > 한 문서에 담고 있었는데, RDS 이관만 선행 조건이 없어 떼어내 **5번으로 앞당기고** 나머지는
 > **[7](./phase-07-dev-cache-asg.md)(Dev ElastiCache + ASG)** 로 남겼다.
 > 그때 뒤의 Phase 들이 한 칸씩 밀렸다 — 번호 대응표는
-> [이관 절차 목차](../infra-ha-migration-runbook.md#번호-이력--옛-문서pr-의-번호는-다를-수-있다)에 있다.
+> [이관 절차 목차](README.md#번호-이력--옛-문서pr-의-번호는-다를-수-있다)에 있다.
 
 ---
 
@@ -60,7 +60,7 @@ Phase 6~9 를 기다릴 이유가 없고, 오히려 **먼저 해야 이득인 �
 | 앱 연결 방식 | **`TCP/IP`** (평문, TLS 아님) | 🟢 아래 참조 |
 | `groble_root` 권한 | `ALL PRIVILEGES ON groble_develop_database.*` 뿐 (SUPER 없음) | 🟢 `read_only=ON` 으로 앱 쓰기를 막을 수 있다 — 컷오버 절차의 근거 |
 | DB 기본 콜레이션 | `utf8mb4_0900_ai_ci` | RDS 8.4 기본값과 동일 |
-| 테이블 콜레이션 | **`utf8mb4_0900_ai_ci` 52 / `utf8mb4_unicode_ci` 58 로 갈려 있음** | 복원엔 무해(덤프의 CREATE TABLE 이 명시적으로 들고 간다). 다만 별건 → [향후 개선](../infra-future-improvements.md) |
+| 테이블 콜레이션 | **`utf8mb4_0900_ai_ci` 52 / `utf8mb4_unicode_ci` 58 로 갈려 있음** | 복원엔 무해(덤프의 CREATE TABLE 이 명시적으로 들고 간다). 다만 별건 → [향후 개선](../plan/infra-future-improvements.md) |
 | dev-mysql 컨테이너 메모리 | **253.3 / 256 MiB = 98.9%** (14일 max 255.6) | 알람 발화의 실황 |
 
 ### 🟢 인증 플러그인 우려는 실측으로 해소됐다
@@ -188,7 +188,7 @@ resource "aws_security_group" "groble_rds_mysql_dev_sg" {
   ingress { from_port = 3306, to_port = 3306, protocol = "tcp"
             security_groups = [aws_security_group.groble_api_task_sg.id] }
 
-  # 모니터링 노드 — rds-exporter + SSM 포트 포워딩 경유지 (docs/developer-access.md)
+  # 모니터링 노드 — rds-exporter + SSM 포트 포워딩 경유지 (docs/reference/developer-access.md)
   ingress { from_port = 3306, to_port = 3306, protocol = "tcp"
             security_groups = [aws_security_group.groble_monitor_target_group.id] }
 }
@@ -201,7 +201,7 @@ resource "aws_security_group" "groble_rds_mysql_dev_sg" {
 > ⚠️ **이 SG 로 prod/dev 가 갈리지는 않는다.** `groble-api-task-sg` 는 dev 와 prod API 태스크가
 > **공유**한다. 즉 위 SG 는 prod 태스크에서도 열리고, 반대로 **지금도 dev 태스크는 prod RDS 에
 > 네트워크상 닿는다.** 이번 범위 밖으로 두고
-> [향후 개선 Medium-6](../infra-future-improvements.md#medium-6) 에 남겼다.
+> [향후 개선 Medium-6](../plan/infra-future-improvements.md#medium-6) 에 남겼다.
 
 ---
 
@@ -837,4 +837,4 @@ rev 40 이 (2026-08-20 부터 8-31 까지) 고정돼 있던 것도 이 때문이
 
 ---
 
-[← Phase 4 — 모니터링 노드 재구축](./phase-04-monitoring-node-rebuild.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 6 — 배포 컨트롤러 전환 →](./phase-06-deployment-controller.md)
+[← Phase 4 — 모니터링 노드 재구축](./phase-04-monitoring-node-rebuild.md) · [이관 절차 목차](README.md) · [다음: Phase 6 — 배포 컨트롤러 전환 →](./phase-06-deployment-controller.md)

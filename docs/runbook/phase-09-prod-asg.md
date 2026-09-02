@@ -1,6 +1,6 @@
 # Phase 9 — Prod ASG 전환
 
-> [← Phase 8](./phase-08-prod-elasticache.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 10 →](./phase-10-access-path.md)
+> [← Phase 8](./phase-08-prod-elasticache.md) · [이관 절차 목차](README.md) · [다음: Phase 10 →](./phase-10-access-path.md)
 
 | | |
 |---|---|
@@ -15,7 +15,7 @@
 > "인계할 것" 체크리스트가 채워져 있어야 한다.
 >
 > 2026-09-02 까지는 반대였다 — 이 문서가 원본이고 Dev 가 "Phase 8 과 동일한 절차"로 참조했다
-> ([번호 이력](../infra-ha-migration-runbook.md#번호-이력--옛-문서pr-의-번호는-다를-수-있다) ①).
+> ([번호 이력](README.md#번호-이력--옛-문서pr-의-번호는-다를-수-있다) ①).
 
 ---
 
@@ -126,4 +126,4 @@ AMI(AL2023 ECS-optimized SSM 파라미터) · `ECS_RESERVED_MEMORY=512` · 인�
 
 ---
 
-[← Phase 8 — Prod Redis → ElastiCache](./phase-08-prod-elasticache.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 10 — 접근 경로 정리 →](./phase-10-access-path.md)
+[← Phase 8 — Prod Redis → ElastiCache](./phase-08-prod-elasticache.md) · [이관 절차 목차](README.md) · [다음: Phase 10 — 접근 경로 정리 →](./phase-10-access-path.md)

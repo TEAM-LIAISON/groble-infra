@@ -6,7 +6,7 @@
 | **요청자** | 인프라 (groble-infra) |
 | **작성일** | 2026-08-24 |
 | **상태** | 🔄 **등록 요청 중.** 허용목록 등록이 필요한 것으로 확인되어 **새 IP 를 먼저 확보했습니다**(§2). 등록 완료 회신이 [Phase 3](../runbook/phase-03-nat-gateway.md) 전환의 착수 조건입니다 |
-| **관련** | [Phase 3 런북](../runbook/phase-03-nat-gateway.md) · [계획서 §2.2 네트워크](../infra-ha-improvement-plan.md) |
+| **관련** | [Phase 3 런북](../runbook/phase-03-nat-gateway.md) · [계획서 §2.2 네트워크](../plan/infra-ha-improvement-plan.md) |
 
 ---
 

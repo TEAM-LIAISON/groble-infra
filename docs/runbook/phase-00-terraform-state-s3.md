@@ -1,6 +1,6 @@
 # Phase 0 — Terraform state를 S3로 이전
 
-> [← 이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 1 →](./phase-01-alarm-backstop.md)
+> [← 이관 절차 목차](README.md) · [다음: Phase 1 →](./phase-01-alarm-backstop.md)
 
 | | |
 |---|---|
@@ -126,4 +126,4 @@ terraform {
 
 ---
 
-[← 이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 1 — 알람 백스톱 확보 →](./phase-01-alarm-backstop.md)
+[← 이관 절차 목차](README.md) · [다음: Phase 1 — 알람 백스톱 확보 →](./phase-01-alarm-backstop.md)

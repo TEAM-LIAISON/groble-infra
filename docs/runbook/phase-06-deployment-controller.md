@@ -1,6 +1,6 @@
 # Phase 6 — 배포 컨트롤러 전환 (CodeDeploy → ECS rolling)
 
-> [← Phase 4](./phase-04-monitoring-node-rebuild.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 7 →](./phase-07-dev-cache-asg.md)
+> [← Phase 4](./phase-04-monitoring-node-rebuild.md) · [이관 절차 목차](README.md) · [다음: Phase 7 →](./phase-07-dev-cache-asg.md)
 
 | | |
 |---|---|
@@ -100,4 +100,4 @@ t3.medium 가용치(~3.75 GiB) 안이다. 배치 판단은 `memoryReservation = 
 
 ---
 
-[← Phase 4 — 모니터링 노드 재구축](./phase-04-monitoring-node-rebuild.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 7 — Dev ElastiCache + ASG 전환 →](./phase-07-dev-cache-asg.md)
+[← Phase 4 — 모니터링 노드 재구축](./phase-04-monitoring-node-rebuild.md) · [이관 절차 목차](README.md) · [다음: Phase 7 — Dev ElastiCache + ASG 전환 →](./phase-07-dev-cache-asg.md)

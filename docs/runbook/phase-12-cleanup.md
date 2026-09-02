@@ -1,6 +1,6 @@
 # Phase 12 — 잔재 정리 및 문서 갱신
 
-> [← Phase 11](./phase-11-secrets-ssm.md) · [이관 절차 목차](../infra-ha-migration-runbook.md)
+> [← Phase 11](./phase-11-secrets-ssm.md) · [이관 절차 목차](README.md)
 
 | | |
 |---|---|
@@ -31,4 +31,4 @@
 
 ---
 
-[← Phase 11 — Secrets를 SSM Parameter Store로](./phase-11-secrets-ssm.md) · [이관 절차 목차](../infra-ha-migration-runbook.md)
+[← Phase 11 — Secrets를 SSM Parameter Store로](./phase-11-secrets-ssm.md) · [이관 절차 목차](README.md)

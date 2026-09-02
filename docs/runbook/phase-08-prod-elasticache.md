@@ -1,6 +1,6 @@
 # Phase 8 — Prod Redis → ElastiCache ⚠️
 
-> [← Phase 7](./phase-07-dev-cache-asg.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 9 →](./phase-09-prod-asg.md)
+> [← Phase 7](./phase-07-dev-cache-asg.md) · [이관 절차 목차](README.md) · [다음: Phase 9 →](./phase-09-prod-asg.md)
 
 | | |
 |---|---|
@@ -75,8 +75,8 @@
 
 ## 남는 리스크
 
-단일 노드이므로 **유지보수·장애 시 결제 상태 유실 창이 남는다.** replica 전환은 [`infra-future-improvements.md`](../infra-future-improvements.md)의 **Urgent #1**이다.
+단일 노드이므로 **유지보수·장애 시 결제 상태 유실 창이 남는다.** replica 전환은 [`infra-future-improvements.md`](../plan/infra-future-improvements.md)의 **Urgent #1**이다.
 
 ---
 
-[← Phase 7 — Dev ElastiCache + ASG 전환](./phase-07-dev-cache-asg.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 9 — Prod ASG 전환 →](./phase-09-prod-asg.md)
+[← Phase 7 — Dev ElastiCache + ASG 전환](./phase-07-dev-cache-asg.md) · [이관 절차 목차](README.md) · [다음: Phase 9 — Prod ASG 전환 →](./phase-09-prod-asg.md)

@@ -175,7 +175,7 @@ DB 응답 지연의 원인이 두 겹으로 쌓여 있는 셈이다.
 
 둘 다 **프로덕션 DB 재부팅**이 필요하다(단일 AZ이므로 수십 초~수 분 순단). 유지보수 창이 필요하다.
 
-**트리거**: **[Phase 8](./runbook/phase-08-prod-elasticache.md) 진입 전에 결정한다.**
+**트리거**: **[Phase 8](../runbook/phase-08-prod-elasticache.md) 진입 전에 결정한다.**
 Redis를 ElastiCache로 빼면 결제 경로가 DB에 더 의존하게 된다. 그 전에 이 상태를 해소하거나,
 최소한 수용 여부를 명시적으로 결정해야 한다.
 
@@ -250,7 +250,7 @@ CLAUDE.md 의 데이터 흐름도에도 트레이스가 없으니 **애초에 �
 | 방향 | 내용 | 비용 |
 |---|---|---|
 | **끈다** | 앱에서 트레이싱 비활성화 (`OTEL_TRACES_EXPORTER=none`) | $0. 낭비와 로그 소음이 즉시 사라진다 |
-| **받는다** | otelcol 에 traces 파이프라인 + 백엔드 추가. Tempo(S3 백엔드)가 기존 Loki S3 구성과 결이 같다 | Tempo 컨테이너 1개 + S3. 모니터링 노드 메모리가 이미 꽉 차 있어([Phase 4](./runbook/phase-04-monitoring-node-rebuild.md)) 노드 상향이 함께 필요할 수 있다 |
+| **받는다** | otelcol 에 traces 파이프라인 + 백엔드 추가. Tempo(S3 백엔드)가 기존 Loki S3 구성과 결이 같다 | Tempo 컨테이너 1개 + S3. 모니터링 노드 메모리가 이미 꽉 차 있어([Phase 4](../runbook/phase-04-monitoring-node-rebuild.md)) 노드 상향이 함께 필요할 수 있다 |
 
 **어디를 고치나**: otelcol 설정은 이 리포지토리가 아니라 `groble-images` 에 있다.
 **끄는 쪽은 이 리포지토리의 작업이다** — 아래 참조.
@@ -363,7 +363,7 @@ RDS SG 들은 이 SG 를 참조해 3306 을 여는데, 참조가 환경을 구�
 **결과 — 지금 이미 그렇다**:
 - **dev API 태스크가 prod RDS 에 네트워크상 닿는다.** `groble-rds-mysql-sg` 의
   "MySQL access from API tasks" 인그레스가 dev 태스크에도 적용된다
-- [Phase 5](./runbook/phase-05-dev-rds.md) 에서 만들 dev RDS SG 도 같은 이유로
+- [Phase 5](../runbook/phase-05-dev-rds.md) 에서 만들 dev RDS SG 도 같은 이유로
   **prod 태스크에 열린다**
 
 자격증명이 갈라져 있어 실제 접근은 막히지만, **네트워크 계층의 격리는 없다.**
@@ -377,10 +377,10 @@ RDS SG 들은 이 SG 를 참조해 3306 을 여는데, 참조가 환경을 구�
 - 태스크 정의 변경이므로 **재배포가 필요하다.** Phase 5·7 등 어차피 재배포하는 작업에 묶는 것이 싸다
 
 **왜 이번 범위 밖인가**: 마이그레이션의 목표는 가용성 구조 전환이고, 이 항목은 심층 방어다.
-[Phase 5](./runbook/phase-05-dev-rds.md) 를 하며 발견했으나 **그 Phase 안에서 고치면
+[Phase 5](../runbook/phase-05-dev-rds.md) 를 하며 발견했으나 **그 Phase 안에서 고치면
 "한 번에 한 가지만 바꾼다"는 원칙이 깨진다.**
 
-**트리거**: 환경 간 오접속이 실제로 발생했을 때, 또는 [Phase 12](./runbook/phase-12-cleanup.md) 정리 시.
+**트리거**: 환경 간 오접속이 실제로 발생했을 때, 또는 [Phase 12](../runbook/phase-12-cleanup.md) 정리 시.
 
 
 ### Medium-7. 노드 SG 의 개방 인그레스 정리 {#medium-7}
@@ -406,13 +406,13 @@ prod 도 같은지 대조해 보니 **규칙 구성이 완전히 동일했다.**
    의도한 설정이라기보다 초기 구성의 잔재로 보인다. 규칙이 서로 다른 기준을 섞으면
    **다음 사람이 어느 쪽이 기준인지 알 수 없다.**
 2. **3306 은 이제 양쪽 다 들을 것이 없다.** prod DB 는 처음부터 RDS 였고,
-   dev 도 [Phase 5](./runbook/phase-05-dev-rds.md) 로 컨테이너 MySQL 이 사라졌다.
+   dev 도 [Phase 5](../runbook/phase-05-dev-rds.md) 로 컨테이너 MySQL 이 사라졌다.
    **규칙 자체가 잔재다.**
 
 **해결안**
 
 - **3306** — 두 SG 에서 제거한다. 이 포트를 여는 컨테이너가 이제 없다
-- **22** — [Phase 10](./runbook/phase-10-access-path.md) 이 SSH 경로 자체를 폐기한다.
+- **22** — [Phase 10](../runbook/phase-10-access-path.md) 이 SSH 경로 자체를 폐기한다.
   그 Phase 에서 함께 제거하는 것이 맞고, 그 전에 좁힌다면 모니터링 SG 참조로 한정한다
   (현재 접근 경로가 모니터링 노드 경유 SSH 이므로)
 
@@ -420,7 +420,7 @@ prod 도 같은지 대조해 보니 **규칙 구성이 완전히 동일했다.**
 따로 쪼개면 같은 SG 를 두 번 고치게 된다. **SG 규칙 변경은 잘못 잡으면 조용히 통신을 끊으므로**
 접근 경로를 다시 그리는 Phase 10 에서 한 번에 하는 편이 안전하다.
 
-**트리거**: [Phase 10](./runbook/phase-10-access-path.md) 착수 시. 그 전이라도 VPN 사용자가
+**트리거**: [Phase 10](../runbook/phase-10-access-path.md) 착수 시. 그 전이라도 VPN 사용자가
 늘어나면 앞당긴다.
 
 ---
@@ -504,7 +504,7 @@ t3.medium(4GiB)에서 API 태스크가 ~1200MB를 쓰므로 **메모리가 먼�
 
 **남는 공백**: Dev promote 게이트에서 **surge 배치가 검증되지 않는다** — Prod에서 3번째 태스크가 슬롯에 들어가는 동작, 그 시점의 노드 메모리·ENI 압력. 버전 공존·드레이닝·readiness·서킷 브레이커는 축소 우선 방식에서도 그대로 검증된다.
 
-**현재 대응**: surge 배치는 Prod 전환 시 instance refresh 리허설과 노드 강제 종료 테스트에서 실측한다(런북 [Phase 9](./runbook/phase-09-prod-asg.md)).
+**현재 대응**: surge 배치는 Prod 전환 시 instance refresh 리허설과 노드 강제 종료 테스트에서 실측한다(런북 [Phase 9](../runbook/phase-09-prod-asg.md)).
 
 **트리거**: surge 배치와 관련된 배포 사고(피크 태스크 배치 실패, 노드 메모리 압박으로 인한 OOM 등)가 Prod에서 발생했을 때. 또는 Dev의 실사용 메모리가 900MiB를 넘어 t3.small이 한계에 도달했을 때.
 
@@ -512,7 +512,7 @@ t3.medium(4GiB)에서 API 태스크가 ~1200MB를 쓰므로 **메모리가 먼�
 
 ### Low-6. dev DB 콜레이션 분열 정리 {#low-6}
 
-**배경** (2026-08-31 [Phase 5](./runbook/phase-05-dev-rds.md) 사전 실측):
+**배경** (2026-08-31 [Phase 5](../runbook/phase-05-dev-rds.md) 사전 실측):
 `groble_develop_database` 의 110개 테이블이 **두 콜레이션으로 갈려 있다.**
 
 | 콜레이션 | 테이블 수 |

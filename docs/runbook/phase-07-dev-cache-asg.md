@@ -1,6 +1,6 @@
 # Phase 7 — Dev ElastiCache + ASG 전환
 
-> [← Phase 6](./phase-06-deployment-controller.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 8 →](./phase-08-prod-elasticache.md)
+> [← Phase 6](./phase-06-deployment-controller.md) · [이관 절차 목차](README.md) · [다음: Phase 8 →](./phase-08-prod-elasticache.md)
 
 | | |
 |---|---|
@@ -33,7 +33,7 @@
 > **번호 이력.** 이 Phase 는 2026-08-31 이전에 "Phase 8"(Dev 전환)의 일부였고 RDS 이관 부분을
 > **[5](./phase-05-dev-rds.md) 로 앞당겨 분리**했다. 2026-09-02 까지는 **Phase 9** 였으며 Prod 전환보다
 > **뒤**에 있었다 — dev-first 규칙에 반해 앞으로 당겼다
-> ([번호 이력](../infra-ha-migration-runbook.md#번호-이력--옛-문서pr-의-번호는-다를-수-있다) ①).
+> ([번호 이력](README.md#번호-이력--옛-문서pr-의-번호는-다를-수-있다) ①).
 
 ---
 
@@ -259,4 +259,4 @@ dev 노드를 t3.medium(4 GiB) → **t3.small(2 GiB)** 로 낮추는 것이 이 
 
 ---
 
-[← Phase 6 — 배포 컨트롤러 전환](./phase-06-deployment-controller.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 8 — Prod Redis → ElastiCache →](./phase-08-prod-elasticache.md)
+[← Phase 6 — 배포 컨트롤러 전환](./phase-06-deployment-controller.md) · [이관 절차 목차](README.md) · [다음: Phase 8 — Prod Redis → ElastiCache →](./phase-08-prod-elasticache.md)

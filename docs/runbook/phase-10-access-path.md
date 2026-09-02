@@ -1,6 +1,6 @@
 # Phase 10 — 접근 경로 정리
 
-> [← Phase 9](./phase-09-prod-asg.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 11 →](./phase-11-secrets-ssm.md)
+> [← Phase 9](./phase-09-prod-asg.md) · [이관 절차 목차](README.md) · [다음: Phase 11 →](./phase-11-secrets-ssm.md)
 
 | | |
 |---|---|
@@ -43,4 +43,4 @@ SG 규칙 복원. 단 구 VPN 노드를 종료한 뒤라면 재구축이 필요�
 
 ---
 
-[← Phase 9 — Prod ASG 전환](./phase-09-prod-asg.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 11 — Secrets를 SSM Parameter Store로 →](./phase-11-secrets-ssm.md)
+[← Phase 9 — Prod ASG 전환](./phase-09-prod-asg.md) · [이관 절차 목차](README.md) · [다음: Phase 11 — Secrets를 SSM Parameter Store로 →](./phase-11-secrets-ssm.md)

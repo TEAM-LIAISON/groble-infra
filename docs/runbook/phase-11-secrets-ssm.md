@@ -1,6 +1,6 @@
 # Phase 11 — Secrets를 SSM Parameter Store로
 
-> [← Phase 10](./phase-10-access-path.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 12 →](./phase-12-cleanup.md)
+> [← Phase 10](./phase-10-access-path.md) · [이관 절차 목차](README.md) · [다음: Phase 12 →](./phase-12-cleanup.md)
 
 | | |
 |---|---|
@@ -46,4 +46,4 @@
 
 ---
 
-[← Phase 10 — 접근 경로 정리](./phase-10-access-path.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 12 — 잔재 정리 및 문서 갱신 →](./phase-12-cleanup.md)
+[← Phase 10 — 접근 경로 정리](./phase-10-access-path.md) · [이관 절차 목차](README.md) · [다음: Phase 12 — 잔재 정리 및 문서 갱신 →](./phase-12-cleanup.md)

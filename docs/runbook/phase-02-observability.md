@@ -1,6 +1,6 @@
 # Phase 2 — 관측 선행 전환 (ASG보다 반드시 먼저)
 
-> [← Phase 1](./phase-01-alarm-backstop.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 3 →](./phase-03-nat-gateway.md)
+> [← Phase 1](./phase-01-alarm-backstop.md) · [이관 절차 목차](README.md) · [다음: Phase 3 →](./phase-03-nat-gateway.md)
 
 | | |
 |---|---|
@@ -693,4 +693,4 @@ CloudWatch 알람 19건(Phase 1)이 ALB·RDS 를 이미 덮으므로 **중복하
 
 ---
 
-[← Phase 1 — 알람 백스톱 확보](./phase-01-alarm-backstop.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 3 — NAT Gateway 전환 →](./phase-03-nat-gateway.md)
+[← Phase 1 — 알람 백스톱 확보](./phase-01-alarm-backstop.md) · [이관 절차 목차](README.md) · [다음: Phase 3 — NAT Gateway 전환 →](./phase-03-nat-gateway.md)

@@ -1,6 +1,6 @@
 # Phase 4 — 모니터링 노드 재구축
 
-> [← Phase 3](./phase-03-nat-gateway.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 6 →](./phase-06-deployment-controller.md)
+> [← Phase 3](./phase-03-nat-gateway.md) · [이관 절차 목차](README.md) · [다음: Phase 6 →](./phase-06-deployment-controller.md)
 
 | | |
 |---|---|
@@ -91,7 +91,7 @@ DNS 레코드를 구 노드 IP 로 되돌린다 (재배포 없음). 단 위 "유
 
 **원래 이것이 Phase 6, 배포 컨트롤러 전환이 Phase 4 였다.** 배포 컨트롤러 전환이
 앱 측 차단 조건 4건(계획서 §3)에 막혀 있는 동안 이 Phase 는 진행할 수 있어서, 2026-08-30 에
-번호를 맞바꿨다. 근거는 [이관 절차 목차](../infra-ha-migration-runbook.md#번호-이력--옛-문서pr-의-번호는-다를-수-있다) 에 있다.
+번호를 맞바꿨다. 근거는 [이관 절차 목차](README.md#번호-이력--옛-문서pr-의-번호는-다를-수-있다) 에 있다.
 
 **둘 사이에 의존이 없다.** 아래 C 단계의 재배포는 **CodeDeploy Blue/Green 으로 해도 무방**하다
 (원래 문구는 "rolling 을 활용"이었으나 기능적 의존이 아니다).
@@ -377,4 +377,4 @@ F(레코드 값 변경)는 DNS 를 쓰는 쪽만 따라오므로 구해주지 �
 
 ---
 
-[← Phase 3 — NAT Gateway 전환](./phase-03-nat-gateway.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 6 — 배포 컨트롤러 전환 →](./phase-06-deployment-controller.md)
+[← Phase 3 — NAT Gateway 전환](./phase-03-nat-gateway.md) · [이관 절차 목차](README.md) · [다음: Phase 6 — 배포 컨트롤러 전환 →](./phase-06-deployment-controller.md)
