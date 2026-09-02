@@ -280,6 +280,10 @@ RDS 스왑(450 MiB)과 cross-AZ 쿼리가 의심되지만 현재 데이터로 �
 [Phase 9](./phase-09-prod-asg.md)의 `memory_reservation` 결정(계획된 1000은 근거 없는 값)과
 [Phase 7](./phase-07-dev-cache-asg.md)의 dev `memory = 900`이 이 측정에 의존한다.
 
+> ✅ **해소됨** — [Phase 2](./phase-02-observability.md) 재측정(2026-08-24)으로 prod
+> `memory_reservation` = **1,300 MiB** 확정. dev 값은 [Phase 7](./phase-07-dev-cache-asg.md)
+> 착수 시점에 재측정한다 (2026-08-31 실측이 Phase 2 와 450 MiB 어긋나 있다).
+
 상세는 [계획서 §2.1](../infra-ha-improvement-plan.md)에 있다.
 
 ---

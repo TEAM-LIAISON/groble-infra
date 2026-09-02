@@ -126,7 +126,7 @@ v1은 노드당 2태스크의 근거를 메모리로 설명했으나, 실제 상
 
 | 항목 | 현재 | To-Be | 이유 |
 |---|---|---|---|
-| `api_memory_reservation` | 500 | **1000** | ECS는 hard limit이 아니라 reservation으로 배치를 결정한다. 500이면 노드당 6태스크까지 배치 가능하다고 오판한다 |
+| `api_memory_reservation` | 500 | **1300** | ECS는 hard limit이 아니라 reservation으로 배치를 결정한다. 500이면 노드당 6태스크까지 배치 가능하다고 오판한다. **v2 초안의 `1000` 은 근거 없는 값이었고, [런북 Phase 2](./runbook/phase-02-observability.md#prod-재측정-2026-08-24--memoryreservation-확정) 재측정(2026-08-24)으로 1,300 확정** — RSS p99 1,281 · 최대 1,290 을 덮는 최소값 |
 | `api_memory_limit` | 1500 | 1500 (유지) | 2태스크 × 1500 = 3000MB로 t3.medium 가용치(~3.3GiB) 안 |
 | `ECS_RESERVED_MEMORY` | 64 | **512** | OS + 에이전트 + node-exporter + cAdvisor의 실제 오버헤드 반영 |
 
@@ -772,7 +772,7 @@ graph TB
 - ✅ Dev: API 2× t3.small
 - ✅ **mixed instances policy** (t3 / t3a) — 용량 확보 실패 대비
 - ✅ **노드당 태스크 상한은 ENI로 2개** — 총 4슬롯, desired 2, 롤링 피크 3
-- ✅ `memory_reservation` 500 → **1000**, `ECS_RESERVED_MEMORY` 64 → **512**
+- ✅ `memory_reservation` 500 → **1300** (실측 확정 — 초안 1000 은 근거 없는 값이었다), `ECS_RESERVED_MEMORY` 64 → **512**
 - ⚠️ **알려진 제약**: 노드 1대 상실 중에는 배포 불가 (ASG 복구까지 **실측 전 추정 3~5분+**, [Phase 9](./runbook/phase-09-prod-asg.md)에서 실측)
 - ⚠️ 서비스에 CP 전략을 후속 부착하는 변경은 **재생성을 강제할 수 있음** — plan 육안 확인, 필요 시 managed draining만으로 운용
 

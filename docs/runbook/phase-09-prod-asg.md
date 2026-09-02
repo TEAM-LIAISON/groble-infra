@@ -87,7 +87,10 @@ AMI(AL2023 ECS-optimized SSM 파라미터) · `ECS_RESERVED_MEMORY=512` · 인�
    - [ ] Prometheus `/targets` 에 자동으로 나타나는지
    - [ ] `aws ssm start-session` 으로 접속되는지
    - [ ] credential 프록시 정상 — 태스크에서 AWS API 호출 성공 확인
-5. **`memory_reservation`을 1000으로 변경** 후 태스크 재배포
+5. **`memory_reservation`을 1,300 으로 변경** 후 태스크 재배포
+   - 계획서 §2.1 초안의 `1000` 은 근거 없는 값이었다. **[Phase 2](./phase-02-observability.md#prod-재측정-2026-08-24--memoryreservation-확정) 재측정(2026-08-24)으로
+     1,300 MiB 확정** — RSS p99 1,281 · 최대 1,290 을 덮는 최소값이다
+   - 하드리밋 `memory` 는 **1,500 유지** (여유 210 MiB, 상향 불필요)
 6. **구 Prod 노드를 DRAINING으로 전환**
    ```bash
    aws ecs update-container-instances-state --cluster groble-cluster \
