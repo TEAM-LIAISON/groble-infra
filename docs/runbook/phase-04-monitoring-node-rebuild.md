@@ -15,6 +15,78 @@
 
 ---
 
+## ✅ 완료 요약 (2026-08-30)
+
+> **이 문서는 이미 끝난 작업의 기록이다.** 아래 절차는 다시 따라 할 것이 아니라, 지금 배포된 상태가
+> 어떻게 만들어졌는지와 되돌리는 방법을 남겨둔 것이다.
+> 다만 **모니터링 노드를 다시 교체할 때는 E·F 두 단계를 그대로 재사용한다** — 아래 "재사용할 절차" 참조.
+
+**배포된 것**
+
+| | |
+|---|---|
+| 신 노드 | **`groble-monitoring-v2-instance`** — ECS-optimized **AL2023**, **t3a.small**, **private 2c**, 고정 IP `10.0.12.100`, public IP 없음 |
+| 구 노드 | `groble-monitoring-instance` → **`groble-nat-instance` 로 개명** (태그만 변경, ENI·LaunchTime 유지, egress 무중단) |
+| DNS | Route 53 private hosted zone `internal.groble.im` + `otel.internal.groble.im` A 레코드 (TTL 60) |
+| IAM | ECS Instance Role 에 `AmazonSSMManagedInstanceCore` (shared — **네 노드 전부**에 붙었다) |
+| 앱 (이 리포) | prod·dev 태스크 정의의 `OTEL_EXPORTER_OTLP_ENDPOINT` → `http://otel.internal.groble.im:4318` (dev rev **1182** · prod rev **523**) |
+| 앱 (앱 리포) | `loki.url` 을 같은 이름으로 — PR **#882**(dev) · **#883**(prod) |
+| 제거 | `data "aws_instance" "shared_monitoring_instance"` · 정적 `aws_lb_target_group_attachment` 2개(`removed` 블록으로 state 에서만 분리) |
+| ALB | 모니터링 타깃그룹 `deregistration_delay = 30` (기본 300 → 배포 시 관측 단절이 6분에서 크게 줄었다) |
+| 비용 | EC2 3대 → **4대**, **+$17/월** (t3a.small) |
+
+**검증 결과**
+
+- ⭐ **앱 텔레메트리가 재배포 없이 신 노드로 이동했다** — 이 Phase 의 핵심 성과
+- 메트릭 유입 production **174** series · development **17** series, 로그 유입 양쪽 확인
+- `loki4j_drop_events_total = 0` (**유실 없음**). `send_errors_total = 9` 는 커넥션이 끊긴 순간의 실패로 재시도에 흡수됐다
+- Prometheus 타깃 **16/16 up**, recording rule 정상
+- Grafana 복원 — 대시보드 3 · 데이터소스 2(UID 고정, health 200) · 알림 규칙 14 · contact point 3
+- **Grafana → SNS → Slack 경로 실증** (2026-08-30 20:09 KST) — 전환 작업이 스스로 만든
+  `스크레이프 타깃 다운` 알림이 firing·resolved 양쪽 다 도달했다. 즉 private 서브넷의 신 노드가
+  NAT 를 경유해 SNS 를 호출하는 경로가 살아 있다
+- 네 노드 모두 SSM Online
+
+**계획과 달랐던 점**
+
+1. **E·F 순서를 뒤집었다** — 원래 "스택 이동 → DNS 변경"이었으나 **앱이 keep-alive 로 커넥션을
+   재사용해 IP 를 고정**한다는 것이 확인되어 **"DNS 먼저 → 드레이닝으로 커넥션 끊기"** 가 됐다
+2. **JVM DNS 캐시는 차단 조건이 아니었다** — TTL 은 이미 30초(JDK 17 기본값)였다.
+   2026-08-29 RDS 사고의 원인도 DNS 캐시가 아니라 **커넥션 풀 수명**으로 정정됐다
+   ([회신](../handoff/closed/jvm-dns-cache.md))
+3. **WireGuard 로 신 노드 SSH 사전 확인을 하지 않았다** — SSM 이 첫 부팅부터 동작해 대안 경로를
+   시험할 이유가 없었다. `key_name` 은 붙어 있다
+4. **정적 타깃그룹 attachment 와 ECS 의 등록 관리가 충돌하는 것이 드러났다.** ECS 가 구 노드를
+   빼는 순간 Terraform 이 다시 붙이려 해서 걷어냈다
+5. **노드 타입이 `t3.small` 초안에서 `t3a.small` 로 바뀌었다** — 스펙 동일, 10% 저렴.
+   ENI 가 2개(t3.small 은 3개)지만 모니터링 서비스가 전부 host 모드라 무해하다
+
+**유실된 것** (E 를 지나며 SQLite 가 갈렸다 — 되돌려도 복구되지 않는다)
+
+- Prometheus 로컬 15일치
+- Grafana **사용자 계정 · 알림 silence · UI 로 만든 대시보드 4개**
+- Grafana admin 비밀번호가 `terraform.tfvars` 값으로 **바뀌었다** — 드리프트가 이때 해소됐다
+
+**남긴 것 · 다음으로 넘긴 것**
+
+- 구 노드는 `DRAINING` 인 채 **NAT · bastion · WireGuard 를 계속 진다.**
+  인스턴스 제거는 [Phase 3](./phase-03-nat-gateway.md) → [10](./phase-10-access-path.md) → [12](./phase-12-cleanup.md)
+- **Loki→S3 가 NAT 를 타게 됐다.** S3 Gateway Endpoint 는 만들어 뒀으나 private RT 에 미연결
+  (`attach_s3_endpoint_to_private_rt = false`). 병존이 몇 주로 길어지면 재검토할 것
+- **다음 노드 교체 때는 SSM 이 안 될 가능성에 대비해 대안 경로를 먼저 확인하는 편이 낫다**
+
+**재사용할 절차 — 다음 모니터링 노드 교체**
+
+**[E](#e-dns-를-신-노드로-구-5-d) → [F](#f-ssm-확인--스택-이동-커넥션이-끊기며-전환이-일어난다) 두 단계면 끝난다.**
+레코드 값을 신 노드로 바꾸고, 구 노드를 드레이닝해 커넥션을 끊는다. **앱 재배포가 필요 없다.**
+(단 JVM `networkaddress.cache.ttl` 이 유한해야 한다 — 현재 30초)
+
+**롤백**
+
+DNS 레코드를 구 노드 IP 로 되돌린다 (재배포 없음). 단 위 "유실된 것"은 복구되지 않는다.
+
+---
+
 ## 배포 컨트롤러 전환(Phase 6)과 순서를 맞바꾼 Phase 다
 
 **원래 이것이 Phase 6, 배포 컨트롤러 전환이 Phase 4 였다.** 배포 컨트롤러 전환이
@@ -104,13 +176,13 @@ AL2023 ECS-optimized 는 ecs-init 이 내장이라 완전히 다른 스크립트
 | **Grafana admin 비밀번호** | ⚠️ **바뀐다** — 아래 |
 | 사용자 계정 · 알림 silence · **UI 로 만든 기존 대시보드 4개** | ❌ 유실 |
 
-> **비밀번호가 바뀐다는 것을 착수 전에 팀에 알린다.**
-> `GF_SECURITY_ADMIN_PASSWORD` 는 SQLite 초기화 시점에만 적용되기 때문에 현재 운영 비밀번호는
-> `terraform.tfvars` 값과 **다르다**(드리프트). 신 노드에서는 tfvars 값이 **실제로 적용**되므로,
-> 전환 후 **지금 쓰는 비밀번호로는 로그인이 안 된다.**
+> **비밀번호가 바뀌었다.** `GF_SECURITY_ADMIN_PASSWORD` 는 SQLite 초기화 시점에만 적용되므로
+> 전환 전 운영 비밀번호는 `terraform.tfvars` 값과 달랐다(드리프트). 신 노드에서 tfvars 값이
+> **실제로 적용**되면서 드리프트가 해소됐다 — **지금은 tfvars 값이 실제 값이다.**
 >
-> - [ ] tfvars 의 값이 팀이 공유 가능한 값인지 확인 (아니면 전환 전에 교체)
-> - [ ] 살릴 대시보드가 있으면 **UI 로 만든 4개를 지금 export** 해 둔다
+> - [x] tfvars 값으로 전환 — 팀에 사전 공지 완료
+> - [ ] ~~UI 로 만든 대시보드 4개 export~~ — **하지 않았고, 유실됐다.**
+>       다음 노드 교체 전에는 이 단계를 반드시 밟을 것
 
 ---
 
@@ -177,7 +249,8 @@ F(레코드 값 변경)는 DNS 를 쓰는 쪽만 따라오므로 구해주지 �
 
 ### D. 신 노드 생성
 
-- `t3.small`, **ECS-optimized AL2023**(AMI 는 SSM Parameter 로 참조), **private 2c**, public IP 없음, 고정 사설 IP
+- **`t3a.small`**, **ECS-optimized AL2023**(AMI 는 SSM Parameter 로 참조), **private 2c**, public IP 없음, 고정 사설 IP `10.0.12.100`
+  - t3.small 초안에서 바꿨다 — 스펙 동일·10% 저렴. ENI 만 2개인데 모니터링 서비스가 전부 host 모드라 무해하다
 - **`Name` 태그는 구 노드와 다르게** (함정 1)
 - **`Cluster = groble-cluster` 태그 필수** — 빠지면 Prometheus `ec2_sd` 가 **경고 없이** 스크레이프 목록에서 누락한다
 - `environment = monitoring` 태그 + user_data 의 `ECS_INSTANCE_ATTRIBUTES={"environment":"monitoring"}`
@@ -264,7 +337,7 @@ F(레코드 값 변경)는 DNS 를 쓰는 쪽만 따라오므로 구해주지 �
 
 - 구 노드는 `DRAINING` 인 채로 둔다. **NAT/bastion/WireGuard 는 살아 있다**
 - 인스턴스 제거는 [Phase 3](./phase-03-nat-gateway.md)(NAT) → [Phase 10](./phase-10-access-path.md)(접근 경로) → [Phase 12](./phase-12-cleanup.md)(정리) 로 넘어간다
-- 그동안 EC2 가 3대 → **4대**가 된다 (t3.small 월 ~$15 추가)
+- 그동안 EC2 가 3대 → **4대**가 된다 (t3a.small 월 **$17.08** 추가)
 
 ## 검증
 
