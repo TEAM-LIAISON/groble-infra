@@ -92,24 +92,41 @@ docs/
   건너뛴 단계가 어떤 대가를 치렀는지가 다음 실행의 근거다.
 - **adhoc 문서에는 헤더 표에 `겹치는 Phase` 행을 둔다.** 번호가 없는 대신 이 행이 "언제 끼워 넣을 수
   있는가"를 답한다. 새로 만들면 [이관 절차 목차의 adhoc 표](./runbook/README.md#adhoc--phase-순서와-무관한-단발-작업)에도 한 줄 추가한다.
-- **파일을 옮기면 상대경로가 깨진다.** 이 문서 트리에는 상대링크가 **430개 넘게** 있고,
-  `.md` 뿐 아니라 디렉터리(`./runbook/`)와 소스파일(`../../modules/.../main.tf#L28`)도 가리킨다.
-  이동 후 아래로 **전수 검사**할 것 — `grep` 으로는 깊이가 바뀐 링크를 못 잡는다.
+- **제목에 `{#custom-id}` 를 쓰지 않는다.** **GitHub 는 이 문법을 지원하지 않고 리터럴 텍스트로 렌더한다** —
+  앵커가 안 잡힐 뿐 아니라 제목에 `{#urgent-1}` 이 그대로 보인다. 링크는 GitHub 가 실제로 만드는
+  슬러그를 쓴다: **소문자화 → 문장부호·기호·이모지 제거 → 공백 1개당 하이픈 1개**
+  (공백을 합치지 않는다 — `A — B` 는 `a--b` 가 되고, 앞의 이모지는 선행 하이픈을 남긴다).
+- **제목을 고치면 그 제목을 가리키던 앵커가 조용히 깨진다.** 링크는 살아 있고 페이지는 열리는데
+  엉뚱한 위치로 간다. 제목을 고쳤으면 아래 검사를 돌릴 것.
+- **파일을 옮기거나 제목을 고치면 아래로 전수 검사한다.** 이 문서 트리에는 링크가 **500개 가까이**
+  있고(경로 430 · 앵커 69), 경로 쪽은 `.md` 뿐 아니라 디렉터리(`./runbook/`)와
+  소스파일(`../../modules/.../main.tf#L28`)도 가리킨다. `grep` 으로는 깊이가 바뀐 링크도,
+  깨진 앵커도 잡히지 않는다.
 
   ```bash
   python3 - <<'EOF'
-  import os,re,urllib.parse
+  import os,re,unicodedata,urllib.parse,collections
+  def slug(h):
+      h=h.strip().lower()
+      return ''.join(c for c in h if c in '-_ ' or unicodedata.category(c)[0] in 'LN').replace(' ','-')
+  def heads(t):
+      seen=collections.Counter(); out=set()
+      for m in re.finditer(r'^#{1,6}\s+(.*)$',t,re.M):
+          b=slug(m.group(1)); n=seen[b]; seen[b]+=1
+          out.add(b if n==0 else f"{b}-{n}")
+      return out
+  fs=[os.path.normpath(os.path.join(r,f)) for r,_,g in os.walk('.') if not r.startswith('./.git')
+      for f in g if f.endswith('.md')]
+  H={p:heads(open(p,encoding='utf-8',errors='replace').read()) for p in fs}
   bad=[]
-  for root,_,fs in os.walk('.'):
-      if root.startswith('./.git'): continue
-      for f in (x for x in fs if x.endswith('.md')):
-          p=os.path.normpath(os.path.join(root,f))
-          for m in re.finditer(r'\]\(([^)\s]+)\)', open(p,encoding='utf-8',errors='replace').read()):
-              t=m.group(1)
-              if t.startswith(('http://','https://','mailto:','#')): continue
-              path=urllib.parse.unquote(t.split('#',1)[0])
-              if path and not os.path.exists(os.path.normpath(os.path.join(os.path.dirname(p),path))):
-                  bad.append(f"{p}: {t}")
+  for p in fs:
+      for m in re.finditer(r'\]\(([^)\s]+)\)', open(p,encoding='utf-8',errors='replace').read()):
+          t=m.group(1)
+          if t.startswith(('http://','https://','mailto:')): continue
+          path,_,anc=t.partition('#')
+          tgt=os.path.normpath(os.path.join(os.path.dirname(p),urllib.parse.unquote(path))) if path else p
+          if path and not os.path.exists(tgt): bad.append(f"경로 {p}: {t}"); continue
+          if anc and tgt in H and urllib.parse.unquote(anc) not in H[tgt]: bad.append(f"앵커 {p}: {t}")
   print("\n".join(bad) or "OK")
   EOF
   ```

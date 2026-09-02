@@ -157,7 +157,7 @@ CPUUtilization  4.7~5.0%     CPUCreditBalance  288 (최대치)
 "평소보다 악화됨"을 감지하도록 알람의 역할을 바꾼 것이다. 만성 부족 자체는
 `groble-prod-rds-swap` 알람과 아래 문서 항목이 추적한다.
 
-→ 해소 방안과 실측 근거는 [`infra-future-improvements.md`의 High-4](../plan/infra-future-improvements.md#high-4)에 있다.
+→ 해소 방안과 실측 근거는 [`infra-future-improvements.md`의 High-4](../plan/infra-future-improvements.md#high-4-prod-rds-메모리-압박-해소)에 있다.
 **[Phase 8](./phase-08-prod-elasticache.md) 진입 전에 결정한다** — Redis를 ElastiCache로 빼면 결제 경로가 DB에 더 의존한다.
 
 ---

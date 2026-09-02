@@ -368,7 +368,7 @@ All → Grafana (3000) Dashboard
 
    ⚠️ **두 SG 로 prod/dev 가 갈리지 않는다** — `groble-api-task-sg` 를 dev·prod 태스크가 공유하므로
    서로의 RDS 에 네트워크상 닿는다. 자격증명으로만 막힌다
-   ([향후 개선 Medium-6](docs/plan/infra-future-improvements.md#medium-6)).
+   ([향후 개선 Medium-6](docs/plan/infra-future-improvements.md#medium-6-api-태스크-sg-의-proddev-분리)).
    ⚠️ **CIDR 인그레스가 하나도 없다** (VPN 서브넷 포함). 아래 접근 경로 참조
 
 **개발자 접근 경로**: **SSM Session Manager 가 기본이다** (2026-08-30, Phase 4). 네 노드 모두
