@@ -65,6 +65,98 @@ docs/
 
 ---
 
+## 마이그레이션이 끝나면 — 문서는 어떻게 되나
+
+**아무것도 삭제하지 않는다.** 대신 성격이 바뀌는 시점에 **표시와 색인**을 붙인다.
+
+### 문서가 생기는 흐름이 바뀐다
+
+```
+plan/infra-future-improvements.md   ← 백로그. 끝나지 않는 유일한 계획 문서
+        │  항목 하나를 착수
+        ▼
+runbook/adhoc/<작업>.md             ← 앞으로 생기는 실행 문서는 전부 여기
+        │  백엔드 협조가 필요하면
+        ▼
+handoff/<질의>.md ──► closed/
+        │  완료
+        ▼
+✅ 완료 요약  +  CLAUDE.md(As-Is) 갱신
+```
+
+**`phase-00` ~ `phase-12` 는 닫힌 집합이 된다.** 13번째 Phase 는 없다.
+살아 있는 폴더는 `adhoc/` 과 `handoff/` 둘뿐이다.
+
+### 갈래별로 무엇이 달라지나
+
+| 갈래 | 마이그레이션 종료 시 |
+|---|---|
+| `runbook/phase-*` | **런북(따라 할 절차) → 결정 기록(왜 이렇게 생겼는지)** 으로 성격이 바뀐다. 삭제하지 않고 폴더도 옮기지 않는다 — [아래 참조](#runbook-을-history-로-개명하지-않는-이유) |
+| `runbook/adhoc/` | 여기만 계속 늘어난다 |
+| `handoff/closed/` | 계속 쌓인다. **그게 맞다** — [아래 참조](#closed-를-비우지-않는-이유) |
+| `plan/infra-ha-improvement-plan.md` | To-Be 가 As-Is 가 되어 내용은 `CLAUDE.md` 로 흡수된다. 문서는 **결정 근거**로 남는다 — 헤더에 `✅ 실현됨` 을 달아 성격을 재선언한다 |
+| `plan/infra-future-improvements.md` | **끝나지 않는다.** 오히려 여기서부터 주 문서가 된다 |
+| `reference/` | 변화 없다. 대상이 사라질 때만 지운다 |
+
+### `runbook/` 을 `history/` 로 개명하지 않는 이유
+
+**일부는 여전히 절차이기 때문이다.** [Phase 4](./runbook/phase-04-monitoring-node-rebuild.md) 의 E·F(모니터링 노드 교체)와
+[Phase 9](./runbook/phase-09-prod-asg.md) 의 instance refresh 는 앞으로도 반복해서 쓴다. 통째로 "역사"가 아니다.
+링크 500개를 다시 건드리는 비용도 있다.
+
+→ 대신 **[runbook/README.md](./runbook/README.md) 상단에 「앞으로도 쓰는 절차」 색인을 만든다.**
+각 문서의 `## ✅ 완료 요약` 안에 둔 **"재사용할 절차"** 항목을 모으면 된다.
+나머지는 기록으로 가라앉는다. (Phase 12 의 작업이다)
+
+### `closed/` 를 비우지 않는 이유
+
+**종결된 요청서는 결정의 근거다.** 예를 들어
+[`closed/jvm-dns-cache.md`](./handoff/closed/jvm-dns-cache.md) 는 "원인은 DNS 캐시가 아니라
+커넥션 풀 수명"이라는 **정정**을 담고 있고, 그것이 [Phase 4](./runbook/phase-04-monitoring-node-rebuild.md) 의
+E·F 순서를 뒤집은 근거다. 지우면 왜 그 순서인지 설명할 수 없게 된다.
+
+**쌓이는 것 자체는 문제가 아니었다.** 문제는 *진행 중인 것과 섞이는 것*이었고
+`closed/` 폴더가 이미 그것을 해결했다 — [handoff/README.md](./handoff/README.md) 는 대기 중을 위에,
+종결을 아래에 둔다. 종결분이 60개가 돼도 이 구조는 무너지지 않는다.
+
+### 낡은 문서 — 판정 기준은 "참조 수"가 아니라 "지금도 참인가"
+
+**참조가 0인 것은 삭제 근거가 아니다.** 낡은 문서의 실제 피해는 자리를 차지하는 것이 아니라
+**읽는 사람을 속이는 것**이고, 그것은 인용될수록 위험하다.
+
+| 상태 | 조치 |
+|---|---|
+| 참이고 인용된다 | 그대로 |
+| 참이지만 아무도 안 본다 | **그대로 둔다.** 언젠가 "왜 이렇게 됐지?" 에 답한다 |
+| **거짓이 됐다** | **지우지 않는다.** 맨 앞에 무효 표시를 달고 진실을 링크로 넘긴다 (아래) |
+
+```markdown
+> ⚠️ **이 문서는 더 이상 유효하지 않다.** <무엇이 바뀌었는지 한 줄>
+> 지금의 사실은 [<문서>](<링크>) 에 있다. 이 문서는 <날짜> 시점의 기록으로 남긴다.
+```
+
+지우면 그 사이의 **결정 이력까지 사라진다.** 무효 표시는 남기고 진실은 링크로 넘긴다.
+
+> 실제 사례: `phase-02` 가 "dev MySQL 은 Phase 9 에서 RDS 로 이관된다"고 적고 있었으나
+> 실제로는 [Phase 5](./runbook/phase-05-dev-rds.md) 에서 이미 갔다(2026-09-01). 참조가 있어서 위험했지 없어서 위험한 것이 아니었다.
+
+### 개수는 언제 문제가 되나 — 트리거
+
+문서 수 자체는 비용이 아니다. **한 폴더의 목록이 한눈에 안 읽히는 순간**이 비용이다.
+
+| 트리거 | 조치 |
+|---|---|
+| `runbook/adhoc/` 이 **10개** 초과 | [runbook/README.md](./runbook/README.md) 의 adhoc 표를 연도별로 나눈다 |
+| `handoff/closed/` 가 **30개** 초과 | `handoff/README.md` 의 종결 표를 연도별로 접는다 |
+| **분기 1회** | `CLAUDE.md` 와 완료 문서의 서술이 실제 배포 상태와 어긋나는지 점검. 어긋난 것은 위 무효 표시 |
+
+**증가 속도 실측** — `docs/` 의 `.md` 30개 중 **18개가 2026-08 한 달에 생겼다**(마이그레이션 설계·착수).
+그 전후 달은 각각 1개다. 즉 지금 속도는 특수 상황이며, 정상 운영에서는
+adhoc 과 그에 딸린 handoff 를 합쳐 **연 10개 안팎**으로 본다. 그중 "진행 중"은 항상 5개 미만이다 —
+`closed/` 와 `✅ 완료 요약` 이 나머지를 걸러 주기 때문이다.
+
+---
+
 ## 상태 어휘
 
 **문서 헤더 표의 `상태` 행과 [목차 표](./runbook/README.md)에 같은 단어만 쓴다.**
@@ -92,6 +184,9 @@ docs/
   건너뛴 단계가 어떤 대가를 치렀는지가 다음 실행의 근거다.
 - **adhoc 문서에는 헤더 표에 `겹치는 Phase` 행을 둔다.** 번호가 없는 대신 이 행이 "언제 끼워 넣을 수
   있는가"를 답한다. 새로 만들면 [이관 절차 목차의 adhoc 표](./runbook/README.md#adhoc--phase-순서와-무관한-단발-작업)에도 한 줄 추가한다.
+- **문서가 거짓이 되면 지우지 말고 무효 표시를 단다.** 맨 앞에
+  `> ⚠️ **이 문서는 더 이상 유효하지 않다.** … 지금의 사실은 [X](…) 에 있다` 를 두고 진실을 링크로 넘긴다.
+  지우면 그 사이의 결정 이력까지 사라진다 — [마이그레이션이 끝나면](#낡은-문서--판정-기준은-참조-수가-아니라-지금도-참인가) 참조.
 - **제목에 `{#custom-id}` 를 쓰지 않는다.** **GitHub 는 이 문법을 지원하지 않고 리터럴 텍스트로 렌더한다** —
   앵커가 안 잡힐 뿐 아니라 제목에 `{#urgent-1}` 이 그대로 보인다. 링크는 GitHub 가 실제로 만드는
   슬러그를 쓴다: **소문자화 → 문장부호·기호·이모지 제거 → 공백 1개당 하이픈 1개**
@@ -115,12 +210,16 @@ docs/
           b=slug(m.group(1)); n=seen[b]; seen[b]+=1
           out.add(b if n==0 else f"{b}-{n}")
       return out
+  def body(p):                      # 코드 블록·인라인 코드는 링크가 아니다
+      t=open(p,encoding='utf-8',errors='replace').read()
+      t=re.sub(r'^```.*?^```','',t,flags=re.M|re.S)
+      return re.sub(r'`[^`\n]*`','',t)
   fs=[os.path.normpath(os.path.join(r,f)) for r,_,g in os.walk('.') if not r.startswith('./.git')
       for f in g if f.endswith('.md')]
   H={p:heads(open(p,encoding='utf-8',errors='replace').read()) for p in fs}
   bad=[]
   for p in fs:
-      for m in re.finditer(r'\]\(([^)\s]+)\)', open(p,encoding='utf-8',errors='replace').read()):
+      for m in re.finditer(r'\]\(([^)\s]+)\)', body(p)):
           t=m.group(1)
           if t.startswith(('http://','https://','mailto:')): continue
           path,_,anc=t.partition('#')
