@@ -64,10 +64,18 @@ DB 계층에서도 의미를 갖는다.
 > 이미지와 맞춰야 한다** — 낡은 값이면 그것이 family 의 최신 리비전이 된다.
 
 **다음 작업은 [Phase 6 — 배포 컨트롤러 전환](docs/runbook/phase-06-deployment-controller.md)** 이며
-앱 측 차단 조건 4건 회신 대기다. Phase 6~9 는 미착수다.
-> **Phase 7~9 는 dev-first 로 배열되어 있다** (2026-09-02 재배열). Dev 전환(ElastiCache + ASG)이
+**2026-09-01 백엔드 회신이 왔고 2026-09-02 회답까지 붙였다** ([PR #24](https://github.com/TEAM-LIAISON/groble-infra/pull/24) ·
+[요청서 §4·§5](docs/handoff/rolling-deploy-prerequisites.md)). graceful shutdown 은 **이미 적용돼 있었고**,
+드레이닝 값은 **dereg 60 / graceful 20 / stopTimeout 90** 으로 확정됐다. 대신 **착수 조건이 4건 → 5건**이 됐다
+(스케줄러 23개 다중 실행 점검 — 백엔드가 먼저 신고했다).
+착수 시에는 **Dev 를 완주한 뒤 Prod 에 착수한다** —
+이 Phase 가 없애는 테스트 리스너(9443)를 갈음하는 것이 계획서 §3-5 의 Dev promote 게이트이고,
+[Phase 5](docs/runbook/phase-05-dev-rds.md) 로 dev DB 엔진이 prod 와 같아져 그 게이트가 성립하기 때문이다.
+Phase 6~9 는 미착수다.
+> **Phase 7~9 도 dev-first 로 배열되어 있다** (2026-09-02 재배열). Dev 전환(ElastiCache + ASG)이
 > **[7](docs/runbook/phase-07-dev-cache-asg.md)** 로 앞서고 Prod 가 **[8](docs/runbook/phase-08-prod-elasticache.md)**(ElastiCache) ·
 > **[9](docs/runbook/phase-09-prod-asg.md)**(ASG) 로 뒤따른다. ASG 절차의 원본은 Phase 7 문서에 있다.
+> **Phase 6 의 dev-first 도 같은 방향이다.**
 Phase와 독립적인 [RDS MySQL 8.4 업그레이드](docs/runbook/adhoc/rds-mysql-84-upgrade.md)는
 **2026-08-29 전환 완료**했다 (확장 지원 과금 $178.56/월 중단).
 구 인스턴스도 같은 날 삭제했고, 최종 스냅샷 `groble-prod-mysql-80-final`(8.0.45)만 남아 있다.
@@ -169,7 +177,9 @@ docs/              # 문서. 네 갈래 — 진입점은 docs/README.md
 > `terraform plan`이 **No changes**임을 확인했다.
 - 현재 `environments/monitoring/`에만 있다. Prod/Dev의 `spring_app_image`는 제외했다 —
   **CodeDeploy가 실행 중인 태스크 정의를 소유**(`ignore_changes = [task_definition]`)하므로
-  tfvars 값이 실제 배포본을 반영하지 않는다 (dev는 `openjdk:17-jdk-slim` 플레이스홀더 상태)
+  tfvars 값이 실제 배포본을 반영하지 않는다.
+  ⚠️ **[Phase 6](docs/runbook/phase-06-deployment-controller.md) 은 이 값으로 신 서비스를 띄우므로, 착수 전에 실행 중 이미지와 맞춰야 한다** —
+  낡은 태그면 리스너 스왑이 곧 구버전 롤백 사고가 된다
 
 ## Network Configuration
 

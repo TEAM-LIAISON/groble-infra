@@ -32,7 +32,7 @@
 | **[3](./phase-03-nat-gateway.md)** | NAT Gateway + S3 Gateway Endpoint, 라우트 전환 | 🔄 진행 중 — 3-a(IP 확보) 완료, **외부 업체 허용목록 등록 대기** | 진행 중이던 아웃바운드 연결 단절 | 스위치 되돌리기 (CLI 한 줄) |
 | **[4](./phase-04-monitoring-node-rebuild.md)** | 모니터링 노드 재구축 (private 2c, AL2023) + OTLP DNS 간접화 | ✅ **완료** (2026-08-30) | 없음 (관측만 수 분 중단) | DNS 레코드 되돌리기 (재배포 없음) |
 | **[5](./phase-05-dev-rds.md)** | Dev MySQL → RDS | ✅ **완료** (2026-09-01) | Dev만 (쓰기 차단 1분 미만) | **되돌릴 수 없다** (구 컨테이너 DB 소멸) |
-| **[6](./phase-06-deployment-controller.md)** | 배포 컨트롤러 CodeDeploy → ECS rolling | ⬜ 미착수 — **다음 작업.** 앱 측 차단 조건 4건 대기 | 없음 (리스너 스왑) | **리스너 규칙 되돌리기** |
+| **[6](./phase-06-deployment-controller.md)** | 배포 컨트롤러 CodeDeploy → ECS rolling (**Dev 완주 → Prod**) | ⬜ 미착수 — **다음 작업.** 회신·회답 완료, 앱 측 차단 조건 **5건** 대기 | 없음 (리스너 스왑) | **리스너 규칙 되돌리기** |
 | **[7](./phase-07-dev-cache-asg.md)** | Dev ElastiCache + ASG 전환 — **8·9 의 리허설** | ⬜ 미착수 — 5·6 대기 | Dev만 | 단계별 |
 | **[8](./phase-08-prod-elasticache.md)** | Prod Redis → ElastiCache (**stop-first**, rolling 아님) | ⬜ 미착수 — 7 대기 | **진행 중 결제 세션 소실 + 1~2분 순단** ⚠️ | 되돌려도 재소실 |
 | **[9](./phase-09-prod-asg.md)** | Prod ASG 전환 (구 노드 드레인) | ⬜ 미착수 — 7·8 대기 | 없음 | 구 노드 재활성화 |
@@ -140,7 +140,7 @@ Prod 를 참조하던 방향이 뒤집혔다.
    "동일 이미지를 Dev 에 먼저 배포해 통과하면 Prod 승격"(계획서 §3-5) 게이트인데
    DB 엔진부터 갈라져 있으면 게이트가 검증하는 것이 없다
 
-**6 은 앞당기지 않는다.** 앱 측 차단 조건 4건에 막혀 있고, 7·8·9 가 모두 그 위에 얹힌다.
+**6 은 앞당기지 않는다.** 앱 측 차단 조건 **5건**에 막혀 있고, 7·8·9 가 모두 그 위에 얹힌다.
 
 **[8](./phase-08-prod-elasticache.md)(Prod ElastiCache)은 이 마이그레이션에서 유일하게 사용자 영향이 실재하는 단계다.**
 그래서 무영향 작업을 다 한 뒤에, 그리고 **같은 전환을 Dev([7](./phase-07-dev-cache-asg.md)-A)에서 한 번 해본 뒤에** 들어간다.
@@ -157,7 +157,7 @@ host-mode 싱글턴 컨테이너는 cattle 노드에서 유지할 수 없다.
 | 대기 | 막고 있는 것 |
 |---|---|
 | [egress IP 허용목록](../handoff/egress-ip-allowlist.md) | **Phase 3 착수 조건** |
-| 계획서 §3 앱 측 차단 조건 **A~D** (expand/contract · readiness/liveness · graceful shutdown · 드레이닝 값) | **Phase 6 착수 조건.** 요청서 [rolling-deploy-prerequisites.md](../handoff/rolling-deploy-prerequisites.md) |
+| 앱 측 차단 조건 **5건** — 회신·회답 완료(2026-09-01·02). 남은 것은 **SIGTERM 실측**과 **스케줄러 23개 전수 점검** | **Phase 6 착수 조건.** 요청서 [rolling-deploy-prerequisites.md](../handoff/rolling-deploy-prerequisites.md). graceful shutdown 은 이미 적용돼 있었고 드레이닝 값은 확정됐다. 착수 시 **Dev 부터** |
 | [결제 지표 3종 노출](../handoff/payment-alerts-review.md) (§6) | 알림 R10~R14. Phase 2 완료는 막지 않는다 |
 | 전환 구간(02:19~02:27) 결제 점검 · 첫 09:00 배치 확인 | [RDS 8.4 업그레이드](./adhoc/rds-mysql-84-upgrade.md) — 전환은 끝났고 사후 확인만 남았다 |
 
@@ -171,7 +171,8 @@ host-mode 싱글턴 컨테이너는 cattle 노드에서 유지할 수 없다.
 - [ ] `aws sts get-caller-identity --profile groble-terraform` 정상 (SSO 토큰 유효)
 - [ ] 현재 state 파일 4개를 **작업 외부(로컬 백업 디렉터리)에 복사해 둔다**
 - [ ] `terraform plan`이 모든 환경에서 **no changes**로 깨끗한지 확인 — drift가 있으면 먼저 해소
-- [ ] 계획서 §3 "rolling 전환의 차단 조건 — 앱 측 작업" **4건**(expand/contract 합의 · readiness/liveness 분리 · graceful shutdown · 드레이닝 값 정렬)이 groble-backend에서 완료되었는지 — **Phase 6의 차단 조건**. Phase 0~4는 이와 무관하게 먼저 진행할 수 있다
+- [ ] rolling 전환의 앱 측 차단 조건 **5건**(expand/contract 합의 · readiness/liveness 분리 · graceful shutdown · 드레이닝 값 정렬 · **스케줄러 23개 다중 실행 점검**)이 groble-backend에서 완료되었는지 — **Phase 6의 차단 조건**. Phase 0~4는 이와 무관하게 먼저 진행할 수 있다
+  > 2026-09-01 회신에서 5번째가 추가됐다(백엔드가 먼저 신고). graceful shutdown 은 **이미 적용돼 있었고**, 드레이닝 값은 **dereg 60 / graceful 20 / stopTimeout 90** 으로 확정됐다 — [요청서 §4·§5](../handoff/rolling-deploy-prerequisites.md)
 - [ ] **WireGuard 51820 소스를 `0.0.0.0/0` → 팀 IP로 축소** (계획서 §2.5 선행 즉시 조치 — Phase 10까지 6~8주를 열어둘 이유가 없다)
 - [ ] 저트래픽 시간대 확인 (Phase 3·8에 필요)
 - [ ] **외부 업체 허용목록에 새 egress IP 등록 완료** — [Phase 3](./phase-03-nat-gateway.md) 전환의 차단 조건.
