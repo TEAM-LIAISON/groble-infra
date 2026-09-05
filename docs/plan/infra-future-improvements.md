@@ -14,33 +14,32 @@
 
 | 우선순위 | 항목 | 예상 비용 | 트리거 |
 |---|---|---|---|
-| 🔴 **Urgent** | [ElastiCache replica 도입](#urgent-1) | +$15/월 | **즉시 검토** — 결제 정합성 |
-| 🟠 High | [멱등성·재고 예약의 Redis 의존 해소](#high-1) | $0 (앱 작업) | 결제 관련 사고 발생 시 즉시 |
-| 🟠 High | [N+1 노드 확보 (desired 3)](#high-2) | +$38/월 (SP 적용 시 ~$6) | 노드 장애 중 배포 필요 상황 1회 발생 |
-| 🟠 High | [Prometheus 장기 보관 실구현](#high-3) | 방식에 따라 상이 | 15일 초과 지표 분석 필요 시 |
-| 🟠 High | [Prod RDS 메모리 압박 해소](#high-4) | $0 (버퍼 풀) 또는 +$18/월 (상향) | **실측 확인됨** — Phase 7 진입 전 결정 |
-| 🟠 High | [트레이스가 전부 버려지고 있다](#high-5) | $0 (끄기) 또는 +$0~15/월 (백엔드 도입) | **실측 확인됨** — 지금 비용만 내고 얻는 것이 없다 |
-| 🟡 Medium | [모니터링 노드 데이터 EBS 분리](#medium-1) | +$3/월 | 노드 교체 예정 시 |
-| 🟡 Medium | [피처 플래그 (dark launch)](#medium-2) | $0 (앱 작업) | 롤백 지연이 실제 문제가 될 때 |
-| 🟡 Medium | [가중 타깃그룹 기반 카나리 배포](#medium-3) | $0 | 배포 사고 1회 발생 시 |
-| 🟡 Medium | [VPC Interface Endpoint](#medium-4) | 조건부 절감 | NAT 데이터 요금 확인 후 |
-| 🟡 Medium | [관측 평면 HA](#medium-5) | +$16/월 | 관측 단절이 실제 장애 대응을 방해했을 때 |
-| 🟡 Medium | [API 태스크 SG 의 prod/dev 분리](#medium-6) | $0 | **Phase 5 에서 확인됨** — dev·prod 가 서로의 DB 에 네트워크상 닿는다 |
-| 🟡 Medium | [노드 SG 의 개방 인그레스 정리](#medium-7) | $0 | **2026-09-01 확인됨** — prod·dev 양쪽 22·3306 이 `0.0.0.0/0` 이다 |
-| 🔵 Low | [dev DB 콜레이션 분열 정리](#low-6) | $0 (앱 작업) | 콜레이션 불일치로 인한 조인 성능·정렬 문제가 실제로 드러날 때 |
-| 🔵 Low | [ENI trunking](#low-1) | $0 | 노드당 3태스크 이상이 필요해질 때 |
-| 🔵 Low | [멀티 AZ / AZ 장애 생존](#low-2) | 상당 | 사업 요구사항이 SLA를 요구할 때 |
-| 🔵 Low | [동적 오토스케일링](#low-3) | 변동 | 트래픽 변동이 실측으로 확인될 때 |
-| 🔵 Low | [Dev 전용 모니터링 검증 베드](#low-4) | +$38/월 | 모니터링 업그레이드 사고 발생 시 |
-| 🔵 Low | [Dev를 Prod와 동일한 롤링 전략으로](#low-5) | +$38/월 | surge 배치 관련 배포 사고 발생 시 |
-| ⚪ 상시 | [Savings Plan / Reserved Node](#cost-1) | -30% | 구성 안정화 직후 |
+| 🔴 **Urgent** | [ElastiCache replica 도입](#urgent-1-elasticache-replica-도입-단일-노드--복제-그룹) | +$15/월 | **즉시 검토** — 결제 정합성 |
+| 🟠 High | [멱등성·재고 예약의 Redis 의존 해소](#high-1-멱등성재고-예약의-redis-의존-해소) | $0 (앱 작업) | 결제 관련 사고 발생 시 즉시 |
+| 🟠 High | [N+1 노드 확보 (desired 3)](#high-2-n1-노드-확보-prod-desired-2--3) | +$38/월 (SP 적용 시 ~$6) | 노드 장애 중 배포 필요 상황 1회 발생 |
+| 🟠 High | [Prometheus 장기 보관 실구현](#high-3-prometheus-장기-보관-실구현) | 방식에 따라 상이 | 15일 초과 지표 분석 필요 시 |
+| 🟠 High | [Prod RDS 메모리 압박 해소](#high-4-prod-rds-메모리-압박-해소) | $0 (버퍼 풀) 또는 +$18/월 (상향) | **실측 확인됨** — Phase 8 진입 전 결정 |
+| 🟠 High | [트레이스가 전부 버려지고 있다](#high-5-트레이스가-전부-버려지고-있다--보내는데-받는-곳이-없다) | $0 (끄기) 또는 +$0~15/월 (백엔드 도입) | **실측 확인됨** — 지금 비용만 내고 얻는 것이 없다 |
+| 🟡 Medium | [모니터링 노드 데이터 EBS 분리](#medium-1-모니터링-노드-데이터의-ebs-볼륨-분리) | +$3/월 | 노드 교체 예정 시 |
+| 🟡 Medium | [피처 플래그 (dark launch)](#medium-2-피처-플래그-dark-launch) | $0 (앱 작업) | 롤백 지연이 실제 문제가 될 때 |
+| 🟡 Medium | [가중 타깃그룹 기반 카나리 배포](#medium-3-가중-타깃그룹-기반-카나리-배포) | $0 | 배포 사고 1회 발생 시 |
+| 🟡 Medium | [VPC Interface Endpoint](#medium-4-vpc-interface-endpoint-도입-검토) | 조건부 절감 | NAT 데이터 요금 확인 후 |
+| 🟡 Medium | [관측 평면 HA](#medium-5-관측-평면의-ha-모니터링-노드-asg화) | +$16/월 | 관측 단절이 실제 장애 대응을 방해했을 때 |
+| 🟡 Medium | [API 태스크 SG 의 prod/dev 분리](#medium-6-api-태스크-sg-의-proddev-분리) | $0 | **Phase 5 에서 확인됨** — dev·prod 가 서로의 DB 에 네트워크상 닿는다 |
+| 🟡 Medium | [노드 SG 의 개방 인그레스 정리](#medium-7-노드-sg-의-개방-인그레스-정리) | $0 | **2026-09-01 확인됨** — prod·dev 양쪽 22·3306 이 `0.0.0.0/0` 이다 |
+| 🔵 Low | [dev DB 콜레이션 분열 정리](#low-6-dev-db-콜레이션-분열-정리) | $0 (앱 작업) | 콜레이션 불일치로 인한 조인 성능·정렬 문제가 실제로 드러날 때 |
+| 🔵 Low | [ENI trunking](#low-1-eni-trunking-awsvpctrunking) | $0 | 노드당 3태스크 이상이 필요해질 때 |
+| 🔵 Low | [멀티 AZ / AZ 장애 생존](#low-2-멀티-az--az-장애-생존) | 상당 | 사업 요구사항이 SLA를 요구할 때 |
+| 🔵 Low | [동적 오토스케일링](#low-3-동적-오토스케일링) | 변동 | 트래픽 변동이 실측으로 확인될 때 |
+| 🔵 Low | [Dev 전용 모니터링 검증 베드](#low-4-dev-전용-모니터링-검증-베드) | +$38/월 | 모니터링 업그레이드 사고 발생 시 |
+| 🔵 Low | [Dev를 Prod와 동일한 롤링 전략으로](#low-5-dev를-prod와-동일한-롤링-전략으로-t3small--t3medium) | +$38/월 | surge 배치 관련 배포 사고 발생 시 |
+| ⚪ 상시 | [Savings Plan / Reserved Node](#cost-1-savings-plan--reserved-node) | -30% | 구성 안정화 직후 |
 
 ---
 
 ## 🔴 Urgent
 
-### Urgent-1. ElastiCache replica 도입 (단일 노드 → 복제 그룹) {#urgent-1}
-
+### Urgent-1. ElastiCache replica 도입 (단일 노드 → 복제 그룹)
 **이번에 하지 않은 이유**: 비용($15/월)을 이유로 단일 노드로 시작하기로 결정(계획서 §2.3).
 
 **그런데 이건 단순한 캐시 HA 문제가 아니다.**
@@ -85,8 +84,7 @@ multi_az_enabled           = false   # 단일 AZ 결정과 충돌 없음
 
 ## 🟠 High
 
-### High-1. 멱등성·재고 예약의 Redis 의존 해소 {#high-1}
-
+### High-1. 멱등성·재고 예약의 Redis 의존 해소
 **배경**: Urgent-1은 인프라로 위험을 줄이지만, **구조적으로는 여전히 인메모리 저장소가 금전 정합성의 권위 소스**다. Redis 복제도 비동기라 failover 시 in-flight 쓰기 유실 가능성이 남는다.
 
 **해결안**: `checkout:idempotency:*`와 `stock:reserved:*`를 MySQL로 이전한다.
@@ -101,8 +99,7 @@ multi_az_enabled           = false   # 단일 AZ 결정과 충돌 없음
 
 ---
 
-### High-2. N+1 노드 확보 (Prod desired 2 → 3) {#high-2}
-
+### High-2. N+1 노드 확보 (Prod desired 2 → 3)
 **배경**: 현재 구조는 노드 2대 × ENI 2슬롯 = 4슬롯이다. 노드 1대를 잃으면 슬롯이 2/2로 꽉 차서 **배포가 불가능해진다** (계획서 §2.1의 "알려진 제약").
 
 장애 대응 중에 핫픽스를 낼 수 없다는 뜻이라, 가장 필요한 순간에 손이 묶인다.
@@ -118,8 +115,7 @@ multi_az_enabled           = false   # 단일 AZ 결정과 충돌 없음
 
 ---
 
-### High-3. Prometheus 장기 보관 실구현 {#high-3}
-
+### High-3. Prometheus 장기 보관 실구현
 **배경 — 현재 인식과 사실이 다르다.**
 
 CLAUDE.md는 *"Prometheus: 로컬 15일, S3 장기 저장(90일)"* 이라고 기술하고 있고 S3 버킷과 IAM 권한도 만들어져 있다. **그러나 실제로는 사용되지 않는다** — 바닐라 Prometheus는 S3에 직접 쓸 수 없고, 코드에 Thanos·Mimir 같은 구성요소가 없다.
@@ -143,8 +139,7 @@ CLAUDE.md는 *"Prometheus: 로컬 15일, S3 장기 저장(90일)"* 이라고 기
 
 ---
 
-### High-4. Prod RDS 메모리 압박 해소 {#high-4}
-
+### High-4. Prod RDS 메모리 압박 해소
 **상태**: 추정이 아니라 **실측으로 확인된 문제다.** Phase 1의 알람을 붙이자마자 드러났다.
 
 | 지표 | 실측값 | 판단 |
@@ -175,7 +170,7 @@ DB 응답 지연의 원인이 두 겹으로 쌓여 있는 셈이다.
 
 둘 다 **프로덕션 DB 재부팅**이 필요하다(단일 AZ이므로 수십 초~수 분 순단). 유지보수 창이 필요하다.
 
-**트리거**: **[Phase 7](./runbook/phase-07-elasticache.md) 진입 전에 결정한다.**
+**트리거**: **[Phase 8](../runbook/phase-08-prod-elasticache.md) 진입 전에 결정한다.**
 Redis를 ElastiCache로 빼면 결제 경로가 DB에 더 의존하게 된다. 그 전에 이 상태를 해소하거나,
 최소한 수용 여부를 명시적으로 결정해야 한다.
 
@@ -216,8 +211,7 @@ A·B 어느 쪽을 택하든 재부팅이 필요하므로 **한 번의 유지보
 
 ---
 
-### High-5. 트레이스가 전부 버려지고 있다 — 보내는데 받는 곳이 없다 {#high-5}
-
+### High-5. 트레이스가 전부 버려지고 있다 — 보내는데 받는 곳이 없다
 **실측 (2026-08-30 발견)**. 앱은 스팬을 계속 내보내는데 otelcol 에 받을 경로가 없다.
 
 ```
@@ -250,7 +244,7 @@ CLAUDE.md 의 데이터 흐름도에도 트레이스가 없으니 **애초에 �
 | 방향 | 내용 | 비용 |
 |---|---|---|
 | **끈다** | 앱에서 트레이싱 비활성화 (`OTEL_TRACES_EXPORTER=none`) | $0. 낭비와 로그 소음이 즉시 사라진다 |
-| **받는다** | otelcol 에 traces 파이프라인 + 백엔드 추가. Tempo(S3 백엔드)가 기존 Loki S3 구성과 결이 같다 | Tempo 컨테이너 1개 + S3. 모니터링 노드 메모리가 이미 꽉 차 있어([Phase 4](./runbook/phase-04-monitoring-node-rebuild.md)) 노드 상향이 함께 필요할 수 있다 |
+| **받는다** | otelcol 에 traces 파이프라인 + 백엔드 추가. Tempo(S3 백엔드)가 기존 Loki S3 구성과 결이 같다 | Tempo 컨테이너 1개 + S3. 모니터링 노드 메모리가 이미 꽉 차 있어([Phase 4](../runbook/phase-04-monitoring-node-rebuild.md)) 노드 상향이 함께 필요할 수 있다 |
 
 **어디를 고치나**: otelcol 설정은 이 리포지토리가 아니라 `groble-images` 에 있다.
 **끄는 쪽은 이 리포지토리의 작업이다** — 아래 참조.
@@ -286,8 +280,7 @@ OTEL_TRACES_SAMPLER_ARG = 0.1          ← 10%
 
 ## 🟡 Medium
 
-### Medium-1. 모니터링 노드 데이터의 EBS 볼륨 분리 {#medium-1}
-
+### Medium-1. 모니터링 노드 데이터의 EBS 볼륨 분리
 **배경**: Grafana는 as-code로 재현 가능해졌지만(계획서 §2.4), Prometheus 로컬 TSDB 15일치는 노드 교체 시 사라진다.
 
 **해결안**: `/opt`를 별도 EBS 볼륨으로 분리하고 노드 교체 시 재연결. Terraform `aws_volume_attachment`로 관리.
@@ -300,8 +293,7 @@ OTEL_TRACES_SAMPLER_ARG = 0.1          ← 10%
 
 ---
 
-### Medium-2. 피처 플래그 (dark launch) {#medium-2}
-
+### Medium-2. 피처 플래그 (dark launch)
 **배경**: rolling 전환으로 **테스트 리스너(9443) 기반 사전검증을 잃었고, 롤백이 분 단위**가 되었다(계획서 §2.6 트레이드오프). 계획서 §3-5는 이를 Dev promote 게이트로 갈음했지만, 플래그는 여기서 더 나아간다:
 
 - **배포와 릴리스를 분리**한다 — 코드는 나가되 기능은 꺼진 상태
@@ -313,8 +305,7 @@ OTEL_TRACES_SAMPLER_ARG = 0.1          ← 10%
 
 ---
 
-### Medium-3. 가중 타깃그룹 기반 카나리 배포 {#medium-3}
-
+### Medium-3. 가중 타깃그룹 기반 카나리 배포
 **배경**: 마이그레이션 Phase 6에서 리스너 가중치 전환 방식을 검토했으나, 그 단계에서 옮기는 것은 **같은 애플리케이션 버전**이라 점진 전환으로 얻는 정보가 적어 즉시 스왑을 택했다.
 
 **그러나 일상 배포에서는 값어치가 다르다.** ALB 리스너 규칙의 `forward` 액션에 두 타깃그룹의 가중치를 두고 10% → 50% → 100%로 옮기면, 신 버전을 소량 트래픽으로 먼저 검증할 수 있다.
@@ -327,8 +318,7 @@ OTEL_TRACES_SAMPLER_ARG = 0.1          ← 10%
 
 ---
 
-### Medium-4. VPC Interface Endpoint 도입 검토 {#medium-4}
-
+### Medium-4. VPC Interface Endpoint 도입 검토
 **배경**: 이번에 **S3 Gateway Endpoint(무료)** 는 도입했다. ECR 이미지 레이어가 S3에서 오므로 NAT 데이터 요금의 상당 부분이 이것으로 제거된다.
 
 남은 후보는 Interface Endpoint(`ecr.api`, `ecr.dkr`, `ssm`, `ssmmessages`, `ec2messages`, `logs`)인데, 이쪽은 **시간당 과금 + 데이터 처리 요금**이 있어 무조건 이득이 아니다.
@@ -339,8 +329,7 @@ OTEL_TRACES_SAMPLER_ARG = 0.1          ← 10%
 
 ---
 
-### Medium-5. 관측 평면의 HA (모니터링 노드 ASG화) {#medium-5}
-
+### Medium-5. 관측 평면의 HA (모니터링 노드 ASG화)
 **배경**: 계획서 §0에서 모니터링 노드의 무중단 교체를 **명시적 비목표**로 두고 pet으로 남겼다. 이유는 관측 단절이 서비스 가용성에 영향을 주지 않기 때문이고, 가용성 직결 항목(High-2의 N+1 노드)조차 비용으로 미룬 상황에서 관측 HA를 먼저 사는 것은 우선순위가 맞지 않았다.
 
 **해결안**: 모니터링 노드를 ASG(size 1)로 만들고, 앱이 바라보는 OTLP 엔드포인트를 **내부 NLB**로 안정화한다.
@@ -354,8 +343,7 @@ OTEL_TRACES_SAMPLER_ARG = 0.1          ← 10%
 
 ---
 
-### Medium-6. API 태스크 SG 의 prod/dev 분리 {#medium-6}
-
+### Medium-6. API 태스크 SG 의 prod/dev 분리
 **배경**: `groble-api-task-sg` **하나를 dev 와 prod API 태스크가 공유한다**
 (`environments/dev/main.tf` · `environments/prod/main.tf` 가 같은 SG 를 data 로 참조).
 RDS SG 들은 이 SG 를 참조해 3306 을 여는데, 참조가 환경을 구분하지 못한다.
@@ -363,7 +351,7 @@ RDS SG 들은 이 SG 를 참조해 3306 을 여는데, 참조가 환경을 구�
 **결과 — 지금 이미 그렇다**:
 - **dev API 태스크가 prod RDS 에 네트워크상 닿는다.** `groble-rds-mysql-sg` 의
   "MySQL access from API tasks" 인그레스가 dev 태스크에도 적용된다
-- [Phase 5](./runbook/phase-05-dev-rds.md) 에서 만들 dev RDS SG 도 같은 이유로
+- [Phase 5](../runbook/phase-05-dev-rds.md) 에서 만들 dev RDS SG 도 같은 이유로
   **prod 태스크에 열린다**
 
 자격증명이 갈라져 있어 실제 접근은 막히지만, **네트워크 계층의 격리는 없다.**
@@ -377,14 +365,13 @@ RDS SG 들은 이 SG 를 참조해 3306 을 여는데, 참조가 환경을 구�
 - 태스크 정의 변경이므로 **재배포가 필요하다.** Phase 5·7 등 어차피 재배포하는 작업에 묶는 것이 싸다
 
 **왜 이번 범위 밖인가**: 마이그레이션의 목표는 가용성 구조 전환이고, 이 항목은 심층 방어다.
-[Phase 5](./runbook/phase-05-dev-rds.md) 를 하며 발견했으나 **그 Phase 안에서 고치면
+[Phase 5](../runbook/phase-05-dev-rds.md) 를 하며 발견했으나 **그 Phase 안에서 고치면
 "한 번에 한 가지만 바꾼다"는 원칙이 깨진다.**
 
-**트리거**: 환경 간 오접속이 실제로 발생했을 때, 또는 [Phase 12](./runbook/phase-12-cleanup.md) 정리 시.
+**트리거**: 환경 간 오접속이 실제로 발생했을 때, 또는 [Phase 12](../runbook/phase-12-cleanup.md) 정리 시.
 
 
-### Medium-7. 노드 SG 의 개방 인그레스 정리 {#medium-7}
-
+### Medium-7. 노드 SG 의 개방 인그레스 정리
 **배경**: `groble-develop-target-group` 과 `groble-prod-target-group` **양쪽 모두**
 인그레스 7건 중 **2건이 `0.0.0.0/0` 이다.** 2026-09-01 dev RDS exporter 배치를 검토하다 확인했고,
 prod 도 같은지 대조해 보니 **규칙 구성이 완전히 동일했다.**
@@ -406,13 +393,13 @@ prod 도 같은지 대조해 보니 **규칙 구성이 완전히 동일했다.**
    의도한 설정이라기보다 초기 구성의 잔재로 보인다. 규칙이 서로 다른 기준을 섞으면
    **다음 사람이 어느 쪽이 기준인지 알 수 없다.**
 2. **3306 은 이제 양쪽 다 들을 것이 없다.** prod DB 는 처음부터 RDS 였고,
-   dev 도 [Phase 5](./runbook/phase-05-dev-rds.md) 로 컨테이너 MySQL 이 사라졌다.
+   dev 도 [Phase 5](../runbook/phase-05-dev-rds.md) 로 컨테이너 MySQL 이 사라졌다.
    **규칙 자체가 잔재다.**
 
 **해결안**
 
 - **3306** — 두 SG 에서 제거한다. 이 포트를 여는 컨테이너가 이제 없다
-- **22** — [Phase 10](./runbook/phase-10-access-path.md) 이 SSH 경로 자체를 폐기한다.
+- **22** — [Phase 10](../runbook/phase-10-access-path.md) 이 SSH 경로 자체를 폐기한다.
   그 Phase 에서 함께 제거하는 것이 맞고, 그 전에 좁힌다면 모니터링 SG 참조로 한정한다
   (현재 접근 경로가 모니터링 노드 경유 SSH 이므로)
 
@@ -420,15 +407,14 @@ prod 도 같은지 대조해 보니 **규칙 구성이 완전히 동일했다.**
 따로 쪼개면 같은 SG 를 두 번 고치게 된다. **SG 규칙 변경은 잘못 잡으면 조용히 통신을 끊으므로**
 접근 경로를 다시 그리는 Phase 10 에서 한 번에 하는 편이 안전하다.
 
-**트리거**: [Phase 10](./runbook/phase-10-access-path.md) 착수 시. 그 전이라도 VPN 사용자가
+**트리거**: [Phase 10](../runbook/phase-10-access-path.md) 착수 시. 그 전이라도 VPN 사용자가
 늘어나면 앞당긴다.
 
 ---
 
 ## 🔵 Low / 조건부
 
-### Low-1. ENI trunking (`awsvpcTrunking`) {#low-1}
-
+### Low-1. ENI trunking (`awsvpcTrunking`)
 **배경**: awsvpc 모드에서 t3 계열은 ENI 3개(primary 1 + secondary 2)라 **노드당 태스크가 2개로 제한**된다. trunking을 켜면 branch ENI로 밀도를 크게 올릴 수 있다.
 
 **이번에 하지 않은 이유 — 지금 켜도 이득이 없다.**
@@ -447,8 +433,7 @@ t3.medium(4GiB)에서 API 태스크가 ~1200MB를 쓰므로 **메모리가 먼�
 
 ---
 
-### Low-2. 멀티 AZ / AZ 장애 생존 {#low-2}
-
+### Low-2. 멀티 AZ / AZ 장애 생존
 **배경**: 계획서 §0의 명시적 비목표. "무중단 하드웨어 교체"와 "AZ 장애 생존"은 다른 목표이며, 전자는 단일 AZ로 충분하다.
 
 **도입 시 필요한 것 (부분 도입은 의미가 적다)**
@@ -466,8 +451,7 @@ t3.medium(4GiB)에서 API 태스크가 ~1200MB를 쓰므로 **메모리가 먼�
 
 ---
 
-### Low-3. 동적 오토스케일링 {#low-3}
-
+### Low-3. 동적 오토스케일링
 **배경**: 계획서 §0의 비목표. 고정 크기 ASG로 시작하고, 트래픽 변동이 실측으로 확인되면 도입한다.
 
 **도입 전에 확보해야 할 것 — 지금 이 데이터가 없다.**
@@ -482,8 +466,7 @@ t3.medium(4GiB)에서 API 태스크가 ~1200MB를 쓰므로 **메모리가 먼�
 
 ---
 
-### Low-4. Dev 전용 모니터링 검증 베드 {#low-4}
-
+### Low-4. Dev 전용 모니터링 검증 베드
 **배경**: 계획서 v1은 Prod/Dev 모니터링 분리를 제안했으나 v2에서 철회했다(통합 스택 + config baking CI 검증). 스택 두 벌은 대시보드·알람·설정을 이중 관리하게 만들어 온보딩 부담을 늘린다.
 
 **남은 리스크**: 모니터링 스택 업그레이드 시 **Prod 관측이 직접 위험에 노출**된다. CI의 설정 검증은 문법까지이고, 메이저 업그레이드로 쿼리·대시보드가 깨지는 것은 런타임에서만 드러난다.
@@ -496,23 +479,21 @@ t3.medium(4GiB)에서 API 태스크가 ~1200MB를 쓰므로 **메모리가 먼�
 
 ---
 
-### Low-5. Dev를 Prod와 동일한 롤링 전략으로 (t3.small → t3.medium) {#low-5}
-
+### Low-5. Dev를 Prod와 동일한 롤링 전략으로 (t3.small → t3.medium)
 **배경**: Dev는 t3.small(2GiB)이라 노드당 API 태스크가 1개뿐이고, 따라서 Prod의 surge 방식(`100 / 150`)을 쓸 수 없다. 축소 우선 방식(`50 / 100`)으로 운용하기로 했다(계획서 §2.1).
 
 **이번에 하지 않은 이유**: Dev를 t3.medium 2대로 올리면 Prod와 동일 전략을 쓸 수 있지만 월 $38가 추가된다. 같은 예산이라면 Urgent-1(ElastiCache replica)이나 High-2(Prod N+1 노드)에 쓰는 편이 낫다고 판단했다.
 
 **남는 공백**: Dev promote 게이트에서 **surge 배치가 검증되지 않는다** — Prod에서 3번째 태스크가 슬롯에 들어가는 동작, 그 시점의 노드 메모리·ENI 압력. 버전 공존·드레이닝·readiness·서킷 브레이커는 축소 우선 방식에서도 그대로 검증된다.
 
-**현재 대응**: surge 배치는 Prod 전환 시 instance refresh 리허설과 노드 강제 종료 테스트에서 실측한다(런북 Phase 8).
+**현재 대응**: surge 배치는 Prod 전환 시 instance refresh 리허설과 노드 강제 종료 테스트에서 실측한다(런북 [Phase 9](../runbook/phase-09-prod-asg.md)).
 
 **트리거**: surge 배치와 관련된 배포 사고(피크 태스크 배치 실패, 노드 메모리 압박으로 인한 OOM 등)가 Prod에서 발생했을 때. 또는 Dev의 실사용 메모리가 900MiB를 넘어 t3.small이 한계에 도달했을 때.
 
 ---
 
-### Low-6. dev DB 콜레이션 분열 정리 {#low-6}
-
-**배경** (2026-08-31 [Phase 5](./runbook/phase-05-dev-rds.md) 사전 실측):
+### Low-6. dev DB 콜레이션 분열 정리
+**배경** (2026-08-31 [Phase 5](../runbook/phase-05-dev-rds.md) 사전 실측):
 `groble_develop_database` 의 110개 테이블이 **두 콜레이션으로 갈려 있다.**
 
 | 콜레이션 | 테이블 수 |
@@ -541,8 +522,7 @@ MySQL 8 로 오며 서버 기본값이 `utf8mb4_general_ci` → `utf8mb4_0900_ai
 
 ## ⚪ 상시 검토
 
-### Cost-1. Savings Plan / Reserved Node {#cost-1}
-
+### Cost-1. Savings Plan / Reserved Node
 이번 프로젝트에서 **비용을 이유로 미룬 결정이 여럿 있다** (High-2의 N+1 노드, Urgent-1의 replica). 그런데 이 비용들은 **구매 방식으로 상당 부분 흡수된다.**
 
 | 대상 | 방식 | 절감 |

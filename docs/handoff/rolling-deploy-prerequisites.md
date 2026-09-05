@@ -6,7 +6,7 @@
 | **요청자** | 인프라 (groble-infra) |
 | **작성일** | 2026-08-30 |
 | **상태** | 🔄 **진행 중** — [§4 회신 도착(2026-09-01)](#4-회신-groble-backend-2026-09-01). 앱 3건 PR 착수 · **인프라 회답 대기 4건** |
-| **관련** | [Phase 6 런북 — 배포 컨트롤러 전환](../runbook/phase-06-deployment-controller.md) · [계획서 §2.6 · §3](../infra-ha-improvement-plan.md) |
+| **관련** | [Phase 6 런북 — 배포 컨트롤러 전환](../runbook/phase-06-deployment-controller.md) · [계획서 §2.6 · §3](../plan/infra-ha-improvement-plan.md) |
 
 ---
 

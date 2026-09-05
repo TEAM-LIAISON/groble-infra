@@ -12,7 +12,7 @@
 | **작성일** | 2026-08-31 |
 | **상태** | 📦 **종결** (2026-09-01) — 이관 완료. 구 MySQL 컨테이너까지 제거했습니다 |
 | **종결일** | 2026-09-01 |
-| **관련** | [Phase 5 런북](../../runbook/phase-05-dev-rds.md) · [SSM 접속 가이드](../../developer-access.md) |
+| **관련** | [Phase 5 런북](../../runbook/phase-05-dev-rds.md) · [SSM 접속 가이드](../../reference/developer-access.md) |
 
 ---
 
@@ -92,7 +92,7 @@ RDS 마스터 계정을 **앱이 지금 쓰는 것과 같은 자격증명으로*
 
 ### 접속 확인하는 법
 
-**개발 노드에서** (SSM, VPN 불필요 — [접속 가이드](../../developer-access.md)):
+**개발 노드에서** (SSM, VPN 불필요 — [접속 가이드](../../reference/developer-access.md)):
 
 ```bash
 aws ssm start-session --profile groble --target i-0c8870fff57255a76
@@ -261,7 +261,7 @@ MySQL 8 클라이언트 기본값이 `--ssl-mode=PREFERRED` 라 자동으로 협
 **④ 콜레이션이 두 가지로 갈려 있습니다** — `utf8mb4_0900_ai_ci` 52개 / `utf8mb4_unicode_ci` 58개.
 **이관이 이것을 바꾸지도 고치지도 않습니다**(덤프가 테이블별 콜레이션을 그대로 들고 갑니다).
 다만 서로 다른 콜레이션 컬럼을 조인하면 인덱스를 못 쓰므로, 언젠가 정리하실 만합니다
-([향후 개선 Low-6](../../infra-future-improvements.md#low-6)). **이번 작업과는 무관합니다.**
+([향후 개선 Low-6](../../plan/infra-future-improvements.md#low-6-dev-db-콜레이션-분열-정리)). **이번 작업과는 무관합니다.**
 
 **⑤ 백업·점검 시간** — 자동 백업 KST **02:00~03:00**, 점검창 **월요일 03:00~04:00**. 보존 7일.
 

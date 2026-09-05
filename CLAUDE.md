@@ -19,12 +19,12 @@ This is **groble-infra**, a Terraform-based AWS infrastructure project for the G
 | 문서 | 내용 |
 |---|---|
 | [`docs/README.md`](docs/README.md) | **문서 진입점** — 무엇을 언제 여는가, 폴더·상태 어휘 규칙 |
-| [`docs/infra-ha-improvement-plan.md`](docs/infra-ha-improvement-plan.md) | 무엇을 왜 바꾸는가 (설계·결정 근거) |
-| [`docs/infra-ha-migration-runbook.md`](docs/infra-ha-migration-runbook.md) | 어떤 순서로 이관하는가 — **목차·공통 원칙·부록** |
+| [`docs/plan/infra-ha-improvement-plan.md`](docs/plan/infra-ha-improvement-plan.md) | 무엇을 왜 바꾸는가 (설계·결정 근거) |
+| [`docs/runbook/README.md`](docs/runbook/README.md) | 어떤 순서로 이관하는가 — **목차·공통 원칙·부록** |
 | [`docs/runbook/`](docs/runbook/) | Phase 0~12 각각의 상세 절차·검증·롤백 (Phase당 1개 파일). `adhoc/`는 Phase 순서와 무관한 단발 작업 |
 | [`docs/handoff/README.md`](docs/handoff/README.md) | 백엔드에 보낸 요청·질의와 **회신 대기 현황** (`closed/`는 종결분) |
-| [`docs/infra-future-improvements.md`](docs/infra-future-improvements.md) | 이번 범위 밖 항목 (우선순위·트리거) |
-| [`docs/monitoring-config-baking.md`](docs/monitoring-config-baking.md) | 모니터링 config baking 구조 |
+| [`docs/plan/infra-future-improvements.md`](docs/plan/infra-future-improvements.md) | 이번 범위 밖 항목 (우선순위·트리거) |
+| [`docs/reference/monitoring-config-baking.md`](docs/reference/monitoring-config-baking.md) | 모니터링 config baking 구조 |
 
 **주요 방향** (상세는 계획 문서 참조):
 ASG + Capacity Provider managed draining · ECS-optimized AMI(AL2023) · 전 구성요소 2c AZ 정렬 ·
@@ -36,7 +36,7 @@ SSM Session Manager(bastion·WireGuard 폐기) · Terraform state를 S3로
 (`#groble-alert` 긴급 / `#groble-alert-dev`)로 전달된다. 임계치는 실측 기준선으로 확정했다
 (계획서 §2.1 "트래픽·자원 기준선").
 **Phase 2 진행 중** — 2-0(API 워킹셋 측정) · 2-1(Prometheus `ec2_sd_config` 전환) ·
-2-2(Grafana 프로비저닝 as-code) **배포·검증까지 완료**. `memoryReservation` 확정으로 Phase 8 차단이 풀렸다.
+2-2(Grafana 프로비저닝 as-code) **배포·검증까지 완료**. `memoryReservation` 확정으로 Phase 9 차단이 풀렸다.
 남은 것은 ① NoData로 죽어 있는 JVM 힙 알람 수정 ② 백엔드 지표 3종을 받은 뒤 알림 R10~R14. 상세와 이어받기는
 [`docs/runbook/phase-02-observability.md`](docs/runbook/phase-02-observability.md)에 있다.
 **Phase 3 진행 중** — 3-a(EIP `15.165.223.110` 확보 + S3 엔드포인트 생성)까지 apply 했다.
@@ -45,7 +45,7 @@ SSM Session Manager(bastion·WireGuard 폐기) · Terraform state를 S3로
 등록 완료 회신이 오면 스위치를 순서대로 켠다. 상세는
 [`docs/runbook/phase-03-nat-gateway.md`](docs/runbook/phase-03-nat-gateway.md)에 있다.
 > ⚠️ **Phase 번호는 2026-08-30 과 2026-08-31 두 번 바뀌었다.** 옛 문서·PR 의 번호가 지금과 다를 수 있다 —
-> 대응표는 [이관 절차 목차의 번호 이력](docs/infra-ha-migration-runbook.md#번호-이력--옛-문서pr-의-번호는-다를-수-있다)에 있다.
+> 대응표는 [이관 절차 목차의 번호 이력](docs/runbook/README.md#번호-이력--옛-문서pr-의-번호는-다를-수-있다)에 있다.
 **[Phase 4 — 모니터링 노드 재구축](docs/runbook/phase-04-monitoring-node-rebuild.md)은 2026-08-30 완료했다** —
 관측 스택이 `groble-monitoring-v2-instance`(AL2023, private 2c, t3a.small)로 옮겨갔고,
 앱의 OTLP·Loki 주소가 `otel.internal.groble.im` 으로 간접화되어 **다음 교체부터는
@@ -64,12 +64,15 @@ DB 계층에서도 의미를 갖는다.
 > 이미지와 맞춰야 한다** — 낡은 값이면 그것이 family 의 최신 리비전이 된다.
 
 **다음 작업은 [Phase 6 — 배포 컨트롤러 전환](docs/runbook/phase-06-deployment-controller.md)** 이며
-앱 측 차단 조건 4건 회신 대기다. Phase 6·7·8·9 는 미착수다.
+앱 측 차단 조건 4건 회신 대기다. Phase 6~9 는 미착수다.
+> **Phase 7~9 는 dev-first 로 배열되어 있다** (2026-09-02 재배열). Dev 전환(ElastiCache + ASG)이
+> **[7](docs/runbook/phase-07-dev-cache-asg.md)** 로 앞서고 Prod 가 **[8](docs/runbook/phase-08-prod-elasticache.md)**(ElastiCache) ·
+> **[9](docs/runbook/phase-09-prod-asg.md)**(ASG) 로 뒤따른다. ASG 절차의 원본은 Phase 7 문서에 있다.
 Phase와 독립적인 [RDS MySQL 8.4 업그레이드](docs/runbook/adhoc/rds-mysql-84-upgrade.md)는
 **2026-08-29 전환 완료**했다 (확장 지원 과금 $178.56/월 중단).
 구 인스턴스도 같은 날 삭제했고, 최종 스냅샷 `groble-prod-mysql-80-final`(8.0.45)만 남아 있다.
 
-> **진행 상태의 단일 진실은 [이관 절차 목차](docs/infra-ha-migration-runbook.md)의 순서 요약 표다.**
+> **진행 상태의 단일 진실은 [이관 절차 목차](docs/runbook/README.md)의 순서 요약 표다.**
 > 이 문단은 그 요약일 뿐이므로, 상태가 바뀌면 표를 먼저 고칠 것.
 
 Phase 2가 바꾼 것은 아래 [Monitoring Stack](#monitoring-stack-모두-host-mode-networking)에
@@ -139,7 +142,11 @@ modules/
     monitoring/    # grafana, prometheus, loki, otelcol, node-exporter, cadvisor, rds-exporter
 shared/            # 공통 변수 정의 및 프로바이더 설정
 bootstrap/         # Terraform이 관리하지 않는 부트스트랩 리소스의 정책 원본 (state 버킷·KMS·CloudTrail)
-docs/              # 인프라 개선 계획·이관 절차·향후 개선·config baking 문서
+docs/              # 문서. 네 갈래 — 진입점은 docs/README.md
+  plan/            #   설계·백로그 (무엇을 왜)
+  runbook/         #   실행 절차 (어떤 순서로 어떻게). README.md 가 목차, adhoc/ 는 단발 작업
+  handoff/         #   백엔드 요청·질의 (closed/ 는 종결분)
+  reference/       #   상시 참조 — 접속 경로·config baking
 ```
 
 ### Key Configuration Files (per environment)
@@ -218,7 +225,7 @@ RDS는 `multi_az = false`이고 db_subnet_group이 2a/2c를 모두 포함해 **A
 - **Dev**: RDS MySQL **8.4.11** (**db.t4g.micro**, gp2, 암호화, 7일 백업, 20GB→100GB auto-scaling, **단일 AZ / 2c 고정**)
   > 2026-09-01 [Phase 5](docs/runbook/phase-05-dev-rds.md) 에서 컨테이너 MySQL(8.0.46, 노드 로컬 디스크)에서 이관했다.
   > 백업창 `17:00-18:00` UTC = KST 02~03시, 점검창 `sun:18:00-sun:19:00` UTC = KST 월 03~04시.
-  > 노드의 `/opt/mysql-dev-data`(211MB)는 아직 남아 있으며 Phase 9 노드 교체에서 사라진다.
+  > 노드의 `/opt/mysql-dev-data`(211MB)는 아직 남아 있으며 Phase 7 노드 교체에서 사라진다.
 
 ### Redis 7 (ECS, host mode)
 - Port 6379, Memory 128MB, Prod/Dev 모두 컨테이너 기반
@@ -361,12 +368,12 @@ All → Grafana (3000) Dashboard
 
    ⚠️ **두 SG 로 prod/dev 가 갈리지 않는다** — `groble-api-task-sg` 를 dev·prod 태스크가 공유하므로
    서로의 RDS 에 네트워크상 닿는다. 자격증명으로만 막힌다
-   ([향후 개선 Medium-6](docs/infra-future-improvements.md#medium-6)).
+   ([향후 개선 Medium-6](docs/plan/infra-future-improvements.md#medium-6-api-태스크-sg-의-proddev-분리)).
    ⚠️ **CIDR 인그레스가 하나도 없다** (VPN 서브넷 포함). 아래 접근 경로 참조
 
 **개발자 접근 경로**: **SSM Session Manager 가 기본이다** (2026-08-30, Phase 4). 네 노드 모두
 `AmazonSSMManagedInstanceCore` 로 등록되어 VPN·SSH 키·22번 포트 없이 로컬에서 바로 붙는다.
-RDS 도 노드 경유 포트 포워딩으로 닿는다 — 방법은 [`docs/developer-access.md`](docs/developer-access.md).
+RDS 도 노드 경유 포트 포워딩으로 닿는다 — 방법은 [`docs/reference/developer-access.md`](docs/reference/developer-access.md).
 
 기존 경로(WireGuard(51820) → VPN 서브넷 `10.6.0.0/24` → 모니터링 노드 SSH(22) → private 노드)는
 **아직 살아 있다.** 실제 폐기는 [Phase 10](docs/runbook/phase-10-access-path.md) 의 몫이다.
@@ -375,7 +382,7 @@ RDS 도 노드 경유 포트 포워딩으로 닿는다 — 방법은 [`docs/deve
 (`groble-monitor-target-group` · `groble-prod-target-group` · `groble-api-task-sg`)
 **노드를 경유해야 한다. dev 노드는 SG 참조에 없어서 안 된다.**
 
-권장: SSM 포트 포워딩 (모니터링 노드 경유, VPN 불필요) — [`docs/developer-access.md`](docs/developer-access.md)
+권장: SSM 포트 포워딩 (모니터링 노드 경유, VPN 불필요) — [`docs/reference/developer-access.md`](docs/reference/developer-access.md)
 
 ```bash
 aws ssm start-session --profile groble --target <monitoring-instance-id> \
@@ -454,7 +461,7 @@ OTLP·Loki 전송 주소는 [Phase 4](docs/runbook/phase-04-monitoring-node-rebu
 4. **모듈 변경**: 여러 환경에 영향, 충분히 테스트
 5. **CloudWatch 로그 비활성화**: Loki로 대체하여 비용 절감
 6. **모니터링 설정 변경**: 이 리포지토리가 아니라 `groble-images`에서 (Prometheus/Loki/otelcol)
-7. **인프라 구조 변경 전**: `docs/infra-ha-improvement-plan.md`와 충돌하지 않는지 확인
+7. **인프라 구조 변경 전**: `docs/plan/infra-ha-improvement-plan.md` 와 충돌하지 않는지 확인
 
 ## Prerequisites
 

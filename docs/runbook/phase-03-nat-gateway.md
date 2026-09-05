@@ -1,6 +1,6 @@
 # Phase 3 — NAT Gateway 전환
 
-> [← Phase 2](./phase-02-observability.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 4 →](./phase-04-monitoring-node-rebuild.md)
+> [← Phase 2](./phase-02-observability.md) · [이관 절차 목차](README.md) · [다음: Phase 4 →](./phase-04-monitoring-node-rebuild.md)
 
 | | |
 |---|---|
@@ -187,7 +187,7 @@ ssh 10.0.11.62
 
 ### 중단 기준
 
-[이관 절차 목차의 Abort 기준](../infra-ha-migration-runbook.md)을 그대로 따른다.
+[이관 절차 목차의 Abort 기준](README.md)을 그대로 따른다.
 추가로 **`checkip` 결과가 `15.165.223.110` 이 아니면** 무언가 잘못된 것이므로 롤백한다.
 
 ---
@@ -266,7 +266,7 @@ private route table 의 `0.0.0.0/0` 만 바뀌므로 **VPC 내부 통신은 전�
 private route table 이 **하나뿐**이라 2a(prod)·2c(dev)가 같은 경로를 쓴다. NAT Gateway 는
 2c 에 있으므로 **prod 노드(2a)의 아웃바운드가 전환 후 cross-AZ 가 된다** (양방향 $0.01/GB).
 
-의도한 것이다 — 계획서 §2.2 의 "전 구성요소 2c 정렬"을 미리 맞춘 것이고, **Phase 8 에서
+의도한 것이다 — 계획서 §2.2 의 "전 구성요소 2c 정렬"을 미리 맞춘 것이고, **[Phase 9](./phase-09-prod-asg.md) 에서
 prod 가 2c 로 넘어가면 해소된다.** 계획서가 "2c 정렬로 비용이 준다"고 말하는 것은 완료
 상태 기준이며, Phase 3~8 사이 몇 주는 예외다.
 
@@ -288,4 +288,4 @@ prod 가 2c 로 넘어가면 해소된다.** 계획서가 "2c 정렬로 비용�
 
 ---
 
-[← Phase 2 — 관측 선행 전환](./phase-02-observability.md) · [이관 절차 목차](../infra-ha-migration-runbook.md) · [다음: Phase 4 — 모니터링 노드 재구축 →](./phase-04-monitoring-node-rebuild.md)
+[← Phase 2 — 관측 선행 전환](./phase-02-observability.md) · [이관 절차 목차](README.md) · [다음: Phase 4 — 모니터링 노드 재구축 →](./phase-04-monitoring-node-rebuild.md)

@@ -23,7 +23,7 @@
 |---|---|---|---|---|
 | [dev-rds-cutover.md](./closed/dev-rds-cutover.md) | groble-backend | 2026-08-31 | 2026-09-01 | ✅ **이관 완료.** Dev DB 가 컨테이너 MySQL 8.0.46 → RDS `groble-dev-mysql`(8.4.11) 로 옮겨갔고 구 컨테이너 서비스까지 제거했다. ⚠️ 구 컨테이너 DB 가 예정보다 이르게 비워져 **롤백 경로가 없다** |
 | [jvm-dns-cache.md](./closed/jvm-dns-cache.md) | groble-backend | 2026-08-30 | 2026-08-30 | ✅ **차단 조건이 아니었다** — TTL 은 이미 30초(JDK 17 기본값)였다. 대신 **keep-alive 가 IP 를 고정**한다는 것이 확인되어 교체 절차를 "레코드 변경 → 구 노드 수신 중단"으로 바꿨다. 8/29 사고의 원인도 DNS 캐시가 아니라 커넥션 풀 수명으로 정정됐다 |
-| [backend-jvm-heap-limit.md](./closed/backend-jvm-heap-limit.md) | groble-backend | 2026-08-18 | 2026-08-20 | ✅ PR #826 머지, dev·prod 배포 완료. 힙 상한 2,878 → **900 MiB**. [Phase 8](../runbook/phase-08-prod-asg.md) 차단 해제 |
+| [backend-jvm-heap-limit.md](./closed/backend-jvm-heap-limit.md) | groble-backend | 2026-08-18 | 2026-08-20 | ✅ PR #826 머지, dev·prod 배포 완료. 힙 상한 2,878 → **900 MiB**. [Phase 9](../runbook/phase-09-prod-asg.md) 차단 해제 |
 | [rds-mysql-84-compatibility.md](./closed/rds-mysql-84-compatibility.md) | groble-backend | 2026-08-26 | 2026-08-30 | ✅ 호환성 3건 모두 진행 가능. **2026-08-29 전환 완료**, 구 인스턴스 삭제까지 종결. 확장 지원 과금 $178.56/월 중단. **전환 직후 결제 점검·정기결제 배치 이상 없음 확인** |
 | [rds-84-parameter-parity.md](./closed/rds-84-parameter-parity.md) | groble-backend | 2026-08-28 | 2026-08-30 | ✅ 블루/그린 파라미터 차이 4건 수정. **그린이 그대로 전환되어 재검증 항목이 소멸**했다 |
 | [rds-84-green-access.md](./closed/rds-84-green-access.md) | groble-backend | 2026-08-28 | 2026-08-30 | 📦 검증용 그린 접속 안내. **그린이 운영으로 전환되어 엔드포인트가 만료**됐다 |
